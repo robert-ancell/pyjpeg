@@ -37,60 +37,88 @@ def app0(
     return marker(0xE0) + struct.pack(">H", 2 + len(data)) + data
 
 
+class QuantizationTable:
+    def __init__(self, precision=0, destination=0, data=b"x\00" * 64):
+        assert len(data) == 64
+        self.precision = precision
+        self.destination = destination
+        self.data = data
+
+
 def define_quantization_tables(tables=[]):
     data = b""
-    for precision, destination, table_data in tables:
-        assert len(table_data) == 64
-        data = struct.pack("B", precision << 4 | destination) + bytes(table_data)
+    for table in tables:
+        data = struct.pack("B", table.precision << 4 | table.destination) + bytes(
+            table.data
+        )
     return marker(0xDB) + struct.pack(">H", 2 + len(data)) + data
+
+
+class Component:
+    def __init__(self, id=0, sampling_factor=(1, 1), quantization_table=0):
+        self.id = id
+        self.sampling_factor = sampling_factor
+        self.quantization_table = quantization_table
 
 
 def start_of_frame(precision=8, width=0, height=0, components=[]):
     data = struct.pack(">BHHB", precision, width, height, len(components))
-    for (
-        id,
-        horizontal_sampling_factor,
-        vertical_sampling_factor,
-        quantization_table,
-    ) in components:
+    for component in components:
         data += struct.pack(
             "BBB",
-            id,
-            horizontal_sampling_factor << 4 | vertical_sampling_factor,
-            quantization_table,
+            component.id,
+            component.sampling_factor[0] << 4 | component.sampling_factor[1],
+            component.quantization_table,
         )
     return marker(0xC0) + struct.pack(">H", 2 + len(data)) + data
 
 
+class HuffmanTable:
+    def __init__(self, table_class=0, destination=0, symbols_by_length=[[]] * 16):
+        assert len(symbols_by_length) == 16
+        self.table_class = table_class
+        self.destination = destination
+        self.symbols_by_length = symbols_by_length
+
+
 def define_huffman_tables(tables=[]):
     data = b""
-    for table_class, destination, symbols_by_length in tables:
-        data += struct.pack("B", table_class << 4 | destination)
-        assert len(symbols_by_length) == 16
-        for symbols in symbols_by_length:
+    for table in tables:
+        data += struct.pack("B", table.table_class << 4 | table.destination)
+        assert len(table.symbols_by_length) == 16
+        for symbols in table.symbols_by_length:
             data += struct.pack("B", len(symbols))
-        for symbols in symbols_by_length:
+        for symbols in table.symbols_by_length:
             data += bytes(symbols)
     return marker(0xC4) + struct.pack(">H", 2 + len(data)) + data
 
 
+class ScanComponent:
+    def __init__(
+        self,
+        component_selector=0,
+        dc_table=0,
+        ac_table=0,
+        selection=(0, 63),
+        successive_approximation=0,
+    ):
+        self.component_selector = component_selector
+        self.dc_table = dc_table
+        self.ac_table = ac_table
+        self.selection = selection
+        self.successive_approximation = successive_approximation
+
+
 def start_of_scan(components=[]):
     data = struct.pack("B", len(components))
-    for (
-        component_selector,
-        dc_table,
-        ac_table,
-        selection_start,
-        selection_start,
-        successive_approximation,
-    ) in components:
+    for component in components:
         data += struct.pack(
             "BBBBB",
-            component_selector,
-            dc_table << 4 | ac_table,
-            selection_start,
-            selection_start,
-            successive_approximation,
+            component.component_selector,
+            component.dc_table << 4 | component.ac_table,
+            component.selection[0],
+            component.selection[1],
+            component.successive_approximation,
         )
     return marker(0xDA) + struct.pack(">H", 2 + len(data)) + data
 
@@ -215,24 +243,46 @@ def end_of_image():
     return marker(0xD9)
 
 
-quantization_tables = [
-    (0, 0, quantization_luminance_table),
-    (0, 1, quantization_chrominance_table),
-]
-huffman_tables = [
-    (0, 0, huffman_luminance_dc_table),
-    (0, 1, huffman_chrominance_dc_table),
-    (1, 0, huffman_luminance_ac_table),
-    (1, 1, huffman_chrominance_ac_table),
-]
 coefficients = [0] * 64
 data = (
     start_of_image()
     + app0(density_unit=1, density=(72, 72))
-    + define_quantization_tables(tables=quantization_tables)
-    + start_of_frame(width=8, height=8, components=[(0, 1, 1, 0)])
-    + define_huffman_tables(tables=huffman_tables)
-    + start_of_scan(components=[(0, 0, 0, 0, 63, 0)])
+    + define_quantization_tables(
+        tables=[
+            QuantizationTable(destination=0, data=quantization_luminance_table),
+            QuantizationTable(destination=1, data=quantization_chrominance_table),
+        ]
+    )
+    + start_of_frame(
+        width=8, height=8, components=[Component(id=0, quantization_table=0)]
+    )
+    + define_huffman_tables(
+        tables=[
+            HuffmanTable(
+                table_class=0,
+                destination=0,
+                symbols_by_length=huffman_luminance_dc_table,
+            ),
+            HuffmanTable(
+                table_class=0,
+                destination=1,
+                symbols_by_length=huffman_chrominance_dc_table,
+            ),
+            HuffmanTable(
+                table_class=1,
+                destination=0,
+                symbols_by_length=huffman_luminance_ac_table,
+            ),
+            HuffmanTable(
+                table_class=1,
+                destination=1,
+                symbols_by_length=huffman_chrominance_ac_table,
+            ),
+        ]
+    )
+    + start_of_scan(
+        components=[ScanComponent(component_selector=0, dc_table=0, ac_table=0)]
+    )
     + huffman_scan(
         dc_table=huffman_luminance_dc_table,
         ac_table=huffman_luminance_ac_table,
