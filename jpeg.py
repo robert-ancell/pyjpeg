@@ -48,7 +48,7 @@ class QuantizationTable:
 def define_quantization_tables(tables=[]):
     data = b""
     for table in tables:
-        data = struct.pack("B", table.precision << 4 | table.destination) + bytes(
+        data += struct.pack("B", table.precision << 4 | table.destination) + bytes(
             table.data
         )
     return marker(0xDB) + struct.pack(">H", 2 + len(data)) + data
