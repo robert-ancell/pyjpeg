@@ -70,6 +70,7 @@ def start_of_frame(precision=8, width=0, height=0, components=[]):
             component.sampling_factor[0] << 4 | component.sampling_factor[1],
             component.quantization_table,
         )
+    # FIXME: support other than baseline
     return marker(0xC0) + struct.pack(">H", 2 + len(data)) + data
 
 
@@ -193,15 +194,14 @@ def huffman_scan(
     dc_table=None,
     ac_table=None,
     coefficients=[],
-    start_coefficient=0,
-    end_coefficient=63,
+    selection=(0, 63),
 ):
     assert len(coefficients) % 64 == 0
     n_data_units = len(coefficients) // 64
     bits = []
     for data_unit in range(n_data_units):
-        i = start_coefficient
-        while i <= end_coefficient:
+        i = selection[0]
+        while i <= selection[1]:
             coefficient = coefficients[data_unit * 64 + i]
             if i == 0:
                 # DC coefficient, encode relative to previous DC value
@@ -219,7 +219,7 @@ def huffman_scan(
                 run_length = 0
                 while (
                     coefficients[data_unit * 64 + i + run_length] == 0
-                    and i + run_length <= end_coefficient
+                    and i + run_length <= selection[1]
                 ):
                     run_length += 1
                     # End of block
@@ -227,7 +227,7 @@ def huffman_scan(
                         break
                 if i + run_length > 63:
                     bits.extend(get_huffman_code(ac_table, 0))  # EOB
-                    i = end_coefficient + 1
+                    i = selection[1] + 1
                 else:
                     if run_length > 15:
                         run_length = 15
@@ -247,6 +247,9 @@ def huffman_scan(
 def end_of_image():
     return marker(0xD9)
 
+
+# FIXME IDCT
+# FIXME Zig-Zag
 
 coefficients = [0] * 64
 data = (
