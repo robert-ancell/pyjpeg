@@ -21,9 +21,9 @@ def app0(
 ):
     assert len(thumbnail_data) == thumbnail_size[0] * thumbnail_size[1]
     data = (
-        b"JFIF\x00"
-        + struct.pack(
-            ">BBBHHBB",
+        struct.pack(
+            ">sxBBBHHBB",
+            bytes("JFIF", "utf-8"),
             version[0],
             version[1],
             density_unit,
