@@ -45,7 +45,7 @@ def define_quantization_tables(tables=[]):
     return marker(0xDB) + struct.pack(">H", 2 + len(data)) + data
 
 
-def start_of_frame(precision=0, width=0, height=0, components=[]):
+def start_of_frame(precision=8, width=0, height=0, components=[]):
     data = struct.pack(">BHHB", precision, width, height, len(components))
     for (
         id,
