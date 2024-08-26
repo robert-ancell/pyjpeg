@@ -167,6 +167,28 @@ def encode_amplitude(value):
         return get_bits(value + (1 << length) - 1, length)
 
 
+def encode_scan_bits(bits):
+    data = []
+    for i in range(0, len(bits), 8):
+        b = (
+            bits[i] << 7
+            | bits[i + 1] << 6
+            | bits[i + 2] << 5
+            | bits[i + 3] << 4
+            | bits[i + 4] << 3
+            | bits[i + 5] << 2
+            | bits[i + 6] << 1
+            | bits[i + 7]
+        )
+        data.append(b)
+
+        # Byte stuff so ff doesn't look like a marker
+        if b == 0xFF:
+            data.append(0)
+
+    return data
+
+
 def huffman_scan(
     dc_table=None,
     ac_table=None,
@@ -219,24 +241,7 @@ def huffman_scan(
     if len(bits) % 8 != 0:
         bits.extend([1] * (8 - len(bits) % 8))
 
-    # Convert to bytes, stuffing empty bytes after ff to not look like a marker
-    data = []
-    for i in range(0, len(bits), 8):
-        b = (
-            bits[i] << 7
-            | bits[i + 1] << 6
-            | bits[i + 2] << 5
-            | bits[i + 3] << 4
-            | bits[i + 4] << 3
-            | bits[i + 5] << 2
-            | bits[i + 6] << 1
-            | bits[i + 7]
-        )
-        data.append(b)
-        if b == 0xFF:
-            data.append(0)
-
-    return bytes(data)
+    return bytes(encode_scan_bits(bits))
 
 
 def end_of_image():
