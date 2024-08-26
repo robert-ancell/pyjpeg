@@ -34,7 +34,7 @@ def app0(
         )
         + thumbnail_data
     )
-    return marker(0xE0) + struct.pack(">H", len(data)) + data
+    return marker(0xE0) + struct.pack(">H", 2 + len(data)) + data
 
 
 def define_quantization_tables(tables=[]):
@@ -42,7 +42,7 @@ def define_quantization_tables(tables=[]):
     for precision, destination, table_data in tables:
         assert len(table_data) == 64
         data = struct.pack("B", precision << 4 | destination) + bytes(table_data)
-    return marker(0xDB) + struct.pack(">H", len(data)) + data
+    return marker(0xDB) + struct.pack(">H", 2 + len(data)) + data
 
 
 def start_of_frame(precision=0, width=0, height=0, components=[]):
@@ -59,7 +59,7 @@ def start_of_frame(precision=0, width=0, height=0, components=[]):
             horizontal_sampling_factor << 4 | vertical_sampling_factor,
             quantization_table,
         )
-    return marker(0xC0) + struct.pack(">H", len(data)) + data
+    return marker(0xC0) + struct.pack(">H", 2 + len(data)) + data
 
 
 def define_huffman_tables(tables=[]):
@@ -70,7 +70,7 @@ def define_huffman_tables(tables=[]):
             data += struct.pack("B", len(symbols))
         for symbols in symbols_by_length:
             data += bytes(symbols)
-    return marker(0xC4) + struct.pack(">H", len(data)) + data
+    return marker(0xC4) + struct.pack(">H", 2 + len(data)) + data
 
 
 def start_of_scan(components=[]):
@@ -91,7 +91,7 @@ def start_of_scan(components=[]):
             selection_start,
             successive_approximation,
         )
-    return marker(0xDA) + struct.pack(">H", len(data)) + data
+    return marker(0xDA) + struct.pack(">H", 2 + len(data)) + data
 
 
 def get_bits(value, length):
