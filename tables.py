@@ -130,7 +130,24 @@ quantization_chrominance_table = [
     99,
     99,
 ]
-huffman_luminance_dc_table = [[], [0], [1, 2, 3, 4, 5], [6], [7], [8], [9], [10], [11]]
+huffman_luminance_dc_table = [
+    [],
+    [0],
+    [1, 2, 3, 4, 5],
+    [6],
+    [7],
+    [8],
+    [9],
+    [10],
+    [11],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+]
 huffman_chrominance_dc_table = [
     [],
     [0, 1, 2],
@@ -143,6 +160,11 @@ huffman_chrominance_dc_table = [
     [9],
     [10],
     [11],
+    [],
+    [],
+    [],
+    [],
+    [],
 ]
 huffman_luminance_ac_table = [
     [],

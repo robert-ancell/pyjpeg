@@ -66,6 +66,7 @@ def define_huffman_tables(tables=[]):
     data = b""
     for table_class, destination, symbols_by_length in tables:
         data += struct.pack("B", table_class << 4 | destination)
+        assert len(symbols_by_length) == 16
         for symbols in symbols_by_length:
             data += struct.pack("B", len(symbols))
         for symbols in symbols_by_length:
