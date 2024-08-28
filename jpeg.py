@@ -66,7 +66,7 @@ class Component:
         self.quantization_table = quantization_table
 
 
-def start_of_frame(index=0, precision=8, width=0, height=0, components=[]):
+def start_of_frame(frame_type=0, precision=8, width=0, height=0, components=[]):
     data = struct.pack(">BHHB", precision, width, height, len(components))
     for component in components:
         data += struct.pack(
@@ -75,7 +75,7 @@ def start_of_frame(index=0, precision=8, width=0, height=0, components=[]):
             component.sampling_factor[0] << 4 | component.sampling_factor[1],
             component.quantization_table,
         )
-    return marker(0xC0 + index) + struct.pack(">H", 2 + len(data)) + data
+    return marker(0xC0 + frame_type) + struct.pack(">H", 2 + len(data)) + data
 
 
 class HuffmanTable:
@@ -101,29 +101,56 @@ def define_huffman_tables(tables=[]):
 class ScanComponent:
     def __init__(
         self,
-        component_selector=0,
+        component_selector,
+        dc_table=0,
+        ac_table=0,
+        ss=0,
+        se=0,
+        ah=0,
+        al=0,
+    ):
+        self.component_selector = component_selector
+        self.dc_table = dc_table
+        self.ac_table = ac_table
+        self.ss = ss
+        self.se = se
+        self.ah = ah
+        self.al = al
+
+    def baseline(
+        component_selector,
         dc_table=0,
         ac_table=0,
         selection=(0, 63),
         predictor=None,
         successive_approximation=(0, 0),
-        point_transform=None,
     ):
-        self.component_selector = component_selector
-        self.dc_table = dc_table
-        self.ac_table = ac_table
-        if predictor is None:
-            self.ss = selection[0]
-            self.se = selection[1]
-        else:
-            self.ss = predictor
-            self.se = 0
-        if point_transform is None:
-            self.ah = successive_approximation[0]
-            self.al = successive_approximation[1]
-        else:
-            self.ah = 0
-            self.al = point_transform
+        return ScanComponent(
+            component_selector,
+            dc_table=dc_table,
+            ac_table=ac_table,
+            ss=selection[0],
+            se=selection[1],
+            ah=successive_approximation[0],
+            al=successive_approximation[1],
+        )
+
+    def lossless(
+        component_selector,
+        table=0,
+        predictor=1,
+        successive_approximation=(0, 0),
+        point_transform=0,
+    ):
+        return ScanComponent(
+            component_selector,
+            dc_table=table,
+            ac_table=0,
+            ss=predictor,
+            se=0,
+            ah=0,
+            al=point_transform,
+        )
 
 
 def start_of_scan(components=[]):
@@ -501,9 +528,7 @@ data = (
             ),
         ]
     )
-    + start_of_scan(
-        components=[ScanComponent(component_selector=1, dc_table=0, ac_table=0)]
-    )
+    + start_of_scan(components=[ScanComponent.baseline(1, dc_table=0, ac_table=0)])
     + huffman_dct_scan(
         dc_table=huffman_luminance_dc_table,
         ac_table=huffman_luminance_ac_table,
@@ -1544,7 +1569,7 @@ predictor = 1
 data = (
     start_of_image()
     + app0(density_unit=1, density=(72, 72))
-    + start_of_frame(index=3, width=32, height=32, components=[Component(id=1)])
+    + start_of_frame(frame_type=3, width=32, height=32, components=[Component(id=1)])
     + define_huffman_tables(
         tables=[
             HuffmanTable(
@@ -1555,9 +1580,7 @@ data = (
         ]
     )
     + start_of_scan(
-        components=[
-            ScanComponent(component_selector=1, dc_table=0, predictor=predictor)
-        ]
+        components=[ScanComponent.lossless(1, table=0, predictor=predictor)]
     )
     + huffman_lossless_scan(
         32,
