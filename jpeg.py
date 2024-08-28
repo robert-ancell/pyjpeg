@@ -292,25 +292,24 @@ def add_lossless_value(values, width, x, y, predictor_func, table, bits):
     # FIXME: precision and point transform for default value 128
     default_value = 128
 
-    # Neighbour samples
-    if x == 0:
-        if y == 0:
-            a = default_value
-        else:
-            a = values[(y - 1) * width + x]
-    else:
-        a = values[y * width + x - 1]
     if y == 0:
-        b = default_value
+        # First line all relative to left pixel
+        if x == 0:
+            p = default_value
+        else:
+            p = values[y * width + x - 1]
     else:
+        # Following line uses prediction from three adjacent pixels
+        if x == 0:
+            a = values[(y - 1) * width + x]
+        else:
+            a = values[y * width + x - 1]
         b = values[(y - 1) * width + x]
-    if x == 0 or y == 0:
-        c = default_value
-    else:
-        c = values[(y - 1) * width + x - 1]
-
-    # Predicted value
-    p = predictor_func(a, b, c)
+        if x == 0:
+            c = values[(y - 1) * width + x]
+        else:
+            c = values[(y - 1) * width + x - 1]
+        p = predictor_func(a, b, c)
 
     v = values[y * width + x]
     value_bits = encode_amplitude(v - p)
@@ -1540,7 +1539,6 @@ pixels = [
     0,
     0,
 ]
-print(len(pixels))
 huffman_lossless_table = huffman_luminance_dc_table
 predictor = 1
 data = (
