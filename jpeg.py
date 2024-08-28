@@ -1544,9 +1544,7 @@ predictor = 1
 data = (
     start_of_image()
     + app0(density_unit=1, density=(72, 72))
-    + start_of_frame(
-        index=3, width=32, height=32, components=[Component(id=1, quantization_table=0)]
-    )
+    + start_of_frame(index=3, width=32, height=32, components=[Component(id=1)])
     + define_huffman_tables(
         tables=[
             HuffmanTable(
