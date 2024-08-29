@@ -9,6 +9,34 @@ HUFFMAN_CLASS_DC = 0
 HUFFMAN_CLASS_AC = 1
 
 
+def read_pgm(path):
+    data = open(path, "rb").read()
+    header_line = 0
+    while len(data) > 0:
+        i = data.find(b"\n")
+        if i < 0:
+            return
+        line = data[:i]
+        data = data[i + 1 :]
+
+        if line.startswith(b"#"):
+            continue
+
+        if header_line == 0:
+            assert line == b"P5"
+        elif header_line == 1:
+            (width, height) = str(line, "utf-8").split()
+            width = int(width)
+            height = int(height)
+        elif header_line == 2:
+            max_value = int(str(line, "utf-8"))
+            values = []
+            for i in range(0, len(data), 2):
+                values.append(data[i] << 8 | data[i + 1])
+            return (width, height, max_value, values)
+        header_line += 1
+
+
 def marker(value):
     return struct.pack("BB", 0xFF, value)
 
@@ -309,13 +337,10 @@ def huffman_dct_scan(
                 # Count number of zero coefficients before the next positive one
                 run_length = 0
                 while (
-                    coefficients[data_unit * 64 + i + run_length] == 0
-                    and i + run_length <= selection[1]
+                    i + run_length <= selection[1]
+                    and coefficients[data_unit * 64 + i + run_length] == 0
                 ):
                     run_length += 1
-                    # End of block
-                    if i + run_length > 63:
-                        break
                 if i + run_length > 63:
                     bits.extend(get_huffman_code(ac_table, 0))  # EOB
                     i = selection[1] + 1
@@ -324,7 +349,11 @@ def huffman_dct_scan(
                         run_length = 15
                     coefficient = coefficients[data_unit * 64 + i + run_length]
                     coefficient_bits = encode_amplitude(coefficient)
-                    bits.extend(get_huffman_code(ac_table, len(coefficient_bits)))
+                    bits.extend(
+                        get_huffman_code(
+                            ac_table, run_length << 4 | len(coefficient_bits)
+                        )
+                    )
                     bits.extend(coefficient_bits)
                     i += run_length + 1
 
@@ -425,35 +454,20 @@ def end_of_image():
     return marker(0xD9)
 
 
-def dct(x):
-    N = len(x)
+def dct2d(values):
+    C = [0.70710678118654752440, 1, 1, 1, 1, 1, 1, 1]
     coefficients = []
-    for k in range(N):
-        coefficient = 0.0
-        for n, xn in enumerate(x):
-            coefficient += xn * math.cos((math.pi / N) * (n + 0.5) * k)
-        coefficients.append(coefficient)
-    return coefficients
-
-
-def dct2d(x):
-    N = math.sqrt(len(x))
-    assert N == int(N)
-    N = int(N)
-    row_coefficients = []
-    column_coefficients = []
-    for i in range(N):
-        row = x[i * N : (i + 1) * N]
-        column = []
-        for j in range(N):
-            column.append(x[j * N])
-        row_coefficients.append(dct(row))
-        column_coefficients.append(dct(column))
-
-    coefficients = []
-    for y in range(N):
-        for x in range(N):
-            coefficients.append(row_coefficients[y][x] * column_coefficients[x][y])
+    for v in range(8):
+        for u in range(8):
+            s = 0.0
+            for y in range(8):
+                for x in range(8):
+                    s += (
+                        values[y * 8 + x]
+                        * math.cos((2 * x + 1) * u * math.pi / 16)
+                        * math.cos((2 * y + 1) * v * math.pi / 16)
+                    )
+            coefficients.append(0.25 * C[u] * C[v] * s)
 
     return coefficients
 
@@ -539,7 +553,46 @@ def zig_zag(coefficients):
     return reordered_coefficients
 
 
-coefficients = [0] * 64 * 4
+def quantize(coefficients, quantization_table):
+    assert len(coefficients) == len(quantization_table)
+    quantized_coefficients = []
+    for i in range(len(coefficients)):
+        quantized_coefficients.append(round(coefficients[i] / quantization_table[i]))
+    return quantized_coefficients
+
+
+def make_dct_coefficients(width, height, depth, pixels, quantization_table):
+    offset = 1 << (depth - 1)
+    coefficients = []
+    for du_y in range(0, height, 8):
+        for du_x in range(0, width, 8):
+            values = []
+            for y in range(8):
+                for x in range(8):
+                    px = du_x + x
+                    py = du_y + y
+                    if px >= width:
+                        px = width - 1
+                    if py >= height:
+                        py = height - 1
+                    p = pixels[py * width + px]
+                    values.append(p - offset)
+
+            du_coefficients = zig_zag(quantize(dct2d(values), quantization_table))
+            coefficients.extend(du_coefficients)
+
+    return coefficients
+
+
+width, height, max_value, pixels = read_pgm("test-face.pgm")
+for i in range(len(pixels)):
+    pixels[i] = round(pixels[i] * 255 / max_value)
+
+
+quantization_luminance_table = [1] * 64  # FIXME: Needs to be zig-zagged
+coefficients = make_dct_coefficients(
+    width, height, 8, pixels, quantization_luminance_table
+)
 data = (
     start_of_image()
     + app0(density_unit=1, density=(72, 72))
@@ -549,7 +602,7 @@ data = (
             QuantizationTable(destination=1, data=quantization_chrominance_table),
         ]
     )
-    + start_of_frame_baseline(16, 16, [Component(id=1, quantization_table=0)])
+    + start_of_frame_baseline(32, 32, [Component(id=1, quantization_table=0)])
     + define_huffman_tables(
         tables=[
             HuffmanTable(
@@ -584,38 +637,6 @@ data = (
 )
 open("out.jpg", "wb").write(data)
 
-
-def read_pgm(path):
-    data = open(path, "rb").read()
-    header_line = 0
-    while len(data) > 0:
-        i = data.find(b"\n")
-        if i < 0:
-            return
-        line = data[:i]
-        data = data[i + 1 :]
-
-        if line.startswith(b"#"):
-            continue
-
-        if header_line == 0:
-            assert line == b"P5"
-        elif header_line == 1:
-            (width, height) = str(line, "utf-8").split()
-            width = int(width)
-            height = int(height)
-        elif header_line == 2:
-            max_value = int(str(line, "utf-8"))
-            values = []
-            for i in range(0, len(data), 2):
-                values.append(data[i] << 8 | data[i + 1])
-            return (width, height, max_value, values)
-        header_line += 1
-
-
-width, height, max_value, pixels = read_pgm("test-face.pgm")
-for i in range(len(pixels)):
-    pixels[i] = round(pixels[i] * 255 / max_value)
 
 huffman_lossless_table = huffman_luminance_dc_table
 predictor = 1
