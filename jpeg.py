@@ -66,7 +66,7 @@ class Component:
         self.quantization_table = quantization_table
 
 
-def start_of_frame(frame_type=0, precision=8, width=0, height=0, components=[]):
+def start_of_frame(frame_type, precision=8, width=0, height=0, components=[]):
     data = struct.pack(">BHHB", precision, width, height, len(components))
     for component in components:
         data += struct.pack(
@@ -76,6 +76,54 @@ def start_of_frame(frame_type=0, precision=8, width=0, height=0, components=[]):
             component.quantization_table,
         )
     return marker(0xC0 + frame_type) + struct.pack(">H", 2 + len(data)) + data
+
+
+def start_of_frame_baseline(width, height, components):
+    return start_of_frame(
+        0, precision=8, width=width, height=height, components=components
+    )
+
+
+def start_of_frame_extended(width, height, precision, components, arithmetic=False):
+    if arithmetic:
+        frame_type = 9
+    else:
+        frame_type = 1
+    return start_of_frame(
+        frame_type,
+        precision=precision,
+        width=width,
+        height=height,
+        components=components,
+    )
+
+
+def start_of_frame_progressive(width, height, precision, components, arithmetic=False):
+    if arithmetic:
+        frame_type = 10
+    else:
+        frame_type = 2
+    return start_of_frame(
+        frame_type,
+        precision=precision,
+        width=width,
+        height=height,
+        components=components,
+    )
+
+
+def start_of_frame_lossless(width, height, precision, components, arithmetic=False):
+    if arithmetic:
+        frame_type = 11
+    else:
+        frame_type = 3
+    return start_of_frame(
+        frame_type,
+        precision=precision,
+        width=width,
+        height=height,
+        components=components,
+    )
 
 
 class HuffmanTable:
@@ -501,9 +549,7 @@ data = (
             QuantizationTable(destination=1, data=quantization_chrominance_table),
         ]
     )
-    + start_of_frame(
-        width=16, height=16, components=[Component(id=1, quantization_table=0)]
-    )
+    + start_of_frame_baseline(16, 16, [Component(id=1, quantization_table=0)])
     + define_huffman_tables(
         tables=[
             HuffmanTable(
@@ -1569,7 +1615,7 @@ predictor = 1
 data = (
     start_of_image()
     + app0(density_unit=1, density=(72, 72))
-    + start_of_frame(frame_type=3, width=32, height=32, components=[Component(id=1)])
+    + start_of_frame_lossless(32, 32, 8, [Component(id=1)])
     + define_huffman_tables(
         tables=[
             HuffmanTable(
