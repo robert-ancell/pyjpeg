@@ -5,6 +5,12 @@ import struct
 from tables import *
 
 
+# FIXME: comment markers
+# FIXME: restart intervals
+# FIXME: unknown application data
+# FIXME: number of lines maker
+
+
 HUFFMAN_CLASS_DC = 0
 HUFFMAN_CLASS_AC = 1
 
@@ -73,7 +79,7 @@ def app0(
 class QuantizationTable:
     def __init__(self, precision=0, destination=0, data=b"x\00" * 64):
         assert len(data) == 64
-        self.precision = precision
+        self.precision = precision  # FIXME: 0=8bit, 1=16bit
         self.destination = destination
         self.data = data
 
@@ -737,6 +743,8 @@ open("extended.jpg", "wb").write(make_dct_sequential(32, samples8, extended=True
 open("extended12.jpg", "wb").write(
     make_dct_sequential(32, samples12, extended=True, precision=12)
 )
+
+# FIXME: extended 16bit quantization table
 
 for predictor in range(1, 8):
     open("lossless%d.jpg" % predictor, "wb").write(
