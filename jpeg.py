@@ -325,6 +325,7 @@ def get_huffman_code(table, symbol):
 
 
 def get_amplitude_length(value):
+    assert value <= 32768
     if value < 0:
         value = -value
     length = 0
@@ -336,6 +337,11 @@ def get_amplitude_length(value):
 
 def encode_amplitude(value):
     length = get_amplitude_length(value)
+
+    # Special case of 32768
+    if length == 16:
+        return []
+
     if value > 0:
         return get_bits(value, length)
     else:
@@ -633,16 +639,27 @@ def make_dct_huffman_ac_table(coefficients):
 
 
 width, height, max_value, samples = read_pgm("test-face.pgm")
+samples8 = []
+samples12 = []
 for i in range(len(samples)):
-    samples[i] = round(samples[i] * 255 / max_value)
+    samples8.append(round(samples[i] * 255 / max_value))
+    samples12.append(round(samples[i] * 4095 / max_value))
 
 
-def make_dct_baseline(width, samples):
+def make_dct_sequential(width, samples, extended=False, precision=8):
     height = len(samples) // width
     quantization_table = [1] * 64  # FIXME: Using nothing at this point
     coefficients = make_dct_coefficients(width, height, 8, samples, quantization_table)
     dc_table = make_dct_huffman_dc_table(coefficients)
     ac_table = make_dct_huffman_ac_table(coefficients)
+    if extended:
+        sof = start_of_frame_extended(
+            width, height, precision, [Component(id=1, quantization_table=0)]
+        )
+    else:
+        sof = start_of_frame_baseline(
+            width, height, [Component(id=1, quantization_table=0)]
+        )
     return (
         start_of_image()
         + app0(density_unit=1, density=(72, 72))
@@ -651,9 +668,7 @@ def make_dct_baseline(width, samples):
                 QuantizationTable(destination=0, data=quantization_table),
             ]
         )
-        + start_of_frame_baseline(
-            width, height, [Component(id=1, quantization_table=0)]
-        )
+        + sof
         + define_huffman_tables(
             tables=[
                 HuffmanTable(
@@ -707,9 +722,14 @@ def make_lossless(width, samples, predictor=1):
     )
 
 
-open("baseline.jpg", "wb").write(make_dct_baseline(32, samples))
+open("baseline.jpg", "wb").write(make_dct_sequential(32, samples8))
+
+open("extended.jpg", "wb").write(make_dct_sequential(32, samples8, extended=True))
+open("extended12.jpg", "wb").write(
+    make_dct_sequential(32, samples12, extended=True, precision=12)
+)
 
 for predictor in range(1, 8):
     open("lossless%d.jpg" % predictor, "wb").write(
-        make_lossless(32, samples, predictor=predictor)
+        make_lossless(32, samples8, predictor=predictor)
     )
