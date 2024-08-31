@@ -2,7 +2,6 @@
 
 import math
 import struct
-from tables import *
 
 
 # FIXME: comment markers
