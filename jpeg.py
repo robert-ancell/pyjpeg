@@ -269,18 +269,18 @@ def make_huffman_table(frequencies):
     while True:
         # Get smallest frequency > 0
         v1 = -1
-        for i in range(1, 257):
-            if frequencies[i] > 0 and (v1 == -1 or frequencies[i] < frequencies[v1]):
+        for i, frequency in enumerate(frequencies):
+            if frequency > 0 and (v1 == -1 or frequency < frequencies[v1]):
                 v1 = i
         assert v1 != -1
 
         # Get next smallest frequency > 0
         v2 = -1
-        for i in range(257):
+        for i, frequency in enumerate(frequencies):
             if (
-                frequencies[i] > 0
-                and (v2 == -1 or frequencies[i] < frequencies[v2])
-                and frequencies[i] >= frequencies[v1]
+                frequency > 0
+                and (v2 == -1 or frequency < frequencies[v2])
+                and frequency >= frequencies[v1]
                 and i != v1
             ):
                 v2 = i
@@ -677,30 +677,35 @@ data = (
 open("out.jpg", "wb").write(data)
 
 
-predictor = 1
-lossless_values = make_lossless_values(predictor, 32, samples)
-huffman_lossless_table = make_lossless_huffman_table(lossless_values)
-data = (
-    start_of_image()
-    + app0(density_unit=1, density=(72, 72))
-    + start_of_frame_lossless(32, 32, 8, [Component(id=1)])
-    + define_huffman_tables(
-        tables=[
-            HuffmanTable(
-                table_class=HUFFMAN_CLASS_DC,
-                destination=0,
-                symbols_by_length=huffman_lossless_table,
-            ),
-        ]
+def make_lossless(width, samples, predictor=1):
+    values = make_lossless_values(predictor, 32, samples)
+    table = make_lossless_huffman_table(values)
+    return (
+        start_of_image()
+        + app0(density_unit=1, density=(72, 72))
+        + start_of_frame_lossless(32, 32, 8, [Component(id=1)])
+        + define_huffman_tables(
+            tables=[
+                HuffmanTable(
+                    table_class=HUFFMAN_CLASS_DC,
+                    destination=0,
+                    symbols_by_length=table,
+                ),
+            ]
+        )
+        + start_of_scan(
+            components=[ScanComponent.lossless(1, table=0, predictor=predictor)]
+        )
+        + huffman_lossless_scan(
+            predictor,
+            table,
+            values,
+        )
+        + end_of_image()
     )
-    + start_of_scan(
-        components=[ScanComponent.lossless(1, table=0, predictor=predictor)]
+
+
+for predictor in range(1, 8):
+    open("lossless%d.jpg" % predictor, "wb").write(
+        make_lossless(32, samples, predictor=predictor)
     )
-    + huffman_lossless_scan(
-        predictor,
-        huffman_lossless_table,
-        lossless_values,
-    )
-    + end_of_image()
-)
-open("lossless.jpg", "wb").write(data)
