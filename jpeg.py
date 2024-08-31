@@ -453,9 +453,9 @@ def predictor7(a, b, c):
     return (a + b) // 2
 
 
-def get_lossless_value(samples, width, x, y, predictor_func):
-    # FIXME: precision and point transform for default value 128
-    default_value = 128
+def get_lossless_value(samples, width, precision, x, y, predictor_func):
+    # FIXME: point transform changes this
+    default_value = 1 << (precision - 1)
 
     if y == 0:
         # First line all relative to left pixel
@@ -477,10 +477,15 @@ def get_lossless_value(samples, width, x, y, predictor_func):
         p = predictor_func(a, b, c)
 
     v = samples[y * width + x]
-    return v - p
+    d = v - p
+    if d > 32768:
+        d -= 65536
+    if d < -32767:
+        d += 65536
+    return d
 
 
-def make_lossless_values(predictor, width, samples):
+def make_lossless_values(predictor, width, precision, samples):
     predictor_func = {
         1: predictor1,
         2: predictor2,
@@ -495,7 +500,9 @@ def make_lossless_values(predictor, width, samples):
     values = []
     for y in range(height):
         for x in range(width):
-            values.append(get_lossless_value(samples, width, x, y, predictor_func))
+            values.append(
+                get_lossless_value(samples, width, precision, x, y, predictor_func)
+            )
     return values
 
 
@@ -638,12 +645,14 @@ def make_dct_huffman_ac_table(coefficients):
     return make_huffman_table(frequencies)
 
 
-width, height, max_value, samples = read_pgm("test-face.pgm")
+width, height, max_value, samples16 = read_pgm("test-face.pgm")
+samples2 = []
 samples8 = []
 samples12 = []
-for i in range(len(samples)):
-    samples8.append(round(samples[i] * 255 / max_value))
-    samples12.append(round(samples[i] * 4095 / max_value))
+for i in range(len(samples16)):
+    samples2.append(round(samples16[i] * 3 / max_value))
+    samples8.append(round(samples16[i] * 255 / max_value))
+    samples12.append(round(samples16[i] * 4095 / max_value))
 
 
 def make_dct_sequential(width, samples, extended=False, precision=8):
@@ -693,14 +702,14 @@ def make_dct_sequential(width, samples, extended=False, precision=8):
     )
 
 
-def make_lossless(width, samples, predictor=1):
+def make_lossless(width, samples, precision=8, predictor=1):
     height = len(samples) // width
-    values = make_lossless_values(predictor, 32, samples)
+    values = make_lossless_values(predictor, 32, precision, samples)
     table = make_lossless_huffman_table(values)
     return (
         start_of_image()
         + app0(density_unit=1, density=(72, 72))
-        + start_of_frame_lossless(width, height, 8, [Component(id=1)])
+        + start_of_frame_lossless(width, height, precision, [Component(id=1)])
         + define_huffman_tables(
             tables=[
                 HuffmanTable(
@@ -733,3 +742,13 @@ for predictor in range(1, 8):
     open("lossless%d.jpg" % predictor, "wb").write(
         make_lossless(32, samples8, predictor=predictor)
     )
+
+open("lossless_2.jpg", "wb").write(
+    make_lossless(32, samples2, predictor=1, precision=2)
+)
+open("lossless_12.jpg", "wb").write(
+    make_lossless(32, samples12, predictor=1, precision=12)
+)
+open("lossless_16.jpg", "wb").write(
+    make_lossless(32, samples16, predictor=1, precision=16)
+)
