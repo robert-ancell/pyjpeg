@@ -82,7 +82,7 @@ def define_quantization_tables(tables=[]):
     data = b""
     for table in tables:
         data += struct.pack("B", table.precision << 4 | table.destination) + bytes(
-            table.data
+            zig_zag(table.data)
         )
     return marker(0xDB) + struct.pack(">H", 2 + len(data)) + data
 
@@ -257,6 +257,61 @@ def get_bits(value, length):
     return bits
 
 
+def make_huffman_table(frequencies):
+    assert len(frequencies) == 256
+
+    codesize = [0] * 257
+    others = [-1] * 257
+
+    # Add reserved 256 symbol
+    frequencies = frequencies + [1]
+
+    while True:
+        # Get smallest frequency > 0
+        v1 = -1
+        for i in range(1, 257):
+            if frequencies[i] > 0 and (v1 == -1 or frequencies[i] < frequencies[v1]):
+                v1 = i
+        assert v1 != -1
+
+        # Get next smallest frequency > 0
+        v2 = -1
+        for i in range(257):
+            if (
+                frequencies[i] > 0
+                and (v2 == -1 or frequencies[i] < frequencies[v2])
+                and frequencies[i] >= frequencies[v1]
+                and i != v1
+            ):
+                v2 = i
+
+        # All codes complete
+        if v2 == -1:
+            table = []
+            for i in range(16):
+                table.append([])
+            for symbol, size in enumerate(codesize[:-1]):
+                if size > 0:
+                    table[size - 1].append(symbol)
+            return table
+
+        frequencies[v1] += frequencies[v2]
+        frequencies[v2] = 0
+
+        while True:
+            codesize[v1] += 1
+            if others[v1] == -1:
+                break
+            v1 = others[v1]
+        others[v1] = v2
+
+        while True:
+            codesize[v2] += 1
+            if others[v2] == -1:
+                break
+            v2 = others[v2]
+
+
 def get_huffman_code(table, symbol):
     code = 0
     for i, symbols_by_length in enumerate(table):
@@ -392,7 +447,7 @@ def predictor7(a, b, c):
     return (a + b) // 2
 
 
-def add_lossless_value(values, width, x, y, predictor_func, table, bits):
+def get_lossless_value(samples, width, x, y, predictor_func):
     # FIXME: precision and point transform for default value 128
     default_value = 128
 
@@ -401,33 +456,25 @@ def add_lossless_value(values, width, x, y, predictor_func, table, bits):
         if x == 0:
             p = default_value
         else:
-            p = values[y * width + x - 1]
+            p = samples[y * width + x - 1]
     else:
-        # Following line uses prediction from three adjacent pixels
+        # Following line uses prediction from three adjacent samples
         if x == 0:
-            a = values[(y - 1) * width + x]
+            a = samples[(y - 1) * width + x]
         else:
-            a = values[y * width + x - 1]
-        b = values[(y - 1) * width + x]
+            a = samples[y * width + x - 1]
+        b = samples[(y - 1) * width + x]
         if x == 0:
-            c = values[(y - 1) * width + x]
+            c = samples[(y - 1) * width + x]
         else:
-            c = values[(y - 1) * width + x - 1]
+            c = samples[(y - 1) * width + x - 1]
         p = predictor_func(a, b, c)
 
-    v = values[y * width + x]
-    value_bits = encode_amplitude(v - p)
-    # FIXME: Handle size 16 - no extra bits - 32768
-    bits.extend(get_huffman_code(table, len(value_bits)))
-    bits.extend(value_bits)
+    v = samples[y * width + x]
+    return v - p
 
 
-def huffman_lossless_scan(
-    width,
-    predictor=1,
-    table=None,
-    values=[],
-):
+def make_lossless_values(predictor, width, samples):
     predictor_func = {
         1: predictor1,
         2: predictor2,
@@ -438,10 +485,33 @@ def huffman_lossless_scan(
         7: predictor7,
     }[predictor]
     bits = []
-    height = len(values) // width
+    height = len(samples) // width
+    values = []
     for y in range(height):
         for x in range(width):
-            add_lossless_value(values, width, x, y, predictor_func, table, bits)
+            values.append(get_lossless_value(samples, width, x, y, predictor_func))
+    return values
+
+
+def make_lossless_huffman_table(values):
+    frequencies = [0] * 256
+    for value in values:
+        symbol = get_amplitude_length(value)
+        frequencies[symbol] += 1
+    return make_huffman_table(frequencies)
+
+
+def huffman_lossless_scan(
+    predictor,
+    table,
+    values,
+):
+    bits = []
+    for value in values:
+        value_bits = encode_amplitude(value)
+        # FIXME: Handle size 16 - no extra bits - 32768
+        bits.extend(get_huffman_code(table, len(value_bits)))
+        bits.extend(value_bits)
 
     # Pad with 1 bits
     if len(bits) % 8 != 0:
@@ -561,7 +631,7 @@ def quantize(coefficients, quantization_table):
     return quantized_coefficients
 
 
-def make_dct_coefficients(width, height, depth, pixels, quantization_table):
+def make_dct_coefficients(width, height, depth, samples, quantization_table):
     offset = 1 << (depth - 1)
     coefficients = []
     for du_y in range(0, height, 8):
@@ -575,7 +645,7 @@ def make_dct_coefficients(width, height, depth, pixels, quantization_table):
                         px = width - 1
                     if py >= height:
                         py = height - 1
-                    p = pixels[py * width + px]
+                    p = samples[py * width + px]
                     values.append(p - offset)
 
             du_coefficients = zig_zag(quantize(dct2d(values), quantization_table))
@@ -584,22 +654,55 @@ def make_dct_coefficients(width, height, depth, pixels, quantization_table):
     return coefficients
 
 
-width, height, max_value, pixels = read_pgm("test-face.pgm")
-for i in range(len(pixels)):
-    pixels[i] = round(pixels[i] * 255 / max_value)
+def make_dct_huffman_dc_table(coefficients):
+    frequencies = [0] * 256
+    last_dc = 0
+    for i in range(0, len(coefficients), 64):
+        dc = coefficients[i]
+        dc_diff = dc - last_dc
+        last_dc = dc
+        symbol = get_amplitude_length(dc_diff)
+        frequencies[symbol] += 1
+    return make_huffman_table(frequencies)
 
 
-quantization_luminance_table = [1] * 64  # FIXME: Needs to be zig-zagged
+def make_dct_huffman_ac_table(coefficients):
+    frequencies = [0] * 256
+    for i in range(0, len(coefficients), 64):
+        end = i + 63
+        while i < end:
+            run_length = 0
+            while i + run_length <= end and coefficients[i + run_length] == 0:
+                run_length += 1
+            if i + run_length > end:
+                symbol = 0  # EOB
+            else:
+                if run_length > 15:
+                    run_length = 15
+                ac = coefficients[i + run_length]
+                symbol = run_length << 4 | get_amplitude_length(ac)
+            frequencies[symbol] += 1
+            i += run_length + 1
+    return make_huffman_table(frequencies)
+
+
+width, height, max_value, samples = read_pgm("test-face.pgm")
+for i in range(len(samples)):
+    samples[i] = round(samples[i] * 255 / max_value)
+
+
+quantization_luminance_table = [1] * 64  # FIXME: Using nothing at this point
 coefficients = make_dct_coefficients(
-    width, height, 8, pixels, quantization_luminance_table
+    width, height, 8, samples, quantization_luminance_table
 )
+huffman_dc_table = make_dct_huffman_dc_table(coefficients)
+huffman_ac_table = make_dct_huffman_ac_table(coefficients)
 data = (
     start_of_image()
     + app0(density_unit=1, density=(72, 72))
     + define_quantization_tables(
         tables=[
             QuantizationTable(destination=0, data=quantization_luminance_table),
-            QuantizationTable(destination=1, data=quantization_chrominance_table),
         ]
     )
     + start_of_frame_baseline(32, 32, [Component(id=1, quantization_table=0)])
@@ -608,29 +711,19 @@ data = (
             HuffmanTable(
                 table_class=HUFFMAN_CLASS_DC,
                 destination=0,
-                symbols_by_length=huffman_luminance_dc_table,
-            ),
-            HuffmanTable(
-                table_class=HUFFMAN_CLASS_DC,
-                destination=1,
-                symbols_by_length=huffman_chrominance_dc_table,
+                symbols_by_length=huffman_dc_table,
             ),
             HuffmanTable(
                 table_class=HUFFMAN_CLASS_AC,
                 destination=0,
-                symbols_by_length=huffman_luminance_ac_table,
-            ),
-            HuffmanTable(
-                table_class=HUFFMAN_CLASS_AC,
-                destination=1,
-                symbols_by_length=huffman_chrominance_ac_table,
+                symbols_by_length=huffman_ac_table,
             ),
         ]
     )
     + start_of_scan(components=[ScanComponent.baseline(1, dc_table=0, ac_table=0)])
     + huffman_dct_scan(
-        dc_table=huffman_luminance_dc_table,
-        ac_table=huffman_luminance_ac_table,
+        dc_table=huffman_dc_table,
+        ac_table=huffman_ac_table,
         coefficients=coefficients,
     )
     + end_of_image()
@@ -638,8 +731,9 @@ data = (
 open("out.jpg", "wb").write(data)
 
 
-huffman_lossless_table = huffman_luminance_dc_table
 predictor = 1
+lossless_values = make_lossless_values(predictor, 32, samples)
+huffman_lossless_table = make_lossless_huffman_table(lossless_values)
 data = (
     start_of_image()
     + app0(density_unit=1, density=(72, 72))
@@ -657,10 +751,9 @@ data = (
         components=[ScanComponent.lossless(1, table=0, predictor=predictor)]
     )
     + huffman_lossless_scan(
-        32,
-        predictor=predictor,
-        table=huffman_lossless_table,
-        values=pixels,
+        predictor,
+        huffman_lossless_table,
+        lossless_values,
     )
     + end_of_image()
 )
