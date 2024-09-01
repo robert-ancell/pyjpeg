@@ -110,7 +110,6 @@ def make_lossless(width, height, channels, precision=8, predictor=1):
             ScanComponent.lossless(component_id, table=table_id, predictor=predictor)
         )
         scan_data += huffman_lossless_scan(
-            predictor,
             table,
             values,
         )

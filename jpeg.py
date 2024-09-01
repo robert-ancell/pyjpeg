@@ -447,7 +447,6 @@ def make_lossless_huffman_table(values):
 
 
 def huffman_lossless_scan(
-    predictor,
     table,
     values,
 ):
