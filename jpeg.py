@@ -38,7 +38,7 @@ class Density:
         return Density(1, x, y)
 
 
-def app0(
+def jfif(
     version=(1, 1),
     density=Density.aspect_ratio(1, 1),
     thumbnail_size=(0, 0),
@@ -58,6 +58,17 @@ def app0(
             thumbnail_size[1],
         )
         + thumbnail_data
+    )
+    return marker(0xE0) + struct.pack(">H", 2 + len(data)) + data
+
+
+def jfxx():
+    # FIXME 0x10 - JPEG thumbnail, 0x11 - 1 byte per pixel (palette), 0x12 - 3 bytes per pixel (RGB)
+    extension_code = 0
+    data = struct.pack(
+        ">4sxB",
+        bytes("JFXX", "utf-8"),
+        extension_code,
     )
     return marker(0xE0) + struct.pack(">H", 2 + len(data)) + data
 
