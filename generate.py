@@ -88,31 +88,39 @@ def make_dct_sequential(width, samples, extended=False, precision=8):
     )
 
 
-def make_lossless(width, samples, precision=8, predictor=1):
-    height = len(samples) // width
-    values = make_lossless_values(predictor, 32, precision, samples)
-    table = make_lossless_huffman_table(values)
-    return (
-        start_of_image()
-        + app0(density_unit=1, density=(72, 72))
-        + start_of_frame_lossless(width, height, precision, [Component(id=1)])
-        + define_huffman_tables(
-            tables=[
-                HuffmanTable(
-                    table_class=HUFFMAN_CLASS_DC,
-                    destination=0,
-                    symbols_by_length=table,
-                ),
-            ]
+def make_lossless(width, height, channels, precision=8, predictor=1):
+    components = []
+    huffman_tables = []
+    scan_components = []
+    scan_data = b""
+    for i, samples in enumerate(channels):
+        component_id = i + 1
+        values = make_lossless_values(predictor, 32, precision, samples)
+        components.append(Component(id=component_id))
+        table_id = i
+        table = make_lossless_huffman_table(values)
+        huffman_tables.append(
+            HuffmanTable(
+                table_class=HUFFMAN_CLASS_DC,
+                destination=table_id,
+                symbols_by_length=table,
+            )
         )
-        + start_of_scan(
-            components=[ScanComponent.lossless(1, table=0, predictor=predictor)]
+        scan_components.append(
+            ScanComponent.lossless(component_id, table=table_id, predictor=predictor)
         )
-        + huffman_lossless_scan(
+        scan_data += huffman_lossless_scan(
             predictor,
             table,
             values,
         )
+    return (
+        start_of_image()
+        + app0(density_unit=1, density=(72, 72))
+        + start_of_frame_lossless(width, height, precision, components)
+        + define_huffman_tables(tables=huffman_tables)
+        + start_of_scan(scan_components)
+        + scan_data
         + end_of_image()
     )
 
@@ -128,15 +136,15 @@ open("extended12.jpg", "wb").write(
 
 for predictor in range(1, 8):
     open("lossless%d.jpg" % predictor, "wb").write(
-        make_lossless(32, samples8, predictor=predictor)
+        make_lossless(32, 32, [samples8], predictor=predictor)
     )
 
 open("lossless_2.jpg", "wb").write(
-    make_lossless(32, samples2, predictor=1, precision=2)
+    make_lossless(32, 32, [samples2], predictor=1, precision=2)
 )
 open("lossless_12.jpg", "wb").write(
-    make_lossless(32, samples12, predictor=1, precision=12)
+    make_lossless(32, 32, [samples12], predictor=1, precision=12)
 )
 open("lossless_16.jpg", "wb").write(
-    make_lossless(32, samples16, predictor=1, precision=16)
+    make_lossless(32, 32, [samples16], predictor=1, precision=16)
 )
