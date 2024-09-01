@@ -39,7 +39,7 @@ class Density:
 
 
 def jfif(
-    version=(1, 1),
+    version=(1, 2),
     density=Density.aspect_ratio(1, 1),
     thumbnail_size=(0, 0),
     thumbnail_data=b"",
