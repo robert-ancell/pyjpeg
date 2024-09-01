@@ -57,7 +57,7 @@ def make_dct_sequential(width, samples, extended=False, precision=8):
         )
     return (
         start_of_image()
-        + app0(density_unit=1, density=(72, 72))
+        + app0()
         + define_quantization_tables(
             tables=[
                 QuantizationTable(destination=0, data=quantization_table),
@@ -116,7 +116,7 @@ def make_lossless(width, height, channels, precision=8, predictor=1):
         )
     return (
         start_of_image()
-        + app0(density_unit=1, density=(72, 72))
+        + app0()
         + start_of_frame_lossless(width, height, precision, components)
         + define_huffman_tables(tables=huffman_tables)
         + start_of_scan(scan_components)

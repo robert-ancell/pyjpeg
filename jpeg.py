@@ -22,10 +22,25 @@ def start_of_image():
     return marker(0xD8)
 
 
+class Density:
+    def __init__(self, unit=0, x=0, y=0):
+        self.unit = unit
+        self.x = x
+        self.y = y
+
+    def aspect_ratio(x, y):
+        return Density(0, x, y)
+
+    def dpi(x, y):
+        return Density(1, x, y)
+
+    def dpcm(x, y):
+        return Density(1, x, y)
+
+
 def app0(
     version=(1, 1),
-    density_unit=0,
-    density=(0, 0),
+    density=Density.aspect_ratio(1, 1),
     thumbnail_size=(0, 0),
     thumbnail_data=b"",
 ):
@@ -36,9 +51,9 @@ def app0(
             bytes("JFIF", "utf-8"),
             version[0],
             version[1],
-            density_unit,
-            density[0],
-            density[1],
+            density.unit,
+            density.x,
+            density.y,
             thumbnail_size[0],
             thumbnail_size[1],
         )
