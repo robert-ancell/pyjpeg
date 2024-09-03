@@ -117,21 +117,26 @@ states = [
 ]
 
 
+class State:
+    def __init__(self):
+        self.index = 0
+        self.mps = 0
+
+
 class Encoder:
     def __init__(self):
         self.a = 0x10000
         self.c = 0
         self.ct = 11
-        self.mps = 0
         self.st = 0
         self.data = []
 
-    # Encodes [value] using [state] and returns the new state.
+    # Encodes [value] using [state].
     def encode_bit(self, state, value):
-        if value == self.mps:
-            return self.encode_mps(state)
+        if value == state.mps:
+            self.encode_mps(state)
         else:
-            return self.encode_lps(state)
+            self.encode_lps(state)
 
     # Write out any remaining bits
     def flush(self):
@@ -154,7 +159,7 @@ class Encoder:
             self.data.append(0x00)
 
     def encode_mps(self, state):
-        (qe, _, mps_next_index, _) = states[state]
+        (qe, _, mps_next_index, _) = states[state.index]
         self.a -= qe
         if self.a > 0x8000:
             return state
@@ -165,21 +170,20 @@ class Encoder:
 
         self.renormalize()
 
-        return mps_next_index
+        state.index = mps_next_index
 
     def encode_lps(self, state):
-        (qe, lps_next_index, _, switch_mps) = states[state]
+        (qe, lps_next_index, _, switch_mps) = states[state.index]
         self.a -= qe
         if self.a >= qe:
             self.c += self.a
             self.a = qe
 
-        if switch_mps:
-            self.mps ^= 0x1
-
         self.renormalize()
 
-        return lps_next_index
+        if switch_mps:
+            state.mps ^= 0x1
+        state.index = lps_next_index
 
     def renormalize(self):
         while True:
@@ -261,9 +265,9 @@ if __name__ == "__main__":
             bits.append((d >> (7 - i)) & 0x1)
 
     e = Encoder()
-    state = 0
+    state = State()
     for b in bits:
-        state = e.encode_bit(state, b)
+        e.encode_bit(state, b)
     e.flush()
     e.data.extend([0xFF, 0xD9])
 
