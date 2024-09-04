@@ -418,15 +418,19 @@ def arithmetic_dct_scan(
     for i in range(5):
         sstates.append(SStates())
     dc_xstates = []
-    ac_xstates = []
+    ac_low_xstates = []
+    ac_high_xstates = []
     for i in range(15):
         dc_xstates.append(arithmetic.State())
-        ac_xstates.append(arithmetic.State())
+        ac_low_xstates.append(arithmetic.State())
+        ac_high_xstates.append(arithmetic.State())
     dc_mstates = []
-    ac_mstates = []
+    ac_low_mstates = []
+    ac_high_mstates = []
     for i in range(14):
         dc_mstates.append(arithmetic.State())
-        ac_mstates.append(arithmetic.State())
+        ac_low_mstates.append(arithmetic.State())
+        ac_high_mstates.append(arithmetic.State())
     # FIXME: Two of these
     ac_states = []
     for i in range(63):
@@ -518,19 +522,26 @@ def arithmetic_dct_scan(
                     else:
                         encoder.encode_bit(ac_states[coefficient_index - 1].sn_sp_x1, 1)
 
+                        if coefficient_index <= kx:
+                            xstates = ac_low_xstates
+                            mstates = ac_low_mstates
+                        else:
+                            xstates = ac_high_xstates
+                            mstates = ac_high_mstates
+
                         # Encode width of (magnitude - 1) (must be 2+ if above not encoded)
                         v = magnitude - 1
                         width = 0
                         while (v >> width) != 0:
                             width += 1
                         for j in range(width - 1):
-                            encoder.encode_bit(dc_xstates[j], 1)
-                        encoder.encode_bit(dc_xstates[width - 1], 0)
+                            encoder.encode_bit(xstates[j], 1)
+                        encoder.encode_bit(xstates[width - 1], 0)
 
                         # Encode lowest bits of magnitude (first bit is implied 1)
                         for j in range(width - 1):
                             bit = v >> (width - j - 2) & 0x1
-                            encoder.encode_bit(dc_mstates[width - 2], bit)
+                            encoder.encode_bit(mstates[width - 2], bit)
 
                     coefficient_index += 1
 
