@@ -404,10 +404,8 @@ def arithmetic_dct_scan(
     # States for DC coefficients
     class DCStates:
         def __init__(self):
-            # Zero
-            self.s0 = arithmetic.State()
-            # Sign
-            self.ss = arithmetic.State()
+            self.non_zero = arithmetic.State()
+            self.negative = arithmetic.State()
             # Magnitide 1 (positive)
             self.sp = arithmetic.State()
             # Magnitide 1 (negative)
@@ -428,10 +426,8 @@ def arithmetic_dct_scan(
     # States for AC coefficients
     class ACStates:
         def __init__(self):
-            # End of block
-            self.se = arithmetic.State()
-            # Zero coefficient
-            self.s0 = arithmetic.State()
+            self.end_of_block = arithmetic.State()
+            self.non_zero = arithmetic.State()
             # Magnitude 1 (positive or negative) and first magnitude size bit
             self.sn_sp_x1 = arithmetic.State()
 
@@ -486,15 +482,15 @@ def arithmetic_dct_scan(
 
                 # Encode zero, positive or negative
                 if dc_diff == 0:
-                    encoder.encode_bit(sstate.s0, 0)
+                    encoder.encode_bit(sstate.non_zero, 0)
                 else:
-                    encoder.encode_bit(sstate.s0, 1)
+                    encoder.encode_bit(sstate.non_zero, 1)
                     if dc_diff > 0:
-                        encoder.encode_bit(sstate.ss, 0)
+                        encoder.encode_bit(sstate.negative, 0)
                         magnitude = dc_diff
                         mag_state = sstate.sp
                     else:
-                        encoder.encode_bit(sstate.ss, 1)
+                        encoder.encode_bit(sstate.negative, 1)
                         magnitude = -dc_diff
                         mag_state = sstate.sn
 
@@ -530,19 +526,19 @@ def arithmetic_dct_scan(
                     end_of_block = False
 
                 if end_of_block:
-                    encoder.encode_bit(ac_states[coefficient_index - 1].se, 1)
+                    encoder.encode_bit(ac_states[coefficient_index - 1].end_of_block, 1)
                     coefficient_index = selection[1] + 1
                 else:
-                    encoder.encode_bit(ac_states[coefficient_index - 1].se, 0)
+                    encoder.encode_bit(ac_states[coefficient_index - 1].end_of_block, 0)
 
                     # Encode run of zeros
                     while coefficient == 0 and coefficient_index <= selection[1]:
-                        encoder.encode_bit(ac_states[coefficient_index - 1].s0, 0)
+                        encoder.encode_bit(ac_states[coefficient_index - 1].non_zero, 0)
                         coefficient_index += 1
                         coefficient = coefficients[data_unit_index + coefficient_index]
 
                     # Non-zero coefficient
-                    encoder.encode_bit(ac_states[coefficient_index - 1].s0, 1)
+                    encoder.encode_bit(ac_states[coefficient_index - 1].non_zero, 1)
                     if coefficient > 0:
                         # Note: the default state is 0.5
                         encoder.encode_bit(arithmetic.State(), 0)
