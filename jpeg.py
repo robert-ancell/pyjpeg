@@ -1,7 +1,11 @@
 import math
 import struct
 
+import arithmetic
 from huffman import *
+
+# https://www.w3.org/Graphics/JPEG/itu-t81.pdf
+# https://www.w3.org/Graphics/JPEG/jfif3.pdf
 
 
 # FIXME: comment markers
@@ -177,6 +181,37 @@ def define_huffman_tables(tables=[]):
     return marker(0xC4) + struct.pack(">H", 2 + len(data)) + data
 
 
+class ArithmeticConditioning:
+    def __init__(self, table_class=0, destination=0, conditioning_value=0):
+        self.table_class = table_class
+        self.destination = destination
+        self.conditioning_value = conditioning_value
+
+    def dc(destination, bounds):
+        (lower, upper) = bounds
+        assert lower >= 0 and lower <= upper and upper <= 15
+        return ArithmeticConditioning(
+            table_class=0,
+            destination=destination,
+            conditioning_value=upper << 4 | lower,
+        )
+
+    def ac(destination, kx):
+        assert kx >= 1 and kx <= 63
+        return ArithmeticConditioning(
+            table_class=1, destination=destination, conditioning_value=kx
+        )
+
+
+def define_arithmetic_conditioning(conditioning=[]):
+    data = b""
+    for c in conditioning:
+        data += struct.pack(
+            "BB", c.table_class << 4 | c.destination, c.conditioning_value
+        )
+    return marker(0xCC) + struct.pack(">H", 2 + len(data)) + data
+
+
 class ScanComponent:
     def __init__(
         self,
@@ -196,7 +231,7 @@ class ScanComponent:
         self.ah = ah
         self.al = al
 
-    def baseline(
+    def dct(
         component_selector,
         dc_table=0,
         ac_table=0,
@@ -357,6 +392,152 @@ def huffman_dct_scan(
     return bytes(encode_scan_bits(bits))
 
 
+def arithmetic_dct_scan(
+    coefficients=[],
+    conditioning_range=(0, 1),
+    kx=5,
+    selection=(0, 63),
+):
+    assert len(coefficients) % 64 == 0
+    n_data_units = len(coefficients) // 64
+
+    class SStates:
+        def __init__(self):
+            self.s0 = arithmetic.State()
+            self.ss = arithmetic.State()
+            self.sp = arithmetic.State()
+            self.sn = arithmetic.State()
+
+    class AcStates:
+        def __init__(self):
+            self.se = arithmetic.State()
+            self.s0 = arithmetic.State()
+            self.sn_sp_x1 = arithmetic.State()
+
+    sstates = []
+    for i in range(5):
+        sstates.append(SStates())
+    dc_xstates = []
+    ac_xstates = []
+    for i in range(15):
+        dc_xstates.append(arithmetic.State())
+        ac_xstates.append(arithmetic.State())
+    dc_mstates = []
+    ac_mstates = []
+    for i in range(14):
+        dc_mstates.append(arithmetic.State())
+        ac_mstates.append(arithmetic.State())
+    # FIXME: Two of these
+    ac_states = []
+    for i in range(63):
+        ac_states.append(AcStates())
+
+    encoder = arithmetic.Encoder()
+    for data_unit in range(n_data_units):
+        coefficient_index = selection[0]
+        while coefficient_index <= selection[1]:
+            coefficient = coefficients[data_unit * 64 + coefficient_index]
+            if coefficient_index == 0:
+                # DC coefficient, encode relative to previous DC value
+                if data_unit == 0:
+                    dc_diff = coefficient
+                else:
+                    dc_diff = coefficient - coefficients[(data_unit - 1) * 64]
+
+                sstate = sstates[0]  # FIXME
+
+                # Encode zero, positive or negative
+                if dc_diff == 0:
+                    encoder.encode_bit(sstate.s0, 0)
+                else:
+                    encoder.encode_bit(sstate.s0, 1)
+                    if dc_diff > 0:
+                        encoder.encode_bit(sstate.ss, 0)
+                        magnitude = dc_diff
+                        mag_state = sstate.sp
+                    else:
+                        encoder.encode_bit(sstate.ss, 1)
+                        magnitude = -dc_diff
+                        mag_state = sstate.sn
+
+                    if magnitude == 1:
+                        encoder.encode_bit(mag_state, 0)
+                    else:
+                        encoder.encode_bit(mag_state, 1)
+
+                        # Encode width of (magnitude - 1) (must be 2+ if above not encoded)
+                        v = magnitude - 1
+                        width = 0
+                        while (v >> width) != 0:
+                            width += 1
+                        for j in range(width - 1):
+                            encoder.encode_bit(dc_xstates[j], 1)
+                        encoder.encode_bit(dc_xstates[width - 1], 0)
+
+                        # Encode lowest bits of magnitude (first bit is implied 1)
+                        for j in range(width - 1):
+                            bit = v >> (width - j - 2) & 0x1
+                            encoder.encode_bit(dc_mstates[width - 2], bit)
+
+                coefficient_index += 1
+            else:
+                # AC coefficients
+
+                if selection[1] == 63:
+                    end_of_block = True
+                    for j in range(coefficient_index, selection[1] + 1):
+                        if coefficients[data_unit * 64 + j] != 0:
+                            end_of_block = False
+                else:
+                    end_of_block = False
+
+                if end_of_block:
+                    encoder.encode_bit(ac_states[coefficient_index - 1].se, 1)
+                    coefficient_index = selection[1] + 1
+                else:
+                    encoder.encode_bit(ac_states[coefficient_index - 1].se, 0)
+
+                    # Encode run of zeros
+                    while coefficient == 0 and coefficient_index <= selection[1]:
+                        encoder.encode_bit(ac_states[coefficient_index - 1].s0, 0)
+                        coefficient_index += 1
+                        coefficient = coefficients[data_unit * 64 + coefficient_index]
+
+                    # Non-zero coefficient
+                    encoder.encode_bit(ac_states[coefficient_index - 1].s0, 1)
+                    if coefficient > 0:
+                        # Note: the default state is 0.5
+                        encoder.encode_bit(arithmetic.State(), 0)
+                        magnitude = coefficient
+                    else:
+                        encoder.encode_bit(arithmetic.State(), 1)
+                        magnitude = -coefficient
+
+                    if magnitude == 1:
+                        encoder.encode_bit(ac_states[coefficient_index - 1].sn_sp_x1, 0)
+                    else:
+                        encoder.encode_bit(ac_states[coefficient_index - 1].sn_sp_x1, 1)
+
+                        # Encode width of (magnitude - 1) (must be 2+ if above not encoded)
+                        v = magnitude - 1
+                        width = 0
+                        while (v >> width) != 0:
+                            width += 1
+                        for j in range(width - 1):
+                            encoder.encode_bit(dc_xstates[j], 1)
+                        encoder.encode_bit(dc_xstates[width - 1], 0)
+
+                        # Encode lowest bits of magnitude (first bit is implied 1)
+                        for j in range(width - 1):
+                            bit = v >> (width - j - 2) & 0x1
+                            encoder.encode_bit(dc_mstates[width - 2], bit)
+
+                    coefficient_index += 1
+
+    encoder.flush()
+    return bytes(encoder.data)
+
+
 def predictor1(a, b, c):
     return a
 
@@ -462,6 +643,19 @@ def huffman_lossless_scan(
         bits.extend([1] * (8 - len(bits) % 8))
 
     return bytes(encode_scan_bits(bits))
+
+
+def arithmetic_lossless_scan(
+    values,
+):
+    encoder = arithmetic.Encoder()
+    bits = []
+    for value in values:
+        # FIXME
+        pass
+    encoder.flush()
+
+    return bytes(encoder.data)
 
 
 def end_of_image():

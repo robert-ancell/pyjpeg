@@ -41,7 +41,13 @@ for i in range(len(samples16)):
     samples12.append(round(samples16[i] * 4095 / max_value))
 
 
-def make_dct_sequential(width, samples, extended=False, precision=8):
+def make_dct_sequential(width, samples, extended=False, precision=8, arithmetic=False):
+    if extended:
+        assert precision in (8, 12)
+    else:
+        assert precision == 8
+        assert not arithmetic
+
     height = len(samples) // width
     quantization_table = [1] * 64  # FIXME: Using nothing at this point
     coefficients = make_dct_coefficients(width, height, 8, samples, quantization_table)
@@ -49,22 +55,33 @@ def make_dct_sequential(width, samples, extended=False, precision=8):
     ac_table = make_dct_huffman_ac_table(coefficients)
     if extended:
         sof = start_of_frame_extended(
-            width, height, precision, [Component(id=1, quantization_table=0)]
+            width,
+            height,
+            precision,
+            [Component(id=1, quantization_table=0)],
+            arithmetic=arithmetic,
         )
     else:
         sof = start_of_frame_baseline(
             width, height, [Component(id=1, quantization_table=0)]
         )
-    return (
-        start_of_image()
-        + jfif()
-        + define_quantization_tables(
-            tables=[
-                QuantizationTable(destination=0, data=quantization_table),
+    if arithmetic:
+        define_tables = b""
+        conditioning_range = (0, 1)
+        kx = 5
+        dac = define_arithmetic_conditioning(
+            [
+                ArithmeticConditioning.dc(0, conditioning_range),
+                ArithmeticConditioning.ac(0, kx),
             ]
         )
-        + sof
-        + define_huffman_tables(
+        scan = start_of_scan(
+            components=[ScanComponent.dct(1, dc_table=0, ac_table=0)]
+        ) + arithmetic_dct_scan(
+            coefficients=coefficients, conditioning_range=conditioning_range, kx=kx
+        )
+    else:
+        define_tables = define_huffman_tables(
             tables=[
                 HuffmanTable(
                     table_class=HUFFMAN_CLASS_DC,
@@ -78,12 +95,27 @@ def make_dct_sequential(width, samples, extended=False, precision=8):
                 ),
             ]
         )
-        + start_of_scan(components=[ScanComponent.baseline(1, dc_table=0, ac_table=0)])
-        + huffman_dct_scan(
+        dac = b""
+        scan = start_of_scan(
+            components=[ScanComponent.dct(1, dc_table=0, ac_table=0)]
+        ) + huffman_dct_scan(
             dc_table=dc_table,
             ac_table=ac_table,
             coefficients=coefficients,
         )
+
+    return (
+        start_of_image()
+        + jfif()
+        + define_quantization_tables(
+            tables=[
+                QuantizationTable(destination=0, data=quantization_table),
+            ]
+        )
+        + sof
+        + define_tables
+        + dac
+        + scan
         + end_of_image()
     )
 
@@ -129,6 +161,10 @@ open("baseline.jpg", "wb").write(make_dct_sequential(32, samples8))
 open("extended.jpg", "wb").write(make_dct_sequential(32, samples8, extended=True))
 open("extended12.jpg", "wb").write(
     make_dct_sequential(32, samples12, extended=True, precision=12)
+)
+
+open("arithmetic.jpg", "wb").write(
+    make_dct_sequential(32, samples8, extended=True, arithmetic=True)
 )
 
 # FIXME: extended 16bit quantization table
