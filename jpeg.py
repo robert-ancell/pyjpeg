@@ -410,7 +410,9 @@ def arithmetic_dct_scan(
 
     class AcStates:
         def __init__(self):
+            # End of block
             self.se = arithmetic.State()
+            # Zero coefficient
             self.s0 = arithmetic.State()
             self.sn_sp_x1 = arithmetic.State()
 
@@ -418,10 +420,11 @@ def arithmetic_dct_scan(
     for i in range(5):
         sstates.append(SStates())
     dc_xstates = []
-    ac_low_xstates = []
-    ac_high_xstates = []
     for i in range(15):
         dc_xstates.append(arithmetic.State())
+    ac_low_xstates = []
+    ac_high_xstates = []
+    for i in range(14):
         ac_low_xstates.append(arithmetic.State())
         ac_high_xstates.append(arithmetic.State())
     dc_mstates = []
@@ -535,7 +538,8 @@ def arithmetic_dct_scan(
                         width = 0
                         while (v >> width) != 0:
                             width += 1
-                        for j in range(width - 1):
+                        encoder.encode_bit(ac_states[coefficient_index - 1].sn_sp_x1, 1)
+                        for j in range(1, width - 1):
                             encoder.encode_bit(xstates[j], 1)
                         encoder.encode_bit(xstates[width - 1], 0)
 
