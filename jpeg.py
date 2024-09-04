@@ -401,7 +401,8 @@ def arithmetic_dct_scan(
     assert len(coefficients) % 64 == 0
     n_data_units = len(coefficients) // 64
 
-    class SStates:
+    # States for DC coefficients
+    class DCStates:
         def __init__(self):
             # Zero
             self.s0 = arithmetic.State()
@@ -409,42 +410,45 @@ def arithmetic_dct_scan(
             self.ss = arithmetic.State()
             # Magnitide 1 (positive)
             self.sp = arithmetic.State()
-            # Magnitide 2 (negative)
+            # Magnitide 1 (negative)
             self.sn = arithmetic.State()
 
-    class AcStates:
+    small_positive_sstate = DCStates()
+    large_positive_sstate = DCStates()
+    zero_sstate = DCStates()
+    small_negative_sstate = DCStates()
+    large_negative_sstate = DCStates()
+    dc_xstates = []
+    for i in range(15):
+        dc_xstates.append(arithmetic.State())
+    dc_mstates = []
+    for i in range(14):
+        dc_mstates.append(arithmetic.State())
+
+    # States for AC coefficients
+    class ACStates:
         def __init__(self):
             # End of block
             self.se = arithmetic.State()
             # Zero coefficient
             self.s0 = arithmetic.State()
-            # Magnitude 1 and first magnitude size bit
+            # Magnitude 1 (positive or negative) and first magnitude size bit
             self.sn_sp_x1 = arithmetic.State()
 
-    small_positive_sstate = SStates()
-    large_positive_sstate = SStates()
-    zero_sstate = SStates()
-    small_negative_sstate = SStates()
-    large_negative_sstate = SStates()
-    dc_xstates = []
-    for i in range(15):
-        dc_xstates.append(arithmetic.State())
+    ac_states = []
+    for i in range(63):
+        ac_states.append(ACStates())
+
     ac_low_xstates = []
     ac_high_xstates = []
     for i in range(14):
         ac_low_xstates.append(arithmetic.State())
         ac_high_xstates.append(arithmetic.State())
-    dc_mstates = []
     ac_low_mstates = []
     ac_high_mstates = []
     for i in range(14):
-        dc_mstates.append(arithmetic.State())
         ac_low_mstates.append(arithmetic.State())
         ac_high_mstates.append(arithmetic.State())
-    # FIXME: Two of these
-    ac_states = []
-    for i in range(63):
-        ac_states.append(AcStates())
 
     encoder = arithmetic.Encoder()
     prev_dc_diff = 0
