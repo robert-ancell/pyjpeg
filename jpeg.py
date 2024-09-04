@@ -438,9 +438,10 @@ def arithmetic_dct_scan(
 
     encoder = arithmetic.Encoder()
     for data_unit in range(n_data_units):
+        data_unit_index = data_unit * 64
         coefficient_index = selection[0]
         while coefficient_index <= selection[1]:
-            coefficient = coefficients[data_unit * 64 + coefficient_index]
+            coefficient = coefficients[data_unit_index + coefficient_index]
             if coefficient_index == 0:
                 # DC coefficient, encode relative to previous DC value
                 if data_unit == 0:
@@ -490,7 +491,7 @@ def arithmetic_dct_scan(
                 if selection[1] == 63:
                     end_of_block = True
                     for j in range(coefficient_index, selection[1] + 1):
-                        if coefficients[data_unit * 64 + j] != 0:
+                        if coefficients[data_unit_index + j] != 0:
                             end_of_block = False
                 else:
                     end_of_block = False
@@ -505,7 +506,7 @@ def arithmetic_dct_scan(
                     while coefficient == 0 and coefficient_index <= selection[1]:
                         encoder.encode_bit(ac_states[coefficient_index - 1].s0, 0)
                         coefficient_index += 1
-                        coefficient = coefficients[data_unit * 64 + coefficient_index]
+                        coefficient = coefficients[data_unit_index + coefficient_index]
 
                     # Non-zero coefficient
                     encoder.encode_bit(ac_states[coefficient_index - 1].s0, 1)
