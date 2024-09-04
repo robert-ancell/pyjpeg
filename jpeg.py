@@ -403,9 +403,13 @@ def arithmetic_dct_scan(
 
     class SStates:
         def __init__(self):
+            # Zero
             self.s0 = arithmetic.State()
+            # Sign
             self.ss = arithmetic.State()
+            # Magnitide 1 (positive)
             self.sp = arithmetic.State()
+            # Magnitide 2 (negative)
             self.sn = arithmetic.State()
 
     class AcStates:
@@ -414,11 +418,14 @@ def arithmetic_dct_scan(
             self.se = arithmetic.State()
             # Zero coefficient
             self.s0 = arithmetic.State()
+            # Magnitude 1 and first magnitude size bit
             self.sn_sp_x1 = arithmetic.State()
 
-    sstates = []
-    for i in range(5):
-        sstates.append(SStates())
+    small_positive_sstate = SStates()
+    large_positive_sstate = SStates()
+    zero_sstate = SStates()
+    small_negative_sstate = SStates()
+    large_negative_sstate = SStates()
     dc_xstates = []
     for i in range(15):
         dc_xstates.append(arithmetic.State())
@@ -440,6 +447,7 @@ def arithmetic_dct_scan(
         ac_states.append(AcStates())
 
     encoder = arithmetic.Encoder()
+    prev_dc_diff = 0
     for data_unit in range(n_data_units):
         data_unit_index = data_unit * 64
         coefficient_index = selection[0]
@@ -452,7 +460,25 @@ def arithmetic_dct_scan(
                 else:
                     dc_diff = coefficient - coefficients[(data_unit - 1) * 64]
 
-                sstate = sstates[0]  # FIXME
+                (lower, upper) = conditioning_range
+                if lower > 0:
+                    lower = 1 << (lower - 1)
+                upper = 1 << upper
+                if prev_dc_diff >= 0:
+                    if prev_dc_diff <= lower:
+                        sstate = zero_sstate
+                    elif prev_dc_diff <= upper:
+                        sstate = small_positive_sstate
+                    else:
+                        sstate = large_positive_sstate
+                else:
+                    if prev_dc_diff >= -lower:
+                        sstate = zero_sstate
+                    elif prev_dc_diff >= -upper:
+                        sstate = small_negative_sstate
+                    else:
+                        sstate = large_negative_sstate
+                prev_dc_diff = dc_diff
 
                 # Encode zero, positive or negative
                 if dc_diff == 0:
