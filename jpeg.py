@@ -17,6 +17,14 @@ from huffman import *
 HUFFMAN_CLASS_DC = 0
 HUFFMAN_CLASS_AC = 1
 
+SOF_BASELINE = 0
+SOF_EXTENDED_HUFFMAN = 1
+SOF_PROGRESSIVE_HUFFMAN = 2
+SOF_LOSSLESS_HUFFMAN = 3
+SOF_EXTENDED_ARITHMETIC = 9
+SOF_PROGRESSIVE_ARITHMETIC = 10
+SOF_LOSSLESS_ARITHMETIC = 11
+
 
 def marker(value):
     return struct.pack("BB", 0xFF, value)
@@ -115,15 +123,15 @@ def start_of_frame(frame_type, precision=8, width=0, height=0, components=[]):
 
 def start_of_frame_baseline(width, height, components):
     return start_of_frame(
-        0, precision=8, width=width, height=height, components=components
+        SOF_BASELINE, precision=8, width=width, height=height, components=components
     )
 
 
 def start_of_frame_extended(width, height, precision, components, arithmetic=False):
     if arithmetic:
-        frame_type = 9
+        frame_type = SOF_EXTENDED_ARITHMETIC
     else:
-        frame_type = 1
+        frame_type = SOF_EXTENDED_HUFFMAN
     return start_of_frame(
         frame_type,
         precision=precision,
@@ -135,9 +143,9 @@ def start_of_frame_extended(width, height, precision, components, arithmetic=Fal
 
 def start_of_frame_progressive(width, height, precision, components, arithmetic=False):
     if arithmetic:
-        frame_type = 10
+        frame_type = SOF_PROGRESSIVE_ARITHMETIC
     else:
-        frame_type = 2
+        frame_type = SOF_PROGRESSIVE_HUFFMAN
     return start_of_frame(
         frame_type,
         precision=precision,
@@ -149,9 +157,9 @@ def start_of_frame_progressive(width, height, precision, components, arithmetic=
 
 def start_of_frame_lossless(width, height, precision, components, arithmetic=False):
     if arithmetic:
-        frame_type = 11
+        frame_type = SOF_LOSSLESS_ARITHMETIC
     else:
-        frame_type = 3
+        frame_type = SOF_LOSSLESS_HUFFMAN
     return start_of_frame(
         frame_type,
         precision=precision,
