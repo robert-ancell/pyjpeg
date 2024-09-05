@@ -161,7 +161,7 @@ class Encoder:
     def encode_mps(self, state):
         (qe, _, mps_next_index, _) = states[state.index]
         self.a -= qe
-        if self.a > 0x8000:
+        if self.a >= 0x8000:
             return state
 
         if self.a < qe:
