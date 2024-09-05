@@ -138,6 +138,12 @@ class Encoder:
         else:
             self.encode_lps(state)
 
+    # Encodes [value] using fixed probability (0.5).
+    def encode_fixed_bit(self, value):
+        # Default state is 0.5
+        state = State()
+        self.encode_bit(state, value)
+
     # Write out any remaining bits
     def flush(self):
         # Clear final bits

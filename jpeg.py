@@ -540,19 +540,20 @@ def arithmetic_dct_scan(
                     encoder.encode_bit(ac_states[coefficient_index - 1].end_of_block, 0)
 
                     # Encode run of zeros
+                    zero_count = 0
                     while coefficient == 0 and coefficient_index <= selection[1]:
                         encoder.encode_bit(ac_states[coefficient_index - 1].non_zero, 0)
                         coefficient_index += 1
                         coefficient = coefficients[data_unit_index + coefficient_index]
+                        zero_count += 1
 
                     # Non-zero coefficient
                     encoder.encode_bit(ac_states[coefficient_index - 1].non_zero, 1)
                     if coefficient > 0:
-                        # Note: the default state is 0.5
-                        encoder.encode_bit(arithmetic.State(), 0)
+                        encoder.encode_fixed_bit(0)
                         magnitude = coefficient
                     else:
-                        encoder.encode_bit(arithmetic.State(), 1)
+                        encoder.encode_fixed_bit(1)
                         magnitude = -coefficient
 
                     if magnitude == 1:
@@ -572,10 +573,17 @@ def arithmetic_dct_scan(
                         width = 0
                         while (v >> width) != 0:
                             width += 1
-                        encoder.encode_bit(ac_states[coefficient_index - 1].sn_sp_x1, 1)
-                        for j in range(1, width - 1):
-                            encoder.encode_bit(xstates[j], 1)
-                        encoder.encode_bit(xstates[width - 1], 0)
+                        if width == 1:
+                            encoder.encode_bit(
+                                ac_states[coefficient_index - 1].sn_sp_x1, 0
+                            )
+                        else:
+                            encoder.encode_bit(
+                                ac_states[coefficient_index - 1].sn_sp_x1, 1
+                            )
+                            for j in range(1, width - 1):
+                                encoder.encode_bit(xstates[j - 1], 1)
+                            encoder.encode_bit(xstates[width - 2], 0)
 
                         # Encode lowest bits of magnitude (first bit is implied 1)
                         for j in range(width - 1):
