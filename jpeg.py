@@ -453,6 +453,44 @@ class ArithmeticDCStates:
         self.sn = arithmetic.State()
 
 
+# Encode arithmetic DC value
+def encode_arithmetic_dc(
+    encoder, non_zero, is_negative, positive, negative, xstates, mstates, value
+):
+    if value == 0:
+        encoder.encode_bit(non_zero, 0)
+        return
+    encoder.encode_bit(non_zero, 1)
+
+    if value > 0:
+        encoder.encode_bit(is_negative, 0)
+        magnitude = value
+        mag_state = positive
+    else:
+        encoder.encode_bit(is_negative, 1)
+        magnitude = -value
+        mag_state = negative
+
+    if magnitude == 1:
+        encoder.encode_bit(mag_state, 0)
+        return
+    encoder.encode_bit(mag_state, 1)
+
+    # Encode width of (magnitude - 1) (must be 2+ if above not encoded)
+    v = magnitude - 1
+    width = 0
+    while (v >> width) != 0:
+        width += 1
+    for j in range(width - 1):
+        encoder.encode_bit(xstates[j], 1)
+    encoder.encode_bit(xstates[width - 1], 0)
+
+    # Encode lowest bits of magnitude (first bit is implied 1)
+    for j in range(width - 1):
+        bit = v >> (width - j - 2) & 0x1
+        encoder.encode_bit(mstates[width - 2], bit)
+
+
 def arithmetic_dct_scan(
     coefficients=[],
     conditioning_range=(0, 1),
@@ -514,38 +552,16 @@ def arithmetic_dct_scan(
                 ]
                 prev_dc_diff = dc_diff
 
-                # Encode zero, positive or negative
-                if dc_diff == 0:
-                    encoder.encode_bit(sstate.non_zero, 0)
-                else:
-                    encoder.encode_bit(sstate.non_zero, 1)
-                    if dc_diff > 0:
-                        encoder.encode_bit(sstate.negative, 0)
-                        magnitude = dc_diff
-                        mag_state = sstate.sp
-                    else:
-                        encoder.encode_bit(sstate.negative, 1)
-                        magnitude = -dc_diff
-                        mag_state = sstate.sn
-
-                    if magnitude == 1:
-                        encoder.encode_bit(mag_state, 0)
-                    else:
-                        encoder.encode_bit(mag_state, 1)
-
-                        # Encode width of (magnitude - 1) (must be 2+ if above not encoded)
-                        v = magnitude - 1
-                        width = 0
-                        while (v >> width) != 0:
-                            width += 1
-                        for j in range(width - 1):
-                            encoder.encode_bit(dc_xstates[j], 1)
-                        encoder.encode_bit(dc_xstates[width - 1], 0)
-
-                        # Encode lowest bits of magnitude (first bit is implied 1)
-                        for j in range(width - 1):
-                            bit = v >> (width - j - 2) & 0x1
-                            encoder.encode_bit(dc_mstates[width - 2], bit)
+                encode_arithmetic_dc(
+                    encoder,
+                    sstate.non_zero,
+                    sstate.negative,
+                    sstate.sp,
+                    sstate.sn,
+                    dc_xstates,
+                    dc_mstates,
+                    dc_diff,
+                )
 
                 coefficient_index += 1
             else:
@@ -777,39 +793,16 @@ def arithmetic_lossless_scan(
             mstates = small_mstates
             xstates = small_xstates
 
-        # FIXME: Share with DCT arithmetic code
-        # Encode zero, positive or negative
-        if value == 0:
-            encoder.encode_bit(sstate.non_zero, 0)
-        else:
-            encoder.encode_bit(sstate.non_zero, 1)
-            if value > 0:
-                encoder.encode_bit(sstate.negative, 0)
-                magnitude = value
-                mag_state = sstate.sp
-            else:
-                encoder.encode_bit(sstate.negative, 1)
-                magnitude = -value
-                mag_state = sstate.sn
-
-            if magnitude == 1:
-                encoder.encode_bit(mag_state, 0)
-            else:
-                encoder.encode_bit(mag_state, 1)
-
-                # Encode width of (magnitude - 1) (must be 2+ if above not encoded)
-                v = magnitude - 1
-                mwidth = 0
-                while (v >> mwidth) != 0:
-                    mwidth += 1
-                for j in range(mwidth - 1):
-                    encoder.encode_bit(xstates[j], 1)
-                encoder.encode_bit(xstates[mwidth - 1], 0)
-
-                # Encode lowest bits of magnitude (first bit is implied 1)
-                for j in range(mwidth - 1):
-                    bit = v >> (mwidth - j - 2) & 0x1
-                    encoder.encode_bit(mstates[mwidth - 2], bit)
+        encode_arithmetic_dc(
+            encoder,
+            sstate.non_zero,
+            sstate.negative,
+            sstate.sp,
+            sstate.sn,
+            xstates,
+            mstates,
+            value,
+        )
 
     encoder.flush()
 
