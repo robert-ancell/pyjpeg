@@ -799,17 +799,17 @@ def arithmetic_lossless_scan(
 
                 # Encode width of (magnitude - 1) (must be 2+ if above not encoded)
                 v = magnitude - 1
-                width = 0
-                while (v >> width) != 0:
-                    width += 1
-                for j in range(width - 1):
+                mwidth = 0
+                while (v >> mwidth) != 0:
+                    mwidth += 1
+                for j in range(mwidth - 1):
                     encoder.encode_bit(xstates[j], 1)
-                encoder.encode_bit(xstates[width - 1], 0)
+                encoder.encode_bit(xstates[mwidth - 1], 0)
 
                 # Encode lowest bits of magnitude (first bit is implied 1)
-                for j in range(width - 1):
-                    bit = v >> (width - j - 2) & 0x1
-                    encoder.encode_bit(mstates[width - 2], bit)
+                for j in range(mwidth - 1):
+                    bit = v >> (mwidth - j - 2) & 0x1
+                    encoder.encode_bit(mstates[mwidth - 2], bit)
 
     encoder.flush()
 
