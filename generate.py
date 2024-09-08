@@ -138,7 +138,7 @@ def make_lossless(width, height, channels, precision=8, predictor=1, arithmetic=
             conditioning_range = (0, 1)
             dac = define_arithmetic_conditioning(
                 [
-                    ArithmeticConditioning.dc(0, conditioning_range),
+                    ArithmeticConditioning.dc(table_id, conditioning_range),
                 ]
             )
             scan_data += arithmetic_lossless_scan(conditioning_range, width, values)
