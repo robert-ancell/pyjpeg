@@ -161,7 +161,7 @@ class Encoder:
         # Discard final zeros
         while len(self.data) > 0 and self.data[-1] == 0:
             self.data = self.data[:-1]
-        if self.data[-1] == 0xFF:
+        if len(self.data) > 0 and self.data[-1] == 0xFF:
             self.data.append(0x00)
 
     def encode_mps(self, state):
