@@ -168,6 +168,8 @@ def start_of_frame_lossless(width, height, precision, components, arithmetic=Fal
 
 class HuffmanTable:
     def __init__(self, table_class=0, destination=0, symbols_by_length=[[]] * 16):
+        assert table_class >= 0 and table_class <= 15
+        assert destination >= 0 and destination <= 15
         assert len(symbols_by_length) == 16
         self.table_class = table_class
         self.destination = destination
@@ -198,6 +200,9 @@ def define_huffman_tables(tables=[]):
 
 class ArithmeticConditioning:
     def __init__(self, table_class=0, destination=0, conditioning_value=0):
+        assert table_class >= 0 and table_class <= 15
+        assert destination >= 0 and destination <= 15
+        assert conditioning_value >= 0 and conditioning_value <= 255
         self.table_class = table_class
         self.destination = destination
         self.conditioning_value = conditioning_value
