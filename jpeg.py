@@ -14,9 +14,6 @@ from huffman import *
 # FIXME: number of lines maker
 
 
-HUFFMAN_CLASS_DC = 0
-HUFFMAN_CLASS_AC = 1
-
 SOF_BASELINE = 0
 SOF_EXTENDED_HUFFMAN = 1
 SOF_PROGRESSIVE_HUFFMAN = 2
@@ -175,6 +172,16 @@ class HuffmanTable:
         self.table_class = table_class
         self.destination = destination
         self.symbols_by_length = symbols_by_length
+
+    def dc(destination, symbols_by_length):
+        return HuffmanTable(
+            table_class=0, destination=destination, symbols_by_length=symbols_by_length
+        )
+
+    def ac(destination, symbols_by_length):
+        return HuffmanTable(
+            table_class=1, destination=destination, symbols_by_length=symbols_by_length
+        )
 
 
 def define_huffman_tables(tables=[]):

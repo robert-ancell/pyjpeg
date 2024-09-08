@@ -83,16 +83,8 @@ def make_dct_sequential(width, samples, extended=False, precision=8, arithmetic=
     else:
         define_tables = define_huffman_tables(
             tables=[
-                HuffmanTable(
-                    table_class=HUFFMAN_CLASS_DC,
-                    destination=0,
-                    symbols_by_length=dc_table,
-                ),
-                HuffmanTable(
-                    table_class=HUFFMAN_CLASS_AC,
-                    destination=0,
-                    symbols_by_length=ac_table,
-                ),
+                HuffmanTable.dc(0, dc_table),
+                HuffmanTable.ac(0, ac_table),
             ]
         )
         dac = b""
@@ -144,13 +136,7 @@ def make_lossless(width, height, channels, precision=8, predictor=1, arithmetic=
             scan_data += arithmetic_lossless_scan(conditioning_range, width, values)
         else:
             table = make_lossless_huffman_table(values)
-            huffman_tables.append(
-                HuffmanTable(
-                    table_class=HUFFMAN_CLASS_DC,
-                    destination=table_id,
-                    symbols_by_length=table,
-                )
-            )
+            huffman_tables.append(HuffmanTable.dc(table_id, table))
             define_tables = define_huffman_tables(tables=huffman_tables)
             dac = b""
             scan_data += huffman_lossless_scan(
