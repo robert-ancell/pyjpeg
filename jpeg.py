@@ -751,8 +751,8 @@ def arithmetic_lossless_scan(
         else:
             b = values[i - width]
 
-        ca = classify_arithmetic_value(conditioning_range, value - a)
-        cb = classify_arithmetic_value(conditioning_range, value - b)
+        ca = classify_arithmetic_value(conditioning_range, a)
+        cb = classify_arithmetic_value(conditioning_range, b)
         sstate = sstates[ca][cb]
 
         if (
