@@ -120,36 +120,51 @@ def make_dct_sequential(width, samples, extended=False, precision=8, arithmetic=
     )
 
 
-def make_lossless(width, height, channels, precision=8, predictor=1):
+def make_lossless(width, height, channels, precision=8, predictor=1, arithmetic=False):
     components = []
     huffman_tables = []
     scan_components = []
     scan_data = b""
     for i, samples in enumerate(channels):
         component_id = i + 1
-        values = make_lossless_values(predictor, 32, precision, samples)
         components.append(Component(id=component_id))
         table_id = i
-        table = make_lossless_huffman_table(values)
-        huffman_tables.append(
-            HuffmanTable(
-                table_class=HUFFMAN_CLASS_DC,
-                destination=table_id,
-                symbols_by_length=table,
-            )
-        )
         scan_components.append(
             ScanComponent.lossless(component_id, table=table_id, predictor=predictor)
         )
-        scan_data += huffman_lossless_scan(
-            table,
-            values,
-        )
+        values = make_lossless_values(predictor, width, precision, samples)
+        if arithmetic:
+            define_tables = b""
+            conditioning_range = (0, 1)
+            dac = define_arithmetic_conditioning(
+                [
+                    ArithmeticConditioning.dc(0, conditioning_range),
+                ]
+            )
+            scan_data += arithmetic_lossless_scan(conditioning_range, width, values)
+        else:
+            table = make_lossless_huffman_table(values)
+            huffman_tables.append(
+                HuffmanTable(
+                    table_class=HUFFMAN_CLASS_DC,
+                    destination=table_id,
+                    symbols_by_length=table,
+                )
+            )
+            define_tables = define_huffman_tables(tables=huffman_tables)
+            dac = b""
+            scan_data += huffman_lossless_scan(
+                table,
+                values,
+            )
     return (
         start_of_image()
         + jfif()
-        + start_of_frame_lossless(width, height, precision, components)
-        + define_huffman_tables(tables=huffman_tables)
+        + start_of_frame_lossless(
+            width, height, precision, components, arithmetic=arithmetic
+        )
+        + define_tables
+        + dac
         + start_of_scan(scan_components)
         + scan_data
         + end_of_image()
@@ -182,4 +197,8 @@ open("lossless_12.jpg", "wb").write(
 )
 open("lossless_16.jpg", "wb").write(
     make_lossless(32, 32, [samples16], predictor=1, precision=16)
+)
+
+open("lossless_arithmetic.jpg", "wb").write(
+    make_lossless(32, 32, [samples8], predictor=1, arithmetic=True)
 )

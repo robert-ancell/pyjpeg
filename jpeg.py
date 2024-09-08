@@ -400,6 +400,47 @@ def huffman_dct_scan(
     return bytes(encode_scan_bits(bits))
 
 
+ARITHMETIC_CLASSIFICATION_ZERO = 0
+ARITHMETIC_CLASSIFICATION_SMALL_POSITIVE = 1
+ARITHMETIC_CLASSIFICATION_SMALL_NEGATIVE = 2
+ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE = 3
+ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE = 4
+
+N_ARITHMETIC_CLASSIFICATIONS = 5
+
+
+def classify_arithmetic_value(conditioning_range, value):
+    (lower, upper) = conditioning_range
+    if lower > 0:
+        lower = 1 << (lower - 1)
+    upper = 1 << upper
+    if value >= 0:
+        if value <= lower:
+            return ARITHMETIC_CLASSIFICATION_ZERO
+        elif value <= upper:
+            return ARITHMETIC_CLASSIFICATION_SMALL_POSITIVE
+        else:
+            return ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE
+    else:
+        if value >= -lower:
+            return ARITHMETIC_CLASSIFICATION_ZERO
+        elif value >= -upper:
+            return ARITHMETIC_CLASSIFICATION_SMALL_NEGATIVE
+        else:
+            return ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE
+
+
+# States for DC coefficients
+class ArithmeticDCStates:
+    def __init__(self):
+        self.non_zero = arithmetic.State()
+        self.negative = arithmetic.State()
+        # Magnitide 1 (positive)
+        self.sp = arithmetic.State()
+        # Magnitide 1 (negative)
+        self.sn = arithmetic.State()
+
+
 def arithmetic_dct_scan(
     coefficients=[],
     conditioning_range=(0, 1),
@@ -409,21 +450,9 @@ def arithmetic_dct_scan(
     assert len(coefficients) % 64 == 0
     n_data_units = len(coefficients) // 64
 
-    # States for DC coefficients
-    class DCStates:
-        def __init__(self):
-            self.non_zero = arithmetic.State()
-            self.negative = arithmetic.State()
-            # Magnitide 1 (positive)
-            self.sp = arithmetic.State()
-            # Magnitide 1 (negative)
-            self.sn = arithmetic.State()
-
-    small_positive_sstate = DCStates()
-    large_positive_sstate = DCStates()
-    zero_sstate = DCStates()
-    small_negative_sstate = DCStates()
-    large_negative_sstate = DCStates()
+    sstates = []
+    for i in range(N_ARITHMETIC_CLASSIFICATIONS):
+        sstates.append(ArithmeticDCStates())
     dc_xstates = []
     for i in range(15):
         dc_xstates.append(arithmetic.State())
@@ -468,24 +497,9 @@ def arithmetic_dct_scan(
                 else:
                     dc_diff = coefficient - coefficients[(data_unit - 1) * 64]
 
-                (lower, upper) = conditioning_range
-                if lower > 0:
-                    lower = 1 << (lower - 1)
-                upper = 1 << upper
-                if prev_dc_diff >= 0:
-                    if prev_dc_diff <= lower:
-                        sstate = zero_sstate
-                    elif prev_dc_diff <= upper:
-                        sstate = small_positive_sstate
-                    else:
-                        sstate = large_positive_sstate
-                else:
-                    if prev_dc_diff >= -lower:
-                        sstate = zero_sstate
-                    elif prev_dc_diff >= -upper:
-                        sstate = small_negative_sstate
-                    else:
-                        sstate = large_negative_sstate
+                sstate = sstates[
+                    classify_arithmetic_value(conditioning_range, prev_dc_diff)
+                ]
                 prev_dc_diff = dc_diff
 
                 # Encode zero, positive or negative
@@ -704,13 +718,87 @@ def huffman_lossless_scan(
 
 
 def arithmetic_lossless_scan(
+    conditioning_range,
+    width,
     values,
 ):
     encoder = arithmetic.Encoder()
-    bits = []
-    for value in values:
-        # FIXME
-        pass
+    sstates = []
+    for i in range(N_ARITHMETIC_CLASSIFICATIONS):
+        s = []
+        for i in range(N_ARITHMETIC_CLASSIFICATIONS):
+            s.append(ArithmeticDCStates())
+        sstates.append(s)
+    small_xstates = []
+    large_xstates = []
+    for i in range(15):
+        small_xstates.append(arithmetic.State())
+        large_xstates.append(arithmetic.State())
+    small_mstates = []
+    large_mstates = []
+    for i in range(14):
+        small_mstates.append(arithmetic.State())
+        large_mstates.append(arithmetic.State())
+    for i, value in enumerate(values):
+        x = i % width
+        y = i // width
+        if x == 0:
+            a = 0
+        else:
+            a = values[i - 1]
+        if y == 0:
+            b = 0
+        else:
+            b = values[i - width]
+
+        ca = classify_arithmetic_value(conditioning_range, value - a)
+        cb = classify_arithmetic_value(conditioning_range, value - b)
+        sstate = sstates[ca][cb]
+
+        if (
+            cb == ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE
+            or cb == ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE
+        ):
+            mstates = large_mstates
+            xstates = large_xstates
+        else:
+            mstates = small_mstates
+            xstates = small_xstates
+
+        # FIXME: Share with DCT arithmetic code
+        # Encode zero, positive or negative
+        if value == 0:
+            encoder.encode_bit(sstate.non_zero, 0)
+        else:
+            encoder.encode_bit(sstate.non_zero, 1)
+            if value > 0:
+                encoder.encode_bit(sstate.negative, 0)
+                magnitude = value
+                mag_state = sstate.sp
+            else:
+                encoder.encode_bit(sstate.negative, 1)
+                magnitude = -value
+                mag_state = sstate.sn
+
+            if magnitude == 1:
+                encoder.encode_bit(mag_state, 0)
+            else:
+                encoder.encode_bit(mag_state, 1)
+
+                # Encode width of (magnitude - 1) (must be 2+ if above not encoded)
+                v = magnitude - 1
+                width = 0
+                while (v >> width) != 0:
+                    width += 1
+                for j in range(width - 1):
+                    encoder.encode_bit(xstates[j], 1)
+                encoder.encode_bit(xstates[width - 1], 0)
+
+                # Encode lowest bits of magnitude (first bit is implied 1)
+                for j in range(width - 1):
+                    bit = v >> (width - j - 2) & 0x1
+                    encoder.encode_bit(mstates[width - 2], bit)
+
     encoder.flush()
 
     return bytes(encoder.data)
