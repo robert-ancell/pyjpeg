@@ -243,6 +243,9 @@ class ScanComponent:
         self.dc_table = dc_table
         self.ac_table = ac_table
 
+    def lossless(component_selector, table=0):
+        return ScanComponent(component_selector, dc_table=table, ac_table=0)
+
 
 def start_of_scan(components=[], ss=0, se=0, ah=0, al=0):
     assert ss >= 0 and ss <= 255

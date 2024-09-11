@@ -122,7 +122,7 @@ def make_lossless(width, height, channels, precision=8, predictor=1, arithmetic=
         component_id = i + 1
         components.append(Component(id=component_id))
         table_id = i
-        scan_components.append(ScanComponent(component_id, dc_table=table_id))
+        scan_components.append(ScanComponent.lossless(component_id, table=table_id))
         values = make_lossless_values(predictor, width, precision, samples)
         if arithmetic:
             define_tables = b""
