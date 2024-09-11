@@ -160,11 +160,13 @@ def make_dct_sequential_ycbcr(
     return data
 
 
-open("jpeg/baseline/y8.jpg", "wb").write(make_dct_sequential_y(width, height, y_samples))
-open("jpeg/baseline/ycbcr8.jpg", "wb").write(
+open("jpeg/baseline/32x32x8_y.jpg", "wb").write(
+    make_dct_sequential_y(width, height, y_samples)
+)
+open("jpeg/baseline/32x32x8_ycbcr.jpg", "wb").write(
     make_dct_sequential_ycbcr(width, height, y_samples, cb_samples, cr_samples)
 )
-open("jpeg/baseline/ycbcr8_interleaved.jpg", "wb").write(
+open("jpeg/baseline/32x32x8_ycbcr_interleaved.jpg", "wb").write(
     make_dct_sequential_ycbcr(
         width, height, y_samples, cb_samples, cr_samples, interleaved=True
     )
