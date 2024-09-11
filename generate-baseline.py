@@ -3,10 +3,21 @@
 from jpeg import *
 from pgm import *
 
-width, height, max_value, samples = read_pgm("test-face.pgm")
-samples8 = []
-for i in range(len(samples)):
-    samples8.append(round(samples[i] * 255 / max_value))
+width, height, max_value, raw_samples = read_pgm("test-face.pgm")
+samples = []
+for s in raw_samples:
+    samples.append(round(s * 255 / max_value))
+y_samples = []
+cb_samples = []
+cr_samples = []
+for s in samples:
+    (r, g, b) = (s, s, s)
+    y = round(0.299 * r + 0.587 * g + 0.114 * b)
+    cb = round(-0.1687 * r - 0.3313 * g + 0.5 * b + 128)
+    cr = round(0.5 * r - 0.4187 * g - 0.0813 * b + 128)
+    y_samples.append(y)
+    cb_samples.append(cb)
+    cr_samples.append(cr)
 
 
 def make_dct_sequential_y(width, height, samples):
@@ -88,8 +99,6 @@ def make_dct_sequential_ycbcr(width, height, y_samples, cb_samples, cr_samples):
         + start_of_scan_sequential(
             components=[
                 ScanComponent(1, dc_table=0, ac_table=0),
-                ScanComponent(2, dc_table=1, ac_table=1),
-                ScanComponent(3, dc_table=1, ac_table=1),
             ]
         )
         + huffman_dct_scan(
@@ -97,10 +106,20 @@ def make_dct_sequential_ycbcr(width, height, y_samples, cb_samples, cr_samples):
             ac_table=luminance_ac_table,
             coefficients=y_coefficients,
         )
+        + start_of_scan_sequential(
+            components=[
+                ScanComponent(2, dc_table=1, ac_table=1),
+            ]
+        )
         + huffman_dct_scan(
             dc_table=chrominance_dc_table,
             ac_table=chrominance_ac_table,
             coefficients=cb_coefficients,
+        )
+        + start_of_scan_sequential(
+            components=[
+                ScanComponent(3, dc_table=1, ac_table=1),
+            ]
         )
         + huffman_dct_scan(
             dc_table=chrominance_dc_table,
@@ -111,9 +130,9 @@ def make_dct_sequential_ycbcr(width, height, y_samples, cb_samples, cr_samples):
     )
 
 
-open("jpeg/baseline/y8.jpg", "wb").write(make_dct_sequential_y(width, height, samples8))
+open("jpeg/baseline/y8.jpg", "wb").write(make_dct_sequential_y(width, height, samples))
 open("jpeg/baseline/ycbcr8.jpg", "wb").write(
-    make_dct_sequential_ycbcr(width, height, samples8, [0] * 32 * 32, [0] * 32 * 32)
+    make_dct_sequential_ycbcr(width, height, y_samples, cb_samples, cr_samples)
 )
 # version 1.1
 # density
