@@ -7,12 +7,18 @@ width, height, max_value, raw_samples = read_pgm("test-face.pgm")
 y_samples = []
 cb_samples = []
 cr_samples = []
-for s in raw_samples:
-    s8 = round(s * 255 / max_value)
-    (r, g, b) = (s8, s8, s8)
+
+
+def rgb_to_ycbcr(r, g, b):
     y = round(0.299 * r + 0.587 * g + 0.114 * b)
     cb = round(-0.1687 * r - 0.3313 * g + 0.5 * b + 128)
     cr = round(0.5 * r - 0.4187 * g - 0.0813 * b + 128)
+    return (y, cb, cr)
+
+
+for s in raw_samples:
+    s8 = round(s * 255 / max_value)
+    (y, cb, cr) = rgb_to_ycbcr(s8, s8, s8)
     y_samples.append(y)
     cb_samples.append(cb)
     cr_samples.append(cr)
@@ -138,6 +144,7 @@ open("jpeg/baseline/32x32x8_ycbcr_interleaved.jpg", "wb").write(
         width, height, [y_samples, cb_samples, cr_samples], interleaved=True
     )
 )
+# 3 channel, red, green, blue, white, mixed color
 # version 1.1
 # density
 # thumbnail
