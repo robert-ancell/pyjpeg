@@ -52,8 +52,8 @@ def make_dct_sequential(width, samples, extended=False, precision=8, arithmetic=
     height = len(samples) // width
     quantization_table = [1] * 64  # FIXME: Using nothing at this point
     coefficients = make_dct_coefficients(width, height, 8, samples, quantization_table)
-    dc_table = make_dct_huffman_dc_table(coefficients)
-    ac_table = make_dct_huffman_ac_table(coefficients)
+    dc_table = make_dct_huffman_dc_table([coefficients])
+    ac_table = make_dct_huffman_ac_table([coefficients])
     if extended:
         sof = start_of_frame_extended(
             width,
@@ -76,8 +76,8 @@ def make_dct_sequential(width, samples, extended=False, precision=8, arithmetic=
                 ArithmeticConditioning.ac(0, kx),
             ]
         )
-        scan = start_of_scan(
-            components=[ScanComponent.dct(1, dc_table=0, ac_table=0)]
+        scan = start_of_scan_sequential(
+            components=[ScanComponent(1, dc_table=0, ac_table=0)]
         ) + arithmetic_dct_scan(
             coefficients=coefficients, conditioning_range=conditioning_range, kx=kx
         )
@@ -89,8 +89,8 @@ def make_dct_sequential(width, samples, extended=False, precision=8, arithmetic=
             ]
         )
         dac = b""
-        scan = start_of_scan(
-            components=[ScanComponent.dct(1, dc_table=0, ac_table=0)]
+        scan = start_of_scan_sequential(
+            components=[ScanComponent(1, dc_table=0, ac_table=0)]
         ) + huffman_dct_scan(
             dc_table=dc_table,
             ac_table=ac_table,
@@ -122,9 +122,7 @@ def make_lossless(width, height, channels, precision=8, predictor=1, arithmetic=
         component_id = i + 1
         components.append(Component(id=component_id))
         table_id = i
-        scan_components.append(
-            ScanComponent.lossless(component_id, table=table_id, predictor=predictor)
-        )
+        scan_components.append(ScanComponent(component_id, dc_table=table_id))
         values = make_lossless_values(predictor, width, precision, samples)
         if arithmetic:
             define_tables = b""
@@ -152,7 +150,7 @@ def make_lossless(width, height, channels, precision=8, predictor=1, arithmetic=
         )
         + define_tables
         + dac
-        + start_of_scan(scan_components)
+        + start_of_scan_lossless(scan_components, predictor=predictor)
         + scan_data
         + end_of_image()
     )

@@ -238,67 +238,36 @@ class ScanComponent:
         component_selector,
         dc_table=0,
         ac_table=0,
-        ss=0,
-        se=0,
-        ah=0,
-        al=0,
     ):
         self.component_selector = component_selector
         self.dc_table = dc_table
         self.ac_table = ac_table
-        self.ss = ss
-        self.se = se
-        self.ah = ah
-        self.al = al
-
-    def dct(
-        component_selector,
-        dc_table=0,
-        ac_table=0,
-        selection=(0, 63),
-        predictor=None,
-        successive_approximation=(0, 0),
-    ):
-        return ScanComponent(
-            component_selector,
-            dc_table=dc_table,
-            ac_table=ac_table,
-            ss=selection[0],
-            se=selection[1],
-            ah=successive_approximation[0],
-            al=successive_approximation[1],
-        )
-
-    def lossless(
-        component_selector,
-        table=0,
-        predictor=1,
-        successive_approximation=(0, 0),
-        point_transform=0,
-    ):
-        return ScanComponent(
-            component_selector,
-            dc_table=table,
-            ac_table=0,
-            ss=predictor,
-            se=0,
-            ah=0,
-            al=point_transform,
-        )
 
 
-def start_of_scan(components=[]):
+def start_of_scan(components=[], ss=0, se=0, ah=0, al=0):
+    assert ss >= 0 and ss <= 255
+    assert se >= 0 and se <= 255
+    assert ah >= 0 and ah <= 15
+    assert al >= 0 and al <= 15
     data = struct.pack("B", len(components))
     for component in components:
         data += struct.pack(
-            "BBBBB",
+            "BB",
             component.component_selector,
             component.dc_table << 4 | component.ac_table,
-            component.ss,
-            component.se,
-            component.ah << 4 | component.al,
         )
+    data += struct.pack("BBB", ss, se, ah << 4 | al)
     return marker(0xDA) + struct.pack(">H", 2 + len(data)) + data
+
+
+def start_of_scan_sequential(components=[]):
+    return start_of_scan(components=components, ss=0, se=63, ah=0, al=0)
+
+
+def start_of_scan_lossless(components=[], predictor=1, point_transform=0):
+    return start_of_scan(
+        components=components, ss=predictor, se=0, ah=0, al=point_transform
+    )
 
 
 def get_bits(value, length):
@@ -898,33 +867,35 @@ def make_dct_coefficients(width, height, depth, samples, quantization_table):
     return coefficients
 
 
-def make_dct_huffman_dc_table(coefficients):
+def make_dct_huffman_dc_table(channels):
     frequencies = [0] * 256
-    last_dc = 0
-    for i in range(0, len(coefficients), 64):
-        dc = coefficients[i]
-        dc_diff = dc - last_dc
-        last_dc = dc
-        symbol = get_amplitude_length(dc_diff)
-        frequencies[symbol] += 1
+    for coefficients in channels:
+        last_dc = 0
+        for i in range(0, len(coefficients), 64):
+            dc = coefficients[i]
+            dc_diff = dc - last_dc
+            last_dc = dc
+            symbol = get_amplitude_length(dc_diff)
+            frequencies[symbol] += 1
     return make_huffman_table(frequencies)
 
 
-def make_dct_huffman_ac_table(coefficients):
+def make_dct_huffman_ac_table(channels):
     frequencies = [0] * 256
-    for i in range(0, len(coefficients), 64):
-        end = i + 63
-        while i < end:
-            run_length = 0
-            while i + run_length <= end and coefficients[i + run_length] == 0:
-                run_length += 1
-            if i + run_length > end:
-                symbol = 0  # EOB
-            else:
-                if run_length > 15:
-                    run_length = 15
-                ac = coefficients[i + run_length]
-                symbol = run_length << 4 | get_amplitude_length(ac)
-            frequencies[symbol] += 1
-            i += run_length + 1
+    for coefficients in channels:
+        for i in range(0, len(coefficients), 64):
+            end = i + 63
+            while i < end:
+                run_length = 0
+                while i + run_length <= end and coefficients[i + run_length] == 0:
+                    run_length += 1
+                if i + run_length > end:
+                    symbol = 0  # EOB
+                else:
+                    if run_length > 15:
+                        run_length = 15
+                    ac = coefficients[i + run_length]
+                    symbol = run_length << 4 | get_amplitude_length(ac)
+                frequencies[symbol] += 1
+                i += run_length + 1
     return make_huffman_table(frequencies)
