@@ -329,59 +329,83 @@ def encode_scan_bits(bits):
     return data
 
 
-def huffman_dct_scan(
-    dc_table=None,
-    ac_table=None,
-    coefficients=[],
+class HuffmanDCTComponent:
+    def __init__(self, dc_table=None, ac_table=None, coefficients=[]):
+        self.dc_table = dc_table
+        self.ac_table = ac_table
+        self.coefficients = coefficients
+
+
+def _encode_huffman_data_unit(bits, component, data_unit_offset, selection):
+    i = selection[0]
+    while i <= selection[1]:
+        coefficient = component.coefficients[data_unit_offset + i]
+        if i == 0:
+            # DC coefficient, encode relative to previous DC value
+            if data_unit_offset == 0:
+                dc_diff = coefficient
+            else:
+                dc_diff = coefficient - component.coefficients[data_unit_offset - 64]
+            diff_bits = encode_amplitude(dc_diff)
+            bits.extend(get_huffman_code(component.dc_table, len(diff_bits)))
+            bits.extend(diff_bits)
+            i += 1
+        else:
+            # AC coefficient
+            # Count number of zero coefficients before the next positive one
+            run_length = 0
+            while (
+                i + run_length <= selection[1]
+                and component.coefficients[data_unit_offset + i + run_length] == 0
+            ):
+                run_length += 1
+            if i + run_length > 63:
+                bits.extend(get_huffman_code(component.ac_table, 0))  # EOB
+                i = selection[1] + 1
+            else:
+                if run_length > 15:
+                    run_length = 15
+                coefficient = component.coefficients[data_unit_offset + i + run_length]
+                coefficient_bits = encode_amplitude(coefficient)
+                bits.extend(
+                    get_huffman_code(
+                        component.ac_table, run_length << 4 | len(coefficient_bits)
+                    )
+                )
+                bits.extend(coefficient_bits)
+                i += run_length + 1
+
+
+def huffman_dct_scan_interleaved(
+    components=[],
     selection=(0, 63),
 ):
-    assert len(coefficients) % 64 == 0
-    n_data_units = len(coefficients) // 64
+    assert len(components) > 0
+    n_coefficients = len(components[0].coefficients)
+    assert n_coefficients % 64 == 0
+    for c in components:
+        assert len(c.coefficients) == n_coefficients
     bits = []
-    for data_unit in range(n_data_units):
-        i = selection[0]
-        while i <= selection[1]:
-            coefficient = coefficients[data_unit * 64 + i]
-            if i == 0:
-                # DC coefficient, encode relative to previous DC value
-                if data_unit == 0:
-                    dc_diff = coefficient
-                else:
-                    dc_diff = coefficient - coefficients[(data_unit - 1) * 64]
-                diff_bits = encode_amplitude(dc_diff)
-                bits.extend(get_huffman_code(dc_table, len(diff_bits)))
-                bits.extend(diff_bits)
-                i += 1
-            else:
-                # AC coefficient
-                # Count number of zero coefficients before the next positive one
-                run_length = 0
-                while (
-                    i + run_length <= selection[1]
-                    and coefficients[data_unit * 64 + i + run_length] == 0
-                ):
-                    run_length += 1
-                if i + run_length > 63:
-                    bits.extend(get_huffman_code(ac_table, 0))  # EOB
-                    i = selection[1] + 1
-                else:
-                    if run_length > 15:
-                        run_length = 15
-                    coefficient = coefficients[data_unit * 64 + i + run_length]
-                    coefficient_bits = encode_amplitude(coefficient)
-                    bits.extend(
-                        get_huffman_code(
-                            ac_table, run_length << 4 | len(coefficient_bits)
-                        )
-                    )
-                    bits.extend(coefficient_bits)
-                    i += run_length + 1
+    for data_unit_offset in range(0, n_coefficients, 64):
+        for component in components:
+            _encode_huffman_data_unit(bits, component, data_unit_offset, selection)
 
     # Pad with 1 bits
     if len(bits) % 8 != 0:
         bits.extend([1] * (8 - len(bits) % 8))
 
     return bytes(encode_scan_bits(bits))
+
+
+def huffman_dct_scan(dc_table=None, ac_table=None, coefficients=[], selection=(0, 63)):
+    return huffman_dct_scan_interleaved(
+        components=[
+            HuffmanDCTComponent(
+                dc_table=dc_table, ac_table=ac_table, coefficients=coefficients
+            )
+        ],
+        selection=selection,
+    )
 
 
 ARITHMETIC_CLASSIFICATION_ZERO = 0
