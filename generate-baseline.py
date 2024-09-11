@@ -4,14 +4,12 @@ from jpeg import *
 from pgm import *
 
 width, height, max_value, raw_samples = read_pgm("test-face.pgm")
-samples = []
-for s in raw_samples:
-    samples.append(round(s * 255 / max_value))
 y_samples = []
 cb_samples = []
 cr_samples = []
-for s in samples:
-    (r, g, b) = (s, s, s)
+for s in raw_samples:
+    s8 = round(s * 255 / max_value)
+    (r, g, b) = (s8, s8, s8)
     y = round(0.299 * r + 0.587 * g + 0.114 * b)
     cb = round(-0.1687 * r - 0.3313 * g + 0.5 * b + 128)
     cr = round(0.5 * r - 0.4187 * g - 0.0813 * b + 128)
@@ -162,7 +160,7 @@ def make_dct_sequential_ycbcr(
     return data
 
 
-open("jpeg/baseline/y8.jpg", "wb").write(make_dct_sequential_y(width, height, samples))
+open("jpeg/baseline/y8.jpg", "wb").write(make_dct_sequential_y(width, height, y_samples))
 open("jpeg/baseline/ycbcr8.jpg", "wb").write(
     make_dct_sequential_ycbcr(width, height, y_samples, cb_samples, cr_samples)
 )
@@ -171,7 +169,6 @@ open("jpeg/baseline/ycbcr8_interleaved.jpg", "wb").write(
         width, height, y_samples, cb_samples, cr_samples, interleaved=True
     )
 )
-# interleaved
 # version 1.1
 # density
 # thumbnail
