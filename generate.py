@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from jpeg import *
+from pgm import *
 
 
 def read_pgm(path):
