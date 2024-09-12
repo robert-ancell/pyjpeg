@@ -29,8 +29,14 @@ def make_dct_sequential(
 ):
     n_components = len(samples)
 
-    # FIXME: Depends on color space
-    assert n_components in (1, 3)
+    if color_space is None:
+        assert n_components in (1, 3)
+    elif color_space == ADOBE_COLOR_SPACE_RGB_OR_CMYK:
+        assert n_components in (3, 4)
+    elif color_space == ADOBE_COLOR_SPACE_Y_CB_CR:
+        assert n_components == 3
+    elif color_space == ADOBE_COLOR_SPACE_Y_CB_CR_K:
+        assert n_components == 4
     assert len(sampling_factors) == n_components
 
     luminance_quantization_table = [1] * 64  # FIXME: Using nothing at this point
@@ -171,6 +177,16 @@ open("jpeg/baseline/32x32x8_rgb.jpg", "wb").write(
         height,
         [y_samples, y_samples, y_samples],
         [(1, 1), (1, 1), (1, 1)],
+        color_space=ADOBE_COLOR_SPACE_RGB_OR_CMYK,
+    )
+)
+
+open("jpeg/baseline/32x32x8_cmyk.jpg", "wb").write(
+    make_dct_sequential(
+        width,
+        height,
+        [[0] * 32 * 32, [0] * 32 * 32, [0] * 32 * 32, y_samples],
+        [(1, 1), (1, 1), (1, 1), (1, 1)],
         color_space=ADOBE_COLOR_SPACE_RGB_OR_CMYK,
     )
 )
