@@ -24,126 +24,158 @@ for s in raw_samples:
     cr_samples.append(cr)
 
 
-def make_dct_sequential(width, height, samples, interleaved=False):
-    assert len(samples) in (1, 3)
+def make_dct_sequential(
+    width, height, samples, sampling_factors, interleaved=False, color_space=None
+):
+    n_components = len(samples)
+
+    # FIXME: Depends on color space
+    assert n_components in (1, 3)
+    assert len(sampling_factors) == n_components
+
     luminance_quantization_table = [1] * 64  # FIXME: Using nothing at this point
     chrominance_quantization_table = [1] * 64  # FIXME: Using nothing at this point
-    y_coefficients = make_dct_coefficients(
-        width, height, 8, y_samples, luminance_quantization_table
-    )
-    luminance_dc_table = make_dct_huffman_dc_table([y_coefficients])
-    luminance_ac_table = make_dct_huffman_ac_table([y_coefficients])
-    quantization_tables = [
-        QuantizationTable(destination=0, data=luminance_quantization_table)
-    ]
-    components = [Component(id=1, quantization_table=0)]
-    huffman_tables = [
-        HuffmanTable.dc(0, luminance_dc_table),
-        HuffmanTable.ac(0, luminance_ac_table),
-    ]
-    if len(samples) > 1:
-        cb_coefficients = make_dct_coefficients(
-            width, height, 8, cb_samples, chrominance_quantization_table
-        )
-        cr_coefficients = make_dct_coefficients(
-            width, height, 8, cr_samples, chrominance_quantization_table
-        )
-        chrominance_dc_table = make_dct_huffman_dc_table(
-            [cb_coefficients, cr_coefficients]
-        )
-        chrominance_ac_table = make_dct_huffman_ac_table(
-            [cb_coefficients, cr_coefficients]
-        )
-        quantization_tables.append(
-            QuantizationTable(destination=1, data=chrominance_quantization_table)
-        )
-        components.append(Component(id=2, quantization_table=1))
-        components.append(Component(id=3, quantization_table=1))
-        huffman_tables.append(HuffmanTable.dc(1, chrominance_dc_table))
-        huffman_tables.append(HuffmanTable.ac(1, chrominance_ac_table))
 
-    data = (
-        start_of_image()
-        + jfif()
-        + define_quantization_tables(tables=quantization_tables)
+    if color_space is None and n_components == 3:
+        coefficients = [
+            make_dct_coefficients(
+                width, height, 8, samples[0], chrominance_quantization_table
+            )
+        ]
+        for i in range(1, n_components):
+            coefficients.append(
+                make_dct_coefficients(
+                    width, height, 8, samples[i], luminance_quantization_table
+                )
+            )
+        luminance_dc_table = make_dct_huffman_dc_table(coefficients[:1])
+        luminance_ac_table = make_dct_huffman_ac_table(coefficients[:1])
+        chrominance_dc_table = make_dct_huffman_dc_table(coefficients[1:])
+        chrominance_ac_table = make_dct_huffman_ac_table(coefficients[1:])
+        huffman_tables = [
+            HuffmanTable.dc(0, luminance_dc_table),
+            HuffmanTable.ac(0, luminance_ac_table),
+            HuffmanTable.dc(1, chrominance_dc_table),
+            HuffmanTable.ac(1, chrominance_ac_table),
+        ]
+        quantization_tables = [
+            QuantizationTable(destination=0, data=luminance_quantization_table),
+            QuantizationTable(destination=1, data=chrominance_quantization_table),
+        ]
+        component_quantization_tables = [0]
+        for i in range(1, n_components):
+            component_quantization_tables.append(1)
+        scan_components = [ScanComponent(1, dc_table=0, ac_table=0)]
+        dc_tables = [luminance_dc_table]
+        ac_tables = [luminance_ac_table]
+        for i in range(1, n_components):
+            scan_components.append(ScanComponent(i + 1, dc_table=1, ac_table=1))
+            dc_tables.append(chrominance_dc_table)
+            ac_tables.append(chrominance_ac_table)
+    else:
+        coefficients = []
+        for i in range(n_components):
+            coefficients.append(
+                make_dct_coefficients(
+                    width, height, 8, samples[i], luminance_quantization_table
+                )
+            )
+        luminance_dc_table = make_dct_huffman_dc_table(coefficients)
+        luminance_ac_table = make_dct_huffman_ac_table(coefficients)
+        huffman_tables = [
+            HuffmanTable.dc(0, luminance_dc_table),
+            HuffmanTable.ac(0, luminance_ac_table),
+        ]
+        quantization_tables = [
+            QuantizationTable(destination=0, data=luminance_quantization_table)
+        ]
+        component_quantization_tables = []
+        for i in range(n_components):
+            component_quantization_tables.append(0)
+        scan_components = []
+        dc_tables = []
+        ac_tables = []
+        for i in range(n_components):
+            scan_components.append(ScanComponent(i + 1, dc_table=0, ac_table=0))
+            dc_tables.append(luminance_dc_table)
+            ac_tables.append(luminance_ac_table)
+    components = []
+    for i in range(n_components):
+        components.append(
+            Component(
+                id=i + 1,
+                sampling_factor=sampling_factors[i],
+                quantization_table=component_quantization_tables[i],
+            )
+        )
+
+    data = start_of_image()
+    if color_space is None:
+        data += jfif()
+    else:
+        data += adobe(color_space=color_space)
+    data += (
+        define_quantization_tables(tables=quantization_tables)
         + start_of_frame_baseline(width, height, components)
         + define_huffman_tables(tables=huffman_tables)
     )
-    if interleaved and len(samples) > 1:
+    if interleaved and n_components > 1:
+        huffman_components = []
+        for i in range(n_components):
+            huffman_components.append(
+                HuffmanDCTComponent(
+                    dc_table=dc_tables[i],
+                    ac_table=ac_tables[i],
+                    coefficients=coefficients[i],
+                )
+            )
         data += start_of_scan_sequential(
-            components=[
-                ScanComponent(1, dc_table=0, ac_table=0),
-                ScanComponent(2, dc_table=1, ac_table=1),
-                ScanComponent(3, dc_table=1, ac_table=1),
-            ]
-        ) + huffman_dct_scan_interleaved(
-            [
-                HuffmanDCTComponent(
-                    dc_table=luminance_dc_table,
-                    ac_table=luminance_ac_table,
-                    coefficients=y_coefficients,
-                ),
-                HuffmanDCTComponent(
-                    dc_table=chrominance_dc_table,
-                    ac_table=chrominance_ac_table,
-                    coefficients=cb_coefficients,
-                ),
-                HuffmanDCTComponent(
-                    dc_table=chrominance_dc_table,
-                    ac_table=chrominance_ac_table,
-                    coefficients=cr_coefficients,
-                ),
-            ],
-        )
+            components=scan_components
+        ) + huffman_dct_scan_interleaved(huffman_components)
     else:
-        data += start_of_scan_sequential(
-            components=[
-                ScanComponent(1, dc_table=0, ac_table=0),
-            ]
-        ) + huffman_dct_scan(
-            dc_table=luminance_dc_table,
-            ac_table=luminance_ac_table,
-            coefficients=y_coefficients,
-        )
-
-        if len(samples) > 1:
-            data += (
-                start_of_scan_sequential(
-                    components=[
-                        ScanComponent(2, dc_table=1, ac_table=1),
-                    ]
-                )
-                + huffman_dct_scan(
-                    dc_table=chrominance_dc_table,
-                    ac_table=chrominance_ac_table,
-                    coefficients=cb_coefficients,
-                )
-                + start_of_scan_sequential(
-                    components=[
-                        ScanComponent(3, dc_table=1, ac_table=1),
-                    ]
-                )
-                + huffman_dct_scan(
-                    dc_table=chrominance_dc_table,
-                    ac_table=chrominance_ac_table,
-                    coefficients=cr_coefficients,
-                )
+        for i in range(n_components):
+            data += start_of_scan_sequential(
+                components=[
+                    scan_components[i],
+                ]
+            ) + huffman_dct_scan(
+                dc_table=dc_tables[i],
+                ac_table=ac_tables[i],
+                coefficients=coefficients[i],
             )
     data += end_of_image()
     return data
 
 
 open("jpeg/baseline/32x32x8_y.jpg", "wb").write(
-    make_dct_sequential(width, height, [y_samples])
+    make_dct_sequential(width, height, [y_samples], [(1, 1)])
 )
 open("jpeg/baseline/32x32x8_ycbcr.jpg", "wb").write(
-    make_dct_sequential(width, height, [y_samples, cb_samples, cr_samples])
+    make_dct_sequential(
+        width, height, [y_samples, cb_samples, cr_samples], [(1, 1), (1, 1), (1, 1)]
+    )
 )
 open("jpeg/baseline/32x32x8_ycbcr_interleaved.jpg", "wb").write(
     make_dct_sequential(
-        width, height, [y_samples, cb_samples, cr_samples], interleaved=True
+        width,
+        height,
+        [y_samples, cb_samples, cr_samples],
+        [(1, 1), (1, 1), (1, 1)],
+        interleaved=True,
     )
 )
+
+open("jpeg/baseline/32x32x8_rgb.jpg", "wb").write(
+    make_dct_sequential(
+        width,
+        height,
+        [y_samples, y_samples, y_samples],
+        [(1, 1), (1, 1), (1, 1)],
+        color_space=ADOBE_COLOR_SPACE_RGB_OR_CMYK,
+    )
+)
+
+
 # 3 channel, red, green, blue, white, mixed color
 # version 1.1
 # density

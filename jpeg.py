@@ -82,6 +82,23 @@ def jfxx():
     return marker(0xE0) + struct.pack(">H", 2 + len(data)) + data
 
 
+ADOBE_COLOR_SPACE_RGB_OR_CMYK = 0
+ADOBE_COLOR_SPACE_Y_CB_CR = 1
+ADOBE_COLOR_SPACE_Y_CB_CR_K = 2
+
+
+def adobe(version=101, flags0=0, flags1=0, color_space=ADOBE_COLOR_SPACE_Y_CB_CR):
+    data = struct.pack(
+        ">5sHHHB",
+        bytes("Adobe", "utf-8"),
+        version,
+        flags0,
+        flags1,
+        color_space,
+    )
+    return marker(0xEE) + struct.pack(">H", 2 + len(data)) + data
+
+
 class QuantizationTable:
     def __init__(self, precision=0, destination=0, data=b"x\00" * 64):
         assert len(data) == 64
