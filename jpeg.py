@@ -47,6 +47,10 @@ class Density:
         return Density(1, x, y)
 
 
+def comment(value):
+    return marker(0xFE) + struct.pack(">H", 2 + len(value)) + value
+
+
 def jfif(
     version=(1, 2),
     density=Density.aspect_ratio(1, 1),
