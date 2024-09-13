@@ -84,11 +84,22 @@ def make_dct_sequential(
         max_v_sampling_factor = max(v, max_v_sampling_factor)
 
     component_sizes = []
+    component_samples = []
     for i, s in enumerate(samples):
         w = math.ceil(width * sampling_factors[i][0] / max_h_sampling_factor)
         h = math.ceil(height * sampling_factors[i][1] / max_v_sampling_factor)
-        assert len(s) == w * h
         component_sizes.append((w, h))
+        component_samples.append(
+            scale_samples(
+                width,
+                height,
+                s,
+                max_h_sampling_factor,
+                sampling_factors[i][0],
+                max_v_sampling_factor,
+                sampling_factors[i][1],
+            )
+        )
 
     if color_space is None:
         assert n_components in (1, 3)
@@ -117,7 +128,7 @@ def make_dct_sequential(
                     component_sizes[i][0],
                     component_sizes[i][1],
                     8,
-                    samples[i],
+                    component_samples[i],
                     quantization_table,
                 )
             )
@@ -153,7 +164,7 @@ def make_dct_sequential(
                     component_sizes[i][0],
                     component_sizes[i][1],
                     8,
-                    samples[i],
+                    component_samples[i],
                     luminance_quantization_table,
                 )
             )
@@ -244,28 +255,22 @@ open("../jpeg/baseline/32x32x8_ycbcr_interleaved.jpg", "wb").write(
     )
 )
 
+# FIXME: Interleaved
 open("../jpeg/baseline/32x32x8_ycbcr_scale_22_11_11.jpg", "wb").write(
     make_dct_sequential(
         width,
         height,
-        (
-            ycbcr_samples[0],
-            scale_samples(width, height, ycbcr_samples[1], 2, 1, 2, 1),
-            scale_samples(width, height, ycbcr_samples[2], 2, 1, 2, 1),
-        ),
+        ycbcr_samples,
         [(2, 2), (1, 1), (1, 1)],
     )
 )
 
+# FIXME: Interleaved
 open("../jpeg/baseline/32x32x8_ycbcr_scale_44_11_11.jpg", "wb").write(
     make_dct_sequential(
         width,
         height,
-        (
-            ycbcr_samples[0],
-            scale_samples(width, height, ycbcr_samples[1], 4, 1, 4, 1),
-            scale_samples(width, height, ycbcr_samples[2], 4, 1, 4, 1),
-        ),
+        ycbcr_samples,
         [(4, 4), (1, 1), (1, 1)],
     )
 )
