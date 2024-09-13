@@ -103,24 +103,22 @@ def make_dct_sequential(
     luminance_quantization_table = [1] * 64  # FIXME: Using nothing at this point
     chrominance_quantization_table = [1] * 64  # FIXME: Using nothing at this point
 
-    if color_space is None and n_components == 3:
-        coefficients = [
-            jpeg.make_dct_coefficients(
-                component_sizes[0][0],
-                component_sizes[0][1],
-                8,
-                samples[0],
-                chrominance_quantization_table,
-            )
-        ]
-        for i in range(1, n_components):
+    if (
+        color_space is None and n_components == 3
+    ) or color_space == jpeg.ADOBE_COLOR_SPACE_Y_CB_CR:
+        coefficients = []
+        for i in range(n_components):
+            if i == 0:
+                quantization_table = luminance_quantization_table
+            else:
+                quantization_table = chrominance_quantization_table
             coefficients.append(
                 jpeg.make_dct_coefficients(
                     component_sizes[i][0],
                     component_sizes[i][1],
                     8,
                     samples[i],
-                    luminance_quantization_table,
+                    quantization_table,
                 )
             )
         luminance_dc_table = jpeg.make_dct_huffman_dc_table(coefficients[:1])
