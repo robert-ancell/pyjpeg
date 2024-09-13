@@ -55,6 +55,8 @@ for s in raw_samples:
 
 
 def scale_samples(width, height, samples, h_max, h, v_max, v):
+    if h == h_max and v == v_max:
+        return samples
     assert h == 1
     assert v == 1
     out_samples = []
