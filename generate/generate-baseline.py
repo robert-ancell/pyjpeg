@@ -3,11 +3,6 @@
 import jpeg
 from pgm import *
 
-width, height, max_value, raw_samples = read_pgm("test-face.pgm")
-y_samples = []
-cb_samples = []
-cr_samples = []
-
 
 def rgb_to_ycbcr(r, g, b):
     y = round(0.299 * r + 0.587 * g + 0.114 * b)
@@ -16,12 +11,46 @@ def rgb_to_ycbcr(r, g, b):
     return (y, cb, cr)
 
 
+def rgb_to_cmyk(r8, g8, b8):
+    r = r8 / 255.0
+    g = g8 / 255.0
+    b = b8 / 255.0
+    k = 1 - max(r, g, b)
+    if k == 1:
+        c, m, y = 0, 0, 0
+    else:
+        c = (1 - r - k) / (1 - k)
+        m = (1 - g - k) / (1 - k)
+        y = (1 - b - k) / (1 - k)
+    return (round(c * 255), round(m * 255), round(y * 255), round(k * 255))
+
+
+width, height, max_value, raw_samples = read_pgm("test-face.pgm")
+grayscale_samples = []
 for s in raw_samples:
-    s8 = round(s * 255 / max_value)
-    (y, cb, cr) = rgb_to_ycbcr(s8, s8, s8)
-    y_samples.append(y)
-    cb_samples.append(cb)
-    cr_samples.append(cr)
+    grayscale_samples.append(round(s * 255 / max_value))
+
+width, height, max_value, raw_samples = read_pgm("test-face.ppm")
+rgb_samples = ([], [], [])
+ycbcr_samples = ([], [], [])
+cmyk_samples = ([], [], [], [])
+for s in raw_samples:
+    (r, g, b) = s
+    r8 = round(r * 255 / max_value)
+    g8 = round(g * 255 / max_value)
+    b8 = round(b * 255 / max_value)
+    rgb_samples[0].append(r8)
+    rgb_samples[1].append(g8)
+    rgb_samples[2].append(b8)
+    (y, cb, cr) = rgb_to_ycbcr(r8, g8, b8)
+    ycbcr_samples[0].append(y)
+    ycbcr_samples[1].append(cb)
+    ycbcr_samples[2].append(cr)
+    (c, m, y, k) = rgb_to_cmyk(r8, g8, b8)
+    cmyk_samples[0].append(c)
+    cmyk_samples[1].append(m)
+    cmyk_samples[2].append(y)
+    cmyk_samples[3].append(k)
 
 
 def make_dct_sequential(
@@ -162,32 +191,32 @@ def make_dct_sequential(
 
 
 open("../jpeg/baseline/32x32x8_y.jpg", "wb").write(
-    make_dct_sequential(width, height, [y_samples], [(1, 1)])
+    make_dct_sequential(width, height, [grayscale_samples], [(1, 1)])
 )
 
 open("../jpeg/baseline/32x32x8_ycbcr.jpg", "wb").write(
-    make_dct_sequential(
-        width, height, [y_samples, cb_samples, cr_samples], [(1, 1), (1, 1), (1, 1)]
-    )
+    make_dct_sequential(width, height, ycbcr_samples, [(1, 1), (1, 1), (1, 1)])
 )
 
 open("../jpeg/baseline/32x32x8_ycbcr_interleaved.jpg", "wb").write(
     make_dct_sequential(
         width,
         height,
-        [y_samples, cb_samples, cr_samples],
+        ycbcr_samples,
         [(1, 1), (1, 1), (1, 1)],
         interleaved=True,
     )
 )
 
 open("../jpeg/baseline/32x32x8_comment.jpg", "wb").write(
-    make_dct_sequential(width, height, [y_samples], [(1, 1)], comments=[b"Hello World"])
+    make_dct_sequential(
+        width, height, [grayscale_samples], [(1, 1)], comments=[b"Hello World"]
+    )
 )
 
 open("../jpeg/baseline/32x32x8_comments.jpg", "wb").write(
     make_dct_sequential(
-        width, height, [y_samples], [(1, 1)], comments=[b"Hello", b"World"]
+        width, height, [grayscale_samples], [(1, 1)], comments=[b"Hello", b"World"]
     )
 )
 
@@ -195,7 +224,7 @@ open("../jpeg/baseline/32x32x8_rgb.jpg", "wb").write(
     make_dct_sequential(
         width,
         height,
-        [y_samples, y_samples, y_samples],
+        rgb_samples,
         [(1, 1), (1, 1), (1, 1)],
         color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
     )
@@ -205,7 +234,7 @@ open("../jpeg/baseline/32x32x8_cmyk.jpg", "wb").write(
     make_dct_sequential(
         width,
         height,
-        [[0] * 32 * 32, [0] * 32 * 32, [0] * 32 * 32, y_samples],
+        cmyk_samples,
         [(1, 1), (1, 1), (1, 1), (1, 1)],
         color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
     )
