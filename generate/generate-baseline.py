@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import math
 import jpeg
 from pgm import *
 
@@ -53,6 +54,16 @@ for s in raw_samples:
     cmyk_samples[3].append(k)
 
 
+def scale_samples(width, height, samples, h_max, h, v_max, v):
+    assert h == 1
+    assert v == 1
+    out_samples = []
+    for y in range(0, height, v_max):
+        for x in range(0, width, h_max):
+            out_samples.append(samples[y * height + x])
+    return out_samples
+
+
 def make_dct_sequential(
     width,
     height,
@@ -63,6 +74,19 @@ def make_dct_sequential(
     comments=[],
 ):
     n_components = len(samples)
+
+    max_h_sampling_factor = 0
+    max_v_sampling_factor = 0
+    for h, v in sampling_factors:
+        max_h_sampling_factor = max(h, max_h_sampling_factor)
+        max_v_sampling_factor = max(v, max_v_sampling_factor)
+
+    component_sizes = []
+    for i, s in enumerate(samples):
+        w = math.ceil(width * sampling_factors[i][0] / max_h_sampling_factor)
+        h = math.ceil(height * sampling_factors[i][1] / max_v_sampling_factor)
+        assert len(s) == w * h
+        component_sizes.append((w, h))
 
     if color_space is None:
         assert n_components in (1, 3)
@@ -80,13 +104,21 @@ def make_dct_sequential(
     if color_space is None and n_components == 3:
         coefficients = [
             jpeg.make_dct_coefficients(
-                width, height, 8, samples[0], chrominance_quantization_table
+                component_sizes[0][0],
+                component_sizes[0][1],
+                8,
+                samples[0],
+                chrominance_quantization_table,
             )
         ]
         for i in range(1, n_components):
             coefficients.append(
                 jpeg.make_dct_coefficients(
-                    width, height, 8, samples[i], luminance_quantization_table
+                    component_sizes[i][0],
+                    component_sizes[i][1],
+                    8,
+                    samples[i],
+                    luminance_quantization_table,
                 )
             )
         luminance_dc_table = jpeg.make_dct_huffman_dc_table(coefficients[:1])
@@ -118,7 +150,11 @@ def make_dct_sequential(
         for i in range(n_components):
             coefficients.append(
                 jpeg.make_dct_coefficients(
-                    width, height, 8, samples[i], luminance_quantization_table
+                    component_sizes[i][0],
+                    component_sizes[i][1],
+                    8,
+                    samples[i],
+                    luminance_quantization_table,
                 )
             )
         luminance_dc_table = jpeg.make_dct_huffman_dc_table(coefficients)
@@ -205,6 +241,32 @@ open("../jpeg/baseline/32x32x8_ycbcr_interleaved.jpg", "wb").write(
         ycbcr_samples,
         [(1, 1), (1, 1), (1, 1)],
         interleaved=True,
+    )
+)
+
+open("../jpeg/baseline/32x32x8_ycbcr_scale_22_11_11.jpg", "wb").write(
+    make_dct_sequential(
+        width,
+        height,
+        (
+            ycbcr_samples[0],
+            scale_samples(width, height, ycbcr_samples[1], 2, 1, 2, 1),
+            scale_samples(width, height, ycbcr_samples[2], 2, 1, 2, 1),
+        ),
+        [(2, 2), (1, 1), (1, 1)],
+    )
+)
+
+open("../jpeg/baseline/32x32x8_ycbcr_scale_44_11_11.jpg", "wb").write(
+    make_dct_sequential(
+        width,
+        height,
+        (
+            ycbcr_samples[0],
+            scale_samples(width, height, ycbcr_samples[1], 4, 1, 4, 1),
+            scale_samples(width, height, ycbcr_samples[2], 4, 1, 4, 1),
+        ),
+        [(4, 4), (1, 1), (1, 1)],
     )
 )
 
