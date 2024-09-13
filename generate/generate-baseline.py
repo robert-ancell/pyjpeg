@@ -161,17 +161,17 @@ def make_dct_sequential(
     return data
 
 
-open("jpeg/baseline/32x32x8_y.jpg", "wb").write(
+open("../jpeg/baseline/32x32x8_y.jpg", "wb").write(
     make_dct_sequential(width, height, [y_samples], [(1, 1)])
 )
 
-open("jpeg/baseline/32x32x8_ycbcr.jpg", "wb").write(
+open("../jpeg/baseline/32x32x8_ycbcr.jpg", "wb").write(
     make_dct_sequential(
         width, height, [y_samples, cb_samples, cr_samples], [(1, 1), (1, 1), (1, 1)]
     )
 )
 
-open("jpeg/baseline/32x32x8_ycbcr_interleaved.jpg", "wb").write(
+open("../jpeg/baseline/32x32x8_ycbcr_interleaved.jpg", "wb").write(
     make_dct_sequential(
         width,
         height,
@@ -181,17 +181,17 @@ open("jpeg/baseline/32x32x8_ycbcr_interleaved.jpg", "wb").write(
     )
 )
 
-open("jpeg/baseline/32x32x8_comment.jpg", "wb").write(
+open("../jpeg/baseline/32x32x8_comment.jpg", "wb").write(
     make_dct_sequential(width, height, [y_samples], [(1, 1)], comments=[b"Hello World"])
 )
 
-open("jpeg/baseline/32x32x8_comments.jpg", "wb").write(
+open("../jpeg/baseline/32x32x8_comments.jpg", "wb").write(
     make_dct_sequential(
         width, height, [y_samples], [(1, 1)], comments=[b"Hello", b"World"]
     )
 )
 
-open("jpeg/baseline/32x32x8_rgb.jpg", "wb").write(
+open("../jpeg/baseline/32x32x8_rgb.jpg", "wb").write(
     make_dct_sequential(
         width,
         height,
@@ -201,7 +201,7 @@ open("jpeg/baseline/32x32x8_rgb.jpg", "wb").write(
     )
 )
 
-open("jpeg/baseline/32x32x8_cmyk.jpg", "wb").write(
+open("../jpeg/baseline/32x32x8_cmyk.jpg", "wb").write(
     make_dct_sequential(
         width,
         height,
