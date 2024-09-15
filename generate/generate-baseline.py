@@ -248,7 +248,7 @@ def make_dct_sequential(
     return data
 
 
-open("../jpeg/baseline/32x32x8_y.jpg", "wb").write(
+open("../jpeg/baseline/32x32x8_grayscale.jpg", "wb").write(
     make_dct_sequential(width, height, [grayscale_samples], [(1, 1)])
 )
 
