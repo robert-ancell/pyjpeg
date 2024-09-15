@@ -57,11 +57,11 @@ for s in raw_samples:
 def scale_samples(width, height, samples, h_max, h, v_max, v):
     if h == h_max and v == v_max:
         return samples
-    assert h == 1
-    assert v == 1
+    assert h_max % h == 0
+    assert v_max % v == 0
     out_samples = []
-    for y in range(0, height, v_max):
-        for x in range(0, width, h_max):
+    for y in range(0, height, v_max // v):
+        for x in range(0, width, h_max // h):
             out_samples.append(samples[y * height + x])
     return out_samples
 
@@ -281,6 +281,25 @@ open("../jpeg/baseline/32x32x8_ycbcr_scale_22_11_11_interleaved.jpg", "wb").writ
         height,
         ycbcr_samples,
         [(2, 2), (1, 1), (1, 1)],
+        interleaved=True,
+    )
+)
+
+open("../jpeg/baseline/32x32x8_ycbcr_scale_22_21_12.jpg", "wb").write(
+    make_dct_sequential(
+        width,
+        height,
+        ycbcr_samples,
+        [(2, 2), (2, 1), (1, 2)],
+    )
+)
+
+open("../jpeg/baseline/32x32x8_ycbcr_scale_22_21_12_interleaved.jpg", "wb").write(
+    make_dct_sequential(
+        width,
+        height,
+        ycbcr_samples,
+        [(2, 2), (2, 1), (1, 2)],
         interleaved=True,
     )
 )
