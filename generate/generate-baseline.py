@@ -313,6 +313,15 @@ open("../jpeg/baseline/32x32x8_ycbcr_scale_44_11_11.jpg", "wb").write(
     )
 )
 
+open("../jpeg/baseline/32x32x8_ycbcr_scale_44_22_11.jpg", "wb").write(
+    make_dct_sequential(
+        width,
+        height,
+        ycbcr_samples,
+        [(4, 4), (2, 2), (1, 1)],
+    )
+)
+
 open("../jpeg/baseline/32x32x8_comment.jpg", "wb").write(
     make_dct_sequential(
         width, height, [grayscale_samples], [(1, 1)], comments=[b"Hello World"]
