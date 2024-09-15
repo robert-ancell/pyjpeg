@@ -123,10 +123,15 @@ def make_dct_sequential(
                 quantization_table = luminance_quantization_table
             else:
                 quantization_table = chrominance_quantization_table
+            if interleaved:
+                sampling_factor = sampling_factors[i]
+            else:
+                sampling_factor = (1, 1)
             coefficients.append(
                 jpeg.make_dct_coefficients(
                     component_sizes[i][0],
                     component_sizes[i][1],
+                    sampling_factor,
                     8,
                     component_samples[i],
                     quantization_table,
@@ -159,10 +164,15 @@ def make_dct_sequential(
     else:
         coefficients = []
         for i in range(n_components):
+            if interleaved:
+                sampling_factor = sampling_factors[i]
+            else:
+                sampling_factor = (1, 1)
             coefficients.append(
                 jpeg.make_dct_coefficients(
                     component_sizes[i][0],
                     component_sizes[i][1],
+                    sampling_factor,
                     8,
                     component_samples[i],
                     luminance_quantization_table,
@@ -217,6 +227,7 @@ def make_dct_sequential(
                     dc_table=dc_tables[i],
                     ac_table=ac_tables[i],
                     coefficients=coefficients[i],
+                    sampling_factor=sampling_factors[i],
                 )
             )
         data += jpeg.start_of_scan_sequential(
@@ -255,13 +266,22 @@ open("../jpeg/baseline/32x32x8_ycbcr_interleaved.jpg", "wb").write(
     )
 )
 
-# FIXME: Interleaved
 open("../jpeg/baseline/32x32x8_ycbcr_scale_22_11_11.jpg", "wb").write(
     make_dct_sequential(
         width,
         height,
         ycbcr_samples,
         [(2, 2), (1, 1), (1, 1)],
+    )
+)
+
+open("../jpeg/baseline/32x32x8_ycbcr_scale_22_11_11_interleaved.jpg", "wb").write(
+    make_dct_sequential(
+        width,
+        height,
+        ycbcr_samples,
+        [(2, 2), (1, 1), (1, 1)],
+        interleaved=True,
     )
 )
 

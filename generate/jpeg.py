@@ -351,10 +351,13 @@ def encode_scan_bits(bits):
 
 
 class HuffmanDCTComponent:
-    def __init__(self, dc_table=None, ac_table=None, coefficients=[]):
+    def __init__(
+        self, dc_table=None, ac_table=None, coefficients=[], sampling_factor=(1, 1)
+    ):
         self.dc_table = dc_table
         self.ac_table = ac_table
         self.coefficients = coefficients
+        self.sampling_factor = sampling_factor
 
 
 def _encode_huffman_data_unit(bits, component, data_unit_offset, selection):
@@ -402,14 +405,23 @@ def huffman_dct_scan_interleaved(
     selection=(0, 63),
 ):
     assert len(components) > 0
-    n_coefficients = len(components[0].coefficients)
-    assert n_coefficients % 64 == 0
+    n_mcus = len(components[0].coefficients) // (
+        64 * components[0].sampling_factor[0] * components[0].sampling_factor[1]
+    )
     for c in components:
-        assert len(c.coefficients) == n_coefficients
+        assert (
+            len(c.coefficients)
+            == 64 * n_mcus * c.sampling_factor[0] * c.sampling_factor[1]
+        )
     bits = []
-    for data_unit_offset in range(0, n_coefficients, 64):
-        for component in components:
-            _encode_huffman_data_unit(bits, component, data_unit_offset, selection)
+    data_unit_offsets = [0] * len(components)
+    for m in range(n_mcus):
+        for i, component in enumerate(components):
+            for _ in range(component.sampling_factor[0] * component.sampling_factor[1]):
+                _encode_huffman_data_unit(
+                    bits, component, data_unit_offsets[i], selection
+                )
+                data_unit_offsets[i] += 64
 
     # Pad with 1 bits
     if len(bits) % 8 != 0:
@@ -422,7 +434,10 @@ def huffman_dct_scan(dc_table=None, ac_table=None, coefficients=[], selection=(0
     return huffman_dct_scan_interleaved(
         components=[
             HuffmanDCTComponent(
-                dc_table=dc_table, ac_table=ac_table, coefficients=coefficients
+                dc_table=dc_table,
+                ac_table=ac_table,
+                coefficients=coefficients,
+                sampling_factor=(1, 1),
             )
         ],
         selection=selection,
@@ -892,25 +907,31 @@ def quantize(coefficients, quantization_table):
     return quantized_coefficients
 
 
-def make_dct_coefficients(width, height, depth, samples, quantization_table):
+def make_dct_coefficients(
+    width, height, sampling_factor, depth, samples, quantization_table
+):
     offset = 1 << (depth - 1)
     coefficients = []
-    for du_y in range(0, height, 8):
-        for du_x in range(0, width, 8):
-            values = []
-            for y in range(8):
-                for x in range(8):
-                    px = du_x + x
-                    py = du_y + y
-                    if px >= width:
-                        px = width - 1
-                    if py >= height:
-                        py = height - 1
-                    p = samples[py * width + px]
-                    values.append(p - offset)
+    for mcu_y in range(0, height, 8 * sampling_factor[1]):
+        for mcu_x in range(0, width, 8 * sampling_factor[0]):
+            for du_y in range(0, sampling_factor[1] * 8, 8):
+                for du_x in range(0, sampling_factor[0] * 8, 8):
+                    values = []
+                    for y in range(8):
+                        for x in range(8):
+                            px = mcu_x + du_x + x
+                            py = mcu_y + du_y + y
+                            if px >= width:
+                                px = width - 1
+                            if py >= height:
+                                py = height - 1
+                            p = samples[py * width + px]
+                            values.append(p - offset)
 
-            du_coefficients = zig_zag(quantize(dct2d(values), quantization_table))
-            coefficients.extend(du_coefficients)
+                    du_coefficients = zig_zag(
+                        quantize(dct2d(values), quantization_table)
+                    )
+                    coefficients.extend(du_coefficients)
 
     return coefficients
 
