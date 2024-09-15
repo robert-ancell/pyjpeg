@@ -118,27 +118,32 @@ def make_dct_sequential(
     if (
         color_space is None and n_components == 3
     ) or color_space == jpeg.ADOBE_COLOR_SPACE_Y_CB_CR:
-        coefficients = []
-        for i in range(n_components):
-            if i == 0:
-                quantization_table = luminance_quantization_table
-            else:
-                quantization_table = chrominance_quantization_table
-            if interleaved:
-                sampling_factor = sampling_factors[i]
-            else:
-                sampling_factor = (1, 1)
-            coefficients.append(
-                jpeg.make_dct_coefficients(
-                    component_sizes[i][0],
-                    component_sizes[i][1],
-                    sampling_factor,
-                    8,
-                    component_samples[i],
-                    quantization_table,
-                )
+        use_chrominance = True
+    else:
+        use_chrominance = False
+
+    coefficients = []
+    for i in range(n_components):
+        if i == 0 or not use_chrominance:
+            quantization_table = luminance_quantization_table
+        else:
+            quantization_table = chrominance_quantization_table
+        if interleaved:
+            sampling_factor = sampling_factors[i]
+        else:
+            sampling_factor = (1, 1)
+        coefficients.append(
+            jpeg.make_dct_coefficients(
+                component_sizes[i][0],
+                component_sizes[i][1],
+                sampling_factor,
+                8,
+                component_samples[i],
+                quantization_table,
             )
-        if not arithmetic:
+        )
+    if not arithmetic:
+        if use_chrominance:
             luminance_dc_table = jpeg.make_dct_huffman_dc_table(coefficients[:1])
             luminance_ac_table = jpeg.make_dct_huffman_ac_table(coefficients[:1])
             chrominance_dc_table = jpeg.make_dct_huffman_dc_table(coefficients[1:])
@@ -149,61 +154,52 @@ def make_dct_sequential(
                 jpeg.HuffmanTable.dc(1, chrominance_dc_table),
                 jpeg.HuffmanTable.ac(1, chrominance_ac_table),
             ]
-        quantization_tables = [
-            jpeg.QuantizationTable(destination=0, data=luminance_quantization_table),
-            jpeg.QuantizationTable(destination=1, data=chrominance_quantization_table),
-        ]
-        component_quantization_tables = [0]
-        for i in range(1, n_components):
-            component_quantization_tables.append(1)
-        scan_components = [jpeg.ScanComponent(1, dc_table=0, ac_table=0)]
-        dc_tables = []
-        ac_tables = []
-        if not arithmetic:
-            dc_tables.append(luminance_dc_table)
-            ac_tables.append(luminance_ac_table)
-        for i in range(1, n_components):
-            scan_components.append(jpeg.ScanComponent(i + 1, dc_table=1, ac_table=1))
-            dc_tables.append(chrominance_dc_table)
-            ac_tables.append(chrominance_ac_table)
-    else:
-        coefficients = []
-        for i in range(n_components):
-            if interleaved:
-                sampling_factor = sampling_factors[i]
-            else:
-                sampling_factor = (1, 1)
-            coefficients.append(
-                jpeg.make_dct_coefficients(
-                    component_sizes[i][0],
-                    component_sizes[i][1],
-                    sampling_factor,
-                    8,
-                    component_samples[i],
-                    luminance_quantization_table,
-                )
-            )
-        if not arithmetic:
+        else:
             luminance_dc_table = jpeg.make_dct_huffman_dc_table(coefficients)
             luminance_ac_table = jpeg.make_dct_huffman_ac_table(coefficients)
             huffman_tables = [
                 jpeg.HuffmanTable.dc(0, luminance_dc_table),
                 jpeg.HuffmanTable.ac(0, luminance_ac_table),
             ]
-        quantization_tables = [
-            jpeg.QuantizationTable(destination=0, data=luminance_quantization_table)
-        ]
-        component_quantization_tables = []
-        for i in range(n_components):
-            component_quantization_tables.append(0)
-        scan_components = []
-        dc_tables = []
-        ac_tables = []
-        for i in range(n_components):
-            scan_components.append(jpeg.ScanComponent(i + 1, dc_table=0, ac_table=0))
-            if not arithmetic:
-                dc_tables.append(luminance_dc_table)
-                ac_tables.append(luminance_ac_table)
+
+    quantization_tables = [
+        jpeg.QuantizationTable(destination=0, data=luminance_quantization_table),
+    ]
+    if use_chrominance:
+        quantization_tables.append(
+            jpeg.QuantizationTable(destination=1, data=chrominance_quantization_table)
+        )
+    component_quantization_tables = []
+    for i in range(n_components):
+        if i == 0 or not use_chrominance:
+            table_index = 0
+        else:
+            table_index = 1
+        component_quantization_tables.append(table_index)
+    scan_components = []
+    component_dc_tables = []
+    component_ac_tables = []
+    for i in range(n_components):
+        if arithmetic:
+            dc_table_index = 0
+            ac_table_index = 0
+        else:
+            if i == 0 or not use_chrominance:
+                dc_table_index = 0
+                ac_table_index = 0
+                dc_table = luminance_dc_table
+                ac_table = luminance_ac_table
+            else:
+                dc_table_index = 1
+                ac_table_index = 1
+                dc_table = chrominance_dc_table
+                ac_table = chrominance_ac_table
+            component_dc_tables.append(dc_table)
+            component_ac_tables.append(ac_table)
+        scan_components.append(
+            jpeg.ScanComponent(i + 1, dc_table=dc_table_index, ac_table=ac_table_index)
+        )
+
     components = []
     for i in range(n_components):
         components.append(
@@ -234,8 +230,8 @@ def make_dct_sequential(
         for i in range(n_components):
             huffman_components.append(
                 jpeg.HuffmanDCTComponent(
-                    dc_table=dc_tables[i],
-                    ac_table=ac_tables[i],
+                    dc_table=component_dc_tables[i],
+                    ac_table=component_ac_tables[i],
                     coefficients=coefficients[i],
                     sampling_factor=sampling_factors[i],
                 )
@@ -256,8 +252,8 @@ def make_dct_sequential(
                 data += jpeg.arithmetic_dct_scan(coefficients=coefficients[i])
             else:
                 data += jpeg.huffman_dct_scan(
-                    dc_table=dc_tables[i],
-                    ac_table=ac_tables[i],
+                    dc_table=component_dc_tables[i],
+                    ac_table=component_ac_tables[i],
                     coefficients=coefficients[i],
                 )
     data += jpeg.end_of_image()
