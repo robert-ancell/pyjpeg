@@ -285,7 +285,6 @@ open("../jpeg/baseline/32x32x8_ycbcr_scale_22_11_11_interleaved.jpg", "wb").writ
     )
 )
 
-# FIXME: Interleaved
 open("../jpeg/baseline/32x32x8_ycbcr_scale_44_11_11.jpg", "wb").write(
     make_dct_sequential(
         width,
