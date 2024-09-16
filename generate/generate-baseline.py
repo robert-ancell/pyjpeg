@@ -74,8 +74,12 @@ def make_dct_sequential(
     interleaved=False,
     color_space=None,
     comments=[],
+    extended=False,
     arithmetic=False,
 ):
+    if arithmetic:
+        assert extended
+
     n_components = len(samples)
 
     max_h_sampling_factor = 0
@@ -218,12 +222,13 @@ def make_dct_sequential(
     else:
         data += jpeg.adobe(color_space=color_space)
     data += jpeg.define_quantization_tables(tables=quantization_tables)
-    if arithmetic:
+    if extended:
         data += jpeg.start_of_frame_extended(
-            width, height, 8, components, arithmetic=True
+            width, height, 8, components, arithmetic=arithmetic
         )
     else:
         data += jpeg.start_of_frame_baseline(width, height, components)
+    if not arithmetic:
         data += jpeg.define_huffman_tables(tables=huffman_tables)
     if interleaved and n_components > 1:
         huffman_components = []
@@ -366,8 +371,14 @@ open("../jpeg/baseline/32x32x8_cmyk.jpg", "wb").write(
     )
 )
 
+open("../jpeg/extended_huffman/32x32x8_grayscale.jpg", "wb").write(
+    make_dct_sequential(width, height, [grayscale_samples], [(1, 1)], extended=True)
+)
+
 open("../jpeg/extended_arithmetic/32x32x8_grayscale.jpg", "wb").write(
-    make_dct_sequential(width, height, [grayscale_samples], [(1, 1)], arithmetic=True)
+    make_dct_sequential(
+        width, height, [grayscale_samples], [(1, 1)], extended=True, arithmetic=True
+    )
 )
 
 
