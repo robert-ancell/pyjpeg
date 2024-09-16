@@ -27,9 +27,11 @@ def rgb_to_cmyk(r8, g8, b8):
 
 
 width, height, max_value, raw_samples = read_pgm("test-face.pgm")
-grayscale_samples = []
+grayscale_samples8 = []
+grayscale_samples12 = []
 for s in raw_samples:
-    grayscale_samples.append(round(s * 255 / max_value))
+    grayscale_samples8.append(round(s * 255 / max_value))
+    grayscale_samples12.append(round(s * 4095 / max_value))
 
 width, height, max_value, raw_samples = read_pgm("test-face.ppm")
 rgb_samples = ([], [], [])
@@ -71,6 +73,7 @@ def make_dct_sequential(
     height,
     samples,
     sampling_factors,
+    precision=8,
     interleaved=False,
     color_space=None,
     comments=[],
@@ -141,7 +144,7 @@ def make_dct_sequential(
                 component_sizes[i][0],
                 component_sizes[i][1],
                 sampling_factor,
-                8,
+                precision,
                 component_samples[i],
                 quantization_table,
             )
@@ -224,7 +227,7 @@ def make_dct_sequential(
     data += jpeg.define_quantization_tables(tables=quantization_tables)
     if extended:
         data += jpeg.start_of_frame_extended(
-            width, height, 8, components, arithmetic=arithmetic
+            width, height, precision, components, arithmetic=arithmetic
         )
     else:
         data += jpeg.start_of_frame_baseline(width, height, components)
@@ -266,7 +269,7 @@ def make_dct_sequential(
 
 
 open("../jpeg/baseline/32x32x8_grayscale.jpg", "wb").write(
-    make_dct_sequential(width, height, [grayscale_samples], [(1, 1)])
+    make_dct_sequential(width, height, [grayscale_samples8], [(1, 1)])
 )
 
 open("../jpeg/baseline/32x32x8_ycbcr.jpg", "wb").write(
@@ -341,13 +344,13 @@ open("../jpeg/baseline/32x32x8_ycbcr_scale_44_22_11.jpg", "wb").write(
 
 open("../jpeg/baseline/32x32x8_comment.jpg", "wb").write(
     make_dct_sequential(
-        width, height, [grayscale_samples], [(1, 1)], comments=[b"Hello World"]
+        width, height, [grayscale_samples8], [(1, 1)], comments=[b"Hello World"]
     )
 )
 
 open("../jpeg/baseline/32x32x8_comments.jpg", "wb").write(
     make_dct_sequential(
-        width, height, [grayscale_samples], [(1, 1)], comments=[b"Hello", b"World"]
+        width, height, [grayscale_samples8], [(1, 1)], comments=[b"Hello", b"World"]
     )
 )
 
@@ -372,12 +375,30 @@ open("../jpeg/baseline/32x32x8_cmyk.jpg", "wb").write(
 )
 
 open("../jpeg/extended_huffman/32x32x8_grayscale.jpg", "wb").write(
-    make_dct_sequential(width, height, [grayscale_samples], [(1, 1)], extended=True)
+    make_dct_sequential(width, height, [grayscale_samples8], [(1, 1)], extended=True)
+)
+
+open("../jpeg/extended_huffman/32x32x12_grayscale.jpg", "wb").write(
+    make_dct_sequential(
+        width, height, [grayscale_samples12], [(1, 1)], precision=12, extended=True
+    )
 )
 
 open("../jpeg/extended_arithmetic/32x32x8_grayscale.jpg", "wb").write(
     make_dct_sequential(
-        width, height, [grayscale_samples], [(1, 1)], extended=True, arithmetic=True
+        width, height, [grayscale_samples8], [(1, 1)], extended=True, arithmetic=True
+    )
+)
+
+open("../jpeg/extended_arithmetic/32x32x12_grayscale.jpg", "wb").write(
+    make_dct_sequential(
+        width,
+        height,
+        [grayscale_samples12],
+        [(1, 1)],
+        precision=12,
+        extended=True,
+        arithmetic=True,
     )
 )
 
