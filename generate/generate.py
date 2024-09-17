@@ -302,6 +302,7 @@ def make_lossless(
     )
     if len(huffman_tables) > 0:
         data += jpeg.define_huffman_tables(tables=huffman_tables)
+    # FIXME: Interleaved
     for i, scan_component in enumerate(scan_components):
         data += jpeg.start_of_scan_lossless(
             components=[scan_component],
@@ -504,6 +505,18 @@ open("../jpeg/lossless_arithmetic/32x32x16_grayscale.jpg", "wb").write(
     )
 )
 
+open("../jpeg/lossless_huffman/32x32x8_rgb.jpg", "wb").write(
+    make_lossless(
+        width,
+        height,
+        rgb_samples,
+        predictor=1,
+    )
+)
+
+open("../jpeg/lossless_arithmetic/32x32x8_rgb.jpg", "wb").write(
+    make_lossless(width, height, rgb_samples, predictor=1, arithmetic=True)
+)
 
 # 3 channel, red, green, blue, white, mixed color
 # version 1.1
