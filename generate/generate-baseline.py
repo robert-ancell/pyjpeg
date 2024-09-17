@@ -26,10 +26,11 @@ def rgb_to_cmyk(r8, g8, b8):
     return (round(c * 255), round(m * 255), round(y * 255), round(k * 255))
 
 
-width, height, max_value, raw_samples = read_pgm("test-face.pgm")
+width, height, max_value, grayscale_samples16 = read_pgm("test-face.pgm")
+assert max_value == 65535
 grayscale_samples8 = []
 grayscale_samples12 = []
-for s in raw_samples:
+for s in grayscale_samples16:
     grayscale_samples8.append(round(s * 255 / max_value))
     grayscale_samples12.append(round(s * 4095 / max_value))
 
@@ -472,6 +473,36 @@ for predictor in range(1, 8):
             width, height, [grayscale_samples8], predictor=predictor, arithmetic=True
         )
     )
+
+open("../jpeg/lossless_huffman/32x32x12_grayscale.jpg", "wb").write(
+    make_lossless(
+        width,
+        height,
+        [grayscale_samples12],
+        precision=12,
+        predictor=1,
+    )
+)
+open("../jpeg/lossless_huffman/32x32x16_grayscale.jpg", "wb").write(
+    make_lossless(
+        width,
+        height,
+        [grayscale_samples16],
+        precision=16,
+        predictor=1,
+    )
+)
+
+open("../jpeg/lossless_arithmetic/32x32x12_grayscale.jpg", "wb").write(
+    make_lossless(
+        width, height, [grayscale_samples12], precision=12, predictor=1, arithmetic=True
+    )
+)
+open("../jpeg/lossless_arithmetic/32x32x16_grayscale.jpg", "wb").write(
+    make_lossless(
+        width, height, [grayscale_samples16], precision=16, predictor=1, arithmetic=True
+    )
+)
 
 
 # 3 channel, red, green, blue, white, mixed color
