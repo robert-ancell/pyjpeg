@@ -18,9 +18,16 @@ SOF_BASELINE = 0
 SOF_EXTENDED_HUFFMAN = 1
 SOF_PROGRESSIVE_HUFFMAN = 2
 SOF_LOSSLESS_HUFFMAN = 3
+SOF_DIFFERENTIAL_SEQUENTIAL_HUFFMAN = 5
+SOF_DIFFERENTIAL_PROGRESSIVE_HUFFMAN = 6
+SOF_DIFFERENTIAL_LOSSLESS_HUFFMAN = 7
 SOF_EXTENDED_ARITHMETIC = 9
 SOF_PROGRESSIVE_ARITHMETIC = 10
 SOF_LOSSLESS_ARITHMETIC = 11
+SOF_DIFFERENTIAL_SEQUENTIAL_ARITHMETIC = 13
+SOF_DIFFERENTIAL_PROGRESSIVE_ARITHMETIC = 14
+SOF_DIFFERENTIAL_LOSSLESS_ARITHMETIC = 15
+SOF_DEFINE_HIERARCHICAL_PROGRESSION = 30
 
 
 def marker(value):
@@ -130,6 +137,13 @@ def define_restart_interval(restart_interval):
     assert restart_interval >= 0 and restart_interval <= 65535
     data = struct.pack("H", restart_interval)
     return marker(0xDD) + struct.pack(">H", 2 + len(data)) + data
+
+
+def expand_segment(expand_horizontal, expand_vertical):
+    assert expand_horizontal == 0 or expand_horizontal == 1
+    assert expand_vertical == 0 or expand_vertical == 1
+    data = struct.pack("B", expand_horizontal << 4 | expand_vertical)
+    return marker(0xDF) + struct.pack(">H", 2 + len(data)) + data
 
 
 class Component:
