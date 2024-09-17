@@ -75,6 +75,7 @@ def make_dct_sequential(
     component_samples,
     sampling_factors=None,
     precision=8,
+    use_dnl=False,
     interleaved=False,
     color_space=None,
     comments=[],
@@ -229,12 +230,16 @@ def make_dct_sequential(
     else:
         data += jpeg.adobe(color_space=color_space)
     data += jpeg.define_quantization_tables(tables=quantization_tables)
+    if use_dnl:
+        number_of_lines = 0
+    else:
+        number_of_lines = height
     if extended:
         data += jpeg.start_of_frame_extended(
-            width, height, precision, components, arithmetic=arithmetic
+            width, number_of_lines, precision, components, arithmetic=arithmetic
         )
     else:
-        data += jpeg.start_of_frame_baseline(width, height, components)
+        data += jpeg.start_of_frame_baseline(width, number_of_lines, components)
     if not arithmetic:
         data += jpeg.define_huffman_tables(tables=huffman_tables)
     if interleaved and n_components > 1:
@@ -253,6 +258,8 @@ def make_dct_sequential(
             raise Exception("Not implemented")
         else:
             data += jpeg.huffman_dct_scan_interleaved(huffman_components)
+        if use_dnl:
+            data += jpeg.define_number_of_lines(height)
     else:
         for i in range(n_components):
             data += jpeg.start_of_scan_sequential(
@@ -268,6 +275,8 @@ def make_dct_sequential(
                     ac_table=component_ac_tables[i],
                     coefficients=coefficients[i],
                 )
+            if use_dnl and i == 0:
+                data += jpeg.define_number_of_lines(height)
     data += jpeg.end_of_image()
     return data
 
@@ -330,6 +339,7 @@ def generate_dct(
     height,
     component_samples,
     precision=8,
+    use_dnl=False,
     sampling_factors=None,
     interleaved=False,
     color_space=None,
@@ -346,6 +356,7 @@ def generate_dct(
             height,
             component_samples,
             precision=precision,
+            use_dnl=use_dnl,
             sampling_factors=sampling_factors,
             interleaved=interleaved,
             color_space=color_space,
@@ -468,6 +479,7 @@ generate_dct(
     cmyk_samples,
     color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
 )
+generate_dct("baseline", "dnl", width, height, [grayscale_samples8], use_dnl=True)
 
 generate_dct(
     "extended_huffman", "grayscale", width, height, [grayscale_samples8], extended=True

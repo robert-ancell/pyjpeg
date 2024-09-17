@@ -120,6 +120,18 @@ def define_quantization_tables(tables=[]):
     return marker(0xDB) + struct.pack(">H", 2 + len(data)) + data
 
 
+def define_number_of_lines(number_of_lines):
+    assert number_of_lines >= 1 and number_of_lines <= 65535
+    data = struct.pack("H", number_of_lines)
+    return marker(0xDC) + struct.pack(">H", 2 + len(data)) + data
+
+
+def define_restart_interval(restart_interval):
+    assert restart_interval >= 0 and restart_interval <= 65535
+    data = struct.pack("H", restart_interval)
+    return marker(0xDD) + struct.pack(">H", 2 + len(data)) + data
+
+
 class Component:
     def __init__(self, id=0, sampling_factor=(1, 1), quantization_table=0):
         self.id = id
@@ -128,7 +140,9 @@ class Component:
 
 
 def start_of_frame(frame_type, precision=8, width=0, height=0, components=[]):
-    data = struct.pack(">BHHB", precision, width, height, len(components))
+    assert width >= 1 and width <= 65535
+    assert height >= 0 and height <= 65535
+    data = struct.pack(">BHHB", precision, height, width, len(components))
     for component in components:
         data += struct.pack(
             "BBB",
