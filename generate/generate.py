@@ -323,196 +323,263 @@ def make_lossless(
     return data
 
 
-open("../jpeg/baseline/32x32x8_grayscale.jpg", "wb").write(
-    make_dct_sequential(width, height, [grayscale_samples8])
-)
-
-open("../jpeg/baseline/32x32x8_ycbcr.jpg", "wb").write(
-    make_dct_sequential(width, height, ycbcr_samples)
-)
-
-open("../jpeg/baseline/32x32x8_ycbcr_interleaved.jpg", "wb").write(
-    make_dct_sequential(
-        width,
-        height,
-        ycbcr_samples,
-        interleaved=True,
-    )
-)
-
-open("../jpeg/baseline/32x32x8_ycbcr_scale_22_11_11.jpg", "wb").write(
-    make_dct_sequential(
-        width,
-        height,
-        ycbcr_samples,
-        sampling_factors=[(2, 2), (1, 1), (1, 1)],
-    )
-)
-
-open("../jpeg/baseline/32x32x8_ycbcr_scale_22_11_11_interleaved.jpg", "wb").write(
-    make_dct_sequential(
-        width,
-        height,
-        ycbcr_samples,
-        sampling_factors=[(2, 2), (1, 1), (1, 1)],
-        interleaved=True,
-    )
-)
-
-open("../jpeg/baseline/32x32x8_ycbcr_scale_22_21_12.jpg", "wb").write(
-    make_dct_sequential(
-        width,
-        height,
-        ycbcr_samples,
-        sampling_factors=[(2, 2), (2, 1), (1, 2)],
-    )
-)
-
-open("../jpeg/baseline/32x32x8_ycbcr_scale_22_21_12_interleaved.jpg", "wb").write(
-    make_dct_sequential(
-        width,
-        height,
-        ycbcr_samples,
-        sampling_factors=[(2, 2), (2, 1), (1, 2)],
-        interleaved=True,
-    )
-)
-
-open("../jpeg/baseline/32x32x8_ycbcr_scale_44_11_11.jpg", "wb").write(
-    make_dct_sequential(
-        width,
-        height,
-        ycbcr_samples,
-        sampling_factors=[(4, 4), (1, 1), (1, 1)],
-    )
-)
-
-open("../jpeg/baseline/32x32x8_ycbcr_scale_44_22_11.jpg", "wb").write(
-    make_dct_sequential(
-        width,
-        height,
-        ycbcr_samples,
-        sampling_factors=[(4, 4), (2, 2), (1, 1)],
-    )
-)
-
-open("../jpeg/baseline/32x32x8_comment.jpg", "wb").write(
-    make_dct_sequential(width, height, [grayscale_samples8], comments=[b"Hello World"])
-)
-
-open("../jpeg/baseline/32x32x8_comments.jpg", "wb").write(
-    make_dct_sequential(
-        width, height, [grayscale_samples8], comments=[b"Hello", b"World"]
-    )
-)
-
-open("../jpeg/baseline/32x32x8_rgb.jpg", "wb").write(
-    make_dct_sequential(
-        width,
-        height,
-        rgb_samples,
-        color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
-    )
-)
-
-open("../jpeg/baseline/32x32x8_cmyk.jpg", "wb").write(
-    make_dct_sequential(
-        width,
-        height,
-        cmyk_samples,
-        color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
-    )
-)
-
-open("../jpeg/extended_huffman/32x32x8_grayscale.jpg", "wb").write(
-    make_dct_sequential(width, height, [grayscale_samples8], extended=True)
-)
-
-open("../jpeg/extended_huffman/32x32x12_grayscale.jpg", "wb").write(
-    make_dct_sequential(
-        width, height, [grayscale_samples12], precision=12, extended=True
-    )
-)
-
-open("../jpeg/extended_arithmetic/32x32x8_grayscale.jpg", "wb").write(
-    make_dct_sequential(
-        width, height, [grayscale_samples8], extended=True, arithmetic=True
-    )
-)
-
-open("../jpeg/extended_arithmetic/32x32x12_grayscale.jpg", "wb").write(
-    make_dct_sequential(
-        width,
-        height,
-        [grayscale_samples12],
-        precision=12,
-        extended=True,
-        arithmetic=True,
-    )
-)
-
-for predictor in range(1, 8):
+def generate_dct(
+    section,
+    description,
+    width,
+    height,
+    component_samples,
+    precision=8,
+    sampling_factors=None,
+    interleaved=False,
+    color_space=None,
+    comments=[],
+    extended=False,
+    arithmetic=False,
+):
     open(
-        "../jpeg/lossless_huffman/32x32x8_grayscale_predictor%d.jpg" % predictor, "wb"
+        "../jpeg/%s/%dx%dx%d_%s.jpg" % (section, width, height, precision, description),
+        "wb",
+    ).write(
+        make_dct_sequential(
+            width,
+            height,
+            component_samples,
+            precision=precision,
+            sampling_factors=sampling_factors,
+            interleaved=interleaved,
+            color_space=color_space,
+            comments=comments,
+            extended=extended,
+            arithmetic=arithmetic,
+        )
+    )
+
+
+def generate_lossless(
+    section,
+    description,
+    width,
+    height,
+    component_samples,
+    precision=8,
+    predictor=1,
+    arithmetic=False,
+):
+    open(
+        "../jpeg/%s/%dx%dx%d_%s.jpg" % (section, width, height, precision, description),
+        "wb",
     ).write(
         make_lossless(
             width,
             height,
-            [grayscale_samples8],
+            component_samples,
+            precision=precision,
             predictor=predictor,
+            arithmetic=arithmetic,
         )
     )
 
-    open(
-        "../jpeg/lossless_arithmetic/32x32x8_grayscale_predictor%d.jpg" % predictor,
-        "wb",
-    ).write(
-        make_lossless(
-            width, height, [grayscale_samples8], predictor=predictor, arithmetic=True
-        )
-    )
 
-open("../jpeg/lossless_huffman/32x32x12_grayscale.jpg", "wb").write(
-    make_lossless(
+generate_dct("baseline", "grayscale", width, height, [grayscale_samples8])
+generate_dct("baseline", "ycbcr", width, height, ycbcr_samples)
+generate_dct(
+    "baseline", "ycbcr_interleaved", width, height, ycbcr_samples, interleaved=True
+)
+generate_dct(
+    "baseline",
+    "ycbcr_scale_22_11_11",
+    width,
+    height,
+    ycbcr_samples,
+    sampling_factors=[(2, 2), (1, 1), (1, 1)],
+)
+generate_dct(
+    "baseline",
+    "ycbcr_scale_22_11_11_interleaved",
+    width,
+    height,
+    ycbcr_samples,
+    sampling_factors=[(2, 2), (1, 1), (1, 1)],
+    interleaved=True,
+)
+generate_dct(
+    "baseline",
+    "ycbcr_scale_22_21_12",
+    width,
+    height,
+    ycbcr_samples,
+    sampling_factors=[(2, 2), (2, 1), (1, 2)],
+)
+generate_dct(
+    "baseline",
+    "ycbcr_scale_22_21_12_interleaved",
+    width,
+    height,
+    ycbcr_samples,
+    sampling_factors=[(2, 2), (2, 1), (1, 2)],
+    interleaved=True,
+)
+generate_dct(
+    "baseline",
+    "ycbcr_scale_44_11_11",
+    width,
+    height,
+    ycbcr_samples,
+    sampling_factors=[(4, 4), (1, 1), (1, 1)],
+)
+generate_dct(
+    "baseline",
+    "ycbcr_scale_44_22_11",
+    width,
+    height,
+    ycbcr_samples,
+    sampling_factors=[(4, 4), (2, 2), (1, 1)],
+)
+generate_dct(
+    "baseline",
+    "comment",
+    width,
+    height,
+    [grayscale_samples8],
+    comments=[b"Hello World"],
+)
+generate_dct(
+    "baseline",
+    "comments",
+    width,
+    height,
+    [grayscale_samples8],
+    comments=[b"Hello", b"World"],
+)
+generate_dct(
+    "baseline",
+    "rgb",
+    width,
+    height,
+    rgb_samples,
+    color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
+)
+generate_dct(
+    "baseline",
+    "cmyk",
+    width,
+    height,
+    cmyk_samples,
+    color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
+)
+
+generate_dct(
+    "extended_huffman", "grayscale", width, height, [grayscale_samples8], extended=True
+)
+generate_dct(
+    "extended_huffman",
+    "grayscale",
+    width,
+    height,
+    [grayscale_samples12],
+    precision=12,
+    extended=True,
+)
+
+generate_dct(
+    "extended_arithmetic",
+    "grayscale",
+    width,
+    height,
+    [grayscale_samples8],
+    extended=True,
+    arithmetic=True,
+)
+generate_dct(
+    "extended_arithmetic",
+    "grayscale",
+    width,
+    height,
+    [grayscale_samples12],
+    precision=12,
+    extended=True,
+    arithmetic=True,
+)
+
+for predictor in range(1, 8):
+    generate_lossless(
+        "lossless_huffman",
+        "grayscale_predictor%d" % predictor,
         width,
         height,
-        [grayscale_samples12],
-        precision=12,
-        predictor=1,
+        [grayscale_samples8],
+        predictor=predictor,
     )
-)
-open("../jpeg/lossless_huffman/32x32x16_grayscale.jpg", "wb").write(
-    make_lossless(
+    generate_lossless(
+        "lossless_arithmetic",
+        "grayscale_predictor%d" % predictor,
         width,
         height,
-        [grayscale_samples16],
-        precision=16,
-        predictor=1,
+        [grayscale_samples8],
+        predictor=predictor,
+        arithmetic=True,
     )
+
+generate_lossless(
+    "lossless_huffman",
+    "grayscale",
+    width,
+    height,
+    [grayscale_samples12],
+    precision=12,
+    predictor=1,
 )
 
-open("../jpeg/lossless_arithmetic/32x32x12_grayscale.jpg", "wb").write(
-    make_lossless(
-        width, height, [grayscale_samples12], precision=12, predictor=1, arithmetic=True
-    )
-)
-open("../jpeg/lossless_arithmetic/32x32x16_grayscale.jpg", "wb").write(
-    make_lossless(
-        width, height, [grayscale_samples16], precision=16, predictor=1, arithmetic=True
-    )
-)
-
-open("../jpeg/lossless_huffman/32x32x8_rgb.jpg", "wb").write(
-    make_lossless(
-        width,
-        height,
-        rgb_samples,
-        predictor=1,
-    )
+generate_lossless(
+    "lossless_huffman",
+    "grayscale",
+    width,
+    height,
+    [grayscale_samples16],
+    precision=16,
+    predictor=1,
 )
 
-open("../jpeg/lossless_arithmetic/32x32x8_rgb.jpg", "wb").write(
-    make_lossless(width, height, rgb_samples, predictor=1, arithmetic=True)
+generate_lossless(
+    "lossless_huffman",
+    "rgb",
+    width,
+    height,
+    rgb_samples,
+    predictor=1,
+)
+
+generate_lossless(
+    "lossless_arithmetic",
+    "grayscale",
+    width,
+    height,
+    [grayscale_samples12],
+    precision=12,
+    predictor=1,
+    arithmetic=True,
+)
+
+generate_lossless(
+    "lossless_arithmetic",
+    "grayscale",
+    width,
+    height,
+    [grayscale_samples16],
+    precision=16,
+    predictor=1,
+    arithmetic=True,
+)
+
+generate_lossless(
+    "lossless_arithmetic",
+    "rgb",
+    width,
+    height,
+    rgb_samples,
+    predictor=1,
+    arithmetic=True,
 )
 
 # 3 channel, red, green, blue, white, mixed color
