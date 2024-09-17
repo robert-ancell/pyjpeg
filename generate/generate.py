@@ -72,8 +72,8 @@ def scale_samples(width, height, samples, h_max, h, v_max, v):
 def make_dct_sequential(
     width,
     height,
-    samples,
-    sampling_factors,
+    component_samples,
+    sampling_factors=None,
     precision=8,
     interleaved=False,
     color_space=None,
@@ -84,7 +84,10 @@ def make_dct_sequential(
     if arithmetic:
         assert extended
 
-    n_components = len(samples)
+    n_components = len(component_samples)
+
+    if sampling_factors is None:
+        sampling_factors = [(1, 1)] * n_components
 
     max_h_sampling_factor = 0
     max_v_sampling_factor = 0
@@ -93,16 +96,16 @@ def make_dct_sequential(
         max_v_sampling_factor = max(v, max_v_sampling_factor)
 
     component_sizes = []
-    component_samples = []
-    for i, s in enumerate(samples):
+    scaled_component_samples = []
+    for i, samples in enumerate(component_samples):
         w = math.ceil(width * sampling_factors[i][0] / max_h_sampling_factor)
         h = math.ceil(height * sampling_factors[i][1] / max_v_sampling_factor)
         component_sizes.append((w, h))
-        component_samples.append(
+        scaled_component_samples.append(
             scale_samples(
                 width,
                 height,
-                s,
+                samples,
                 max_h_sampling_factor,
                 sampling_factors[i][0],
                 max_v_sampling_factor,
@@ -146,7 +149,7 @@ def make_dct_sequential(
                 component_sizes[i][1],
                 sampling_factor,
                 precision,
-                component_samples[i],
+                scaled_component_samples[i],
                 quantization_table,
             )
         )
@@ -321,11 +324,11 @@ def make_lossless(
 
 
 open("../jpeg/baseline/32x32x8_grayscale.jpg", "wb").write(
-    make_dct_sequential(width, height, [grayscale_samples8], [(1, 1)])
+    make_dct_sequential(width, height, [grayscale_samples8])
 )
 
 open("../jpeg/baseline/32x32x8_ycbcr.jpg", "wb").write(
-    make_dct_sequential(width, height, ycbcr_samples, [(1, 1), (1, 1), (1, 1)])
+    make_dct_sequential(width, height, ycbcr_samples)
 )
 
 open("../jpeg/baseline/32x32x8_ycbcr_interleaved.jpg", "wb").write(
@@ -333,7 +336,6 @@ open("../jpeg/baseline/32x32x8_ycbcr_interleaved.jpg", "wb").write(
         width,
         height,
         ycbcr_samples,
-        [(1, 1), (1, 1), (1, 1)],
         interleaved=True,
     )
 )
@@ -343,7 +345,7 @@ open("../jpeg/baseline/32x32x8_ycbcr_scale_22_11_11.jpg", "wb").write(
         width,
         height,
         ycbcr_samples,
-        [(2, 2), (1, 1), (1, 1)],
+        sampling_factors=[(2, 2), (1, 1), (1, 1)],
     )
 )
 
@@ -352,7 +354,7 @@ open("../jpeg/baseline/32x32x8_ycbcr_scale_22_11_11_interleaved.jpg", "wb").writ
         width,
         height,
         ycbcr_samples,
-        [(2, 2), (1, 1), (1, 1)],
+        sampling_factors=[(2, 2), (1, 1), (1, 1)],
         interleaved=True,
     )
 )
@@ -362,7 +364,7 @@ open("../jpeg/baseline/32x32x8_ycbcr_scale_22_21_12.jpg", "wb").write(
         width,
         height,
         ycbcr_samples,
-        [(2, 2), (2, 1), (1, 2)],
+        sampling_factors=[(2, 2), (2, 1), (1, 2)],
     )
 )
 
@@ -371,7 +373,7 @@ open("../jpeg/baseline/32x32x8_ycbcr_scale_22_21_12_interleaved.jpg", "wb").writ
         width,
         height,
         ycbcr_samples,
-        [(2, 2), (2, 1), (1, 2)],
+        sampling_factors=[(2, 2), (2, 1), (1, 2)],
         interleaved=True,
     )
 )
@@ -381,7 +383,7 @@ open("../jpeg/baseline/32x32x8_ycbcr_scale_44_11_11.jpg", "wb").write(
         width,
         height,
         ycbcr_samples,
-        [(4, 4), (1, 1), (1, 1)],
+        sampling_factors=[(4, 4), (1, 1), (1, 1)],
     )
 )
 
@@ -390,19 +392,17 @@ open("../jpeg/baseline/32x32x8_ycbcr_scale_44_22_11.jpg", "wb").write(
         width,
         height,
         ycbcr_samples,
-        [(4, 4), (2, 2), (1, 1)],
+        sampling_factors=[(4, 4), (2, 2), (1, 1)],
     )
 )
 
 open("../jpeg/baseline/32x32x8_comment.jpg", "wb").write(
-    make_dct_sequential(
-        width, height, [grayscale_samples8], [(1, 1)], comments=[b"Hello World"]
-    )
+    make_dct_sequential(width, height, [grayscale_samples8], comments=[b"Hello World"])
 )
 
 open("../jpeg/baseline/32x32x8_comments.jpg", "wb").write(
     make_dct_sequential(
-        width, height, [grayscale_samples8], [(1, 1)], comments=[b"Hello", b"World"]
+        width, height, [grayscale_samples8], comments=[b"Hello", b"World"]
     )
 )
 
@@ -411,7 +411,6 @@ open("../jpeg/baseline/32x32x8_rgb.jpg", "wb").write(
         width,
         height,
         rgb_samples,
-        [(1, 1), (1, 1), (1, 1)],
         color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
     )
 )
@@ -421,24 +420,23 @@ open("../jpeg/baseline/32x32x8_cmyk.jpg", "wb").write(
         width,
         height,
         cmyk_samples,
-        [(1, 1), (1, 1), (1, 1), (1, 1)],
         color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
     )
 )
 
 open("../jpeg/extended_huffman/32x32x8_grayscale.jpg", "wb").write(
-    make_dct_sequential(width, height, [grayscale_samples8], [(1, 1)], extended=True)
+    make_dct_sequential(width, height, [grayscale_samples8], extended=True)
 )
 
 open("../jpeg/extended_huffman/32x32x12_grayscale.jpg", "wb").write(
     make_dct_sequential(
-        width, height, [grayscale_samples12], [(1, 1)], precision=12, extended=True
+        width, height, [grayscale_samples12], precision=12, extended=True
     )
 )
 
 open("../jpeg/extended_arithmetic/32x32x8_grayscale.jpg", "wb").write(
     make_dct_sequential(
-        width, height, [grayscale_samples8], [(1, 1)], extended=True, arithmetic=True
+        width, height, [grayscale_samples8], extended=True, arithmetic=True
     )
 )
 
@@ -447,7 +445,6 @@ open("../jpeg/extended_arithmetic/32x32x12_grayscale.jpg", "wb").write(
         width,
         height,
         [grayscale_samples12],
-        [(1, 1)],
         precision=12,
         extended=True,
         arithmetic=True,
