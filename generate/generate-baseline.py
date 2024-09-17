@@ -268,6 +268,56 @@ def make_dct_sequential(
     return data
 
 
+def make_lossless(
+    width,
+    height,
+    component_samples,
+    precision=8,
+    predictor=1,
+    arithmetic=False,
+):
+    conditioning_range = (0, 1)
+    components = []
+    scan_components = []
+    component_values = []
+    component_tables = []
+    huffman_tables = []
+    for i, samples in enumerate(component_samples):
+        values = jpeg.make_lossless_values(predictor, width, precision, samples)
+        component_values.append(values)
+        if arithmetic:
+            table = 0
+        else:
+            huffman_tables.append(
+                jpeg.HuffmanTable.dc(i, jpeg.make_lossless_huffman_table(values))
+            )
+            table = i
+        components.append(jpeg.Component(id=i + 1))
+        scan_components.append(jpeg.ScanComponent.lossless(i + 1, table=table))
+
+    data = jpeg.start_of_image()
+    data += jpeg.start_of_frame_lossless(
+        width, height, precision, components, arithmetic=arithmetic
+    )
+    if len(huffman_tables) > 0:
+        data += jpeg.define_huffman_tables(tables=huffman_tables)
+    for i, scan_component in enumerate(scan_components):
+        data += jpeg.start_of_scan_lossless(
+            components=[scan_component],
+            predictor=predictor,
+        )
+        if arithmetic:
+            data += jpeg.arithmetic_lossless_scan(
+                conditioning_range, width, component_values[i]
+            )
+        else:
+            data += jpeg.huffman_lossless_scan(
+                huffman_tables[i].symbols_by_length, component_values[i]
+            )
+    data += jpeg.end_of_image()
+    return data
+
+
 open("../jpeg/baseline/32x32x8_grayscale.jpg", "wb").write(
     make_dct_sequential(width, height, [grayscale_samples8], [(1, 1)])
 )
@@ -401,6 +451,27 @@ open("../jpeg/extended_arithmetic/32x32x12_grayscale.jpg", "wb").write(
         arithmetic=True,
     )
 )
+
+for predictor in range(1, 8):
+    open(
+        "../jpeg/lossless_huffman/32x32x8_grayscale_predictor%d.jpg" % predictor, "wb"
+    ).write(
+        make_lossless(
+            width,
+            height,
+            [grayscale_samples8],
+            predictor=predictor,
+        )
+    )
+
+    open(
+        "../jpeg/lossless_arithmetic/32x32x8_grayscale_predictor%d.jpg" % predictor,
+        "wb",
+    ).write(
+        make_lossless(
+            width, height, [grayscale_samples8], predictor=predictor, arithmetic=True
+        )
+    )
 
 
 # 3 channel, red, green, blue, white, mixed color
