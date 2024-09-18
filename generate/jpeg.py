@@ -762,24 +762,24 @@ def predictor7(a, b, c):
     return (a + b) // 2
 
 
-def get_lossless_value(samples, width, precision, x, y, predictor_func):
+def get_lossless_value(samples, width, precision, x, y, predictor_func, x0=0, y0=0):
     # FIXME: point transform changes this
     default_value = 1 << (precision - 1)
 
-    if y == 0:
+    if y == y0:
         # First line all relative to left pixel
-        if x == 0:
+        if x == x0:
             p = default_value
         else:
             p = samples[y * width + x - 1]
     else:
         # Following line uses prediction from three adjacent samples
-        if x == 0:
+        if x == x0:
             a = samples[(y - 1) * width + x]
         else:
             a = samples[y * width + x - 1]
         b = samples[(y - 1) * width + x]
-        if x == 0:
+        if x == x0:
             c = samples[(y - 1) * width + x]
         else:
             c = samples[(y - 1) * width + x - 1]
@@ -794,7 +794,7 @@ def get_lossless_value(samples, width, precision, x, y, predictor_func):
     return d
 
 
-def make_lossless_values(predictor, width, precision, samples):
+def make_lossless_values(predictor, width, precision, samples, restart_interval=0):
     predictor_func = {
         1: predictor1,
         2: predictor2,
@@ -807,10 +807,17 @@ def make_lossless_values(predictor, width, precision, samples):
     bits = []
     height = len(samples) // width
     values = []
+    x0 = 0
+    y0 = 0
     for y in range(height):
         for x in range(width):
+            if restart_interval != 0 and len(values) % restart_interval == 0:
+                x0 = x
+                y0 = y
             values.append(
-                get_lossless_value(samples, width, precision, x, y, predictor_func)
+                get_lossless_value(
+                    samples, width, precision, x, y, predictor_func, x0=x0, y0=y0
+                )
             )
     return values
 
@@ -826,16 +833,21 @@ def make_lossless_huffman_table(values):
 def huffman_lossless_scan(
     table,
     values,
-    restart_interval=0,  # FIXME
+    restart_interval=0,
 ):
     bits = []
-    for value in values:
+    data = b""
+    for i, value in enumerate(values):
+        if restart_interval != 0 and i != 0 and i % restart_interval == 0:
+            data += encode_scan_bits(bits)
+            bits = []
+            data += restart((i // restart_interval - 1) % 8)
         value_bits = encode_amplitude(value)
         # FIXME: Handle size 16 - no extra bits - 32768
         bits.extend(get_huffman_code(table, len(value_bits)))
         bits.extend(value_bits)
 
-    return encode_scan_bits(bits)
+    return data + encode_scan_bits(bits)
 
 
 def arithmetic_lossless_scan(

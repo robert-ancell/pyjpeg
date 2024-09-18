@@ -315,7 +315,9 @@ def make_lossless(
     component_tables = []
     huffman_tables = []
     for i, samples in enumerate(component_samples):
-        values = jpeg.make_lossless_values(predictor, width, precision, samples)
+        values = jpeg.make_lossless_values(
+            predictor, width, precision, samples, restart_interval=restart_interval
+        )
         component_values.append(values)
         if arithmetic:
             table = 0
@@ -402,6 +404,7 @@ def generate_lossless(
     height,
     component_samples,
     precision=8,
+    restart_interval=0,
     predictor=1,
     arithmetic=False,
 ):
@@ -414,6 +417,7 @@ def generate_lossless(
             height,
             component_samples,
             precision=precision,
+            restart_interval=restart_interval,
             predictor=predictor,
             arithmetic=arithmetic,
         )
@@ -554,6 +558,43 @@ for predictor in range(1, 8):
         [grayscale_samples8],
         predictor=predictor,
     )
+generate_lossless(
+    "lossless_huffman",
+    "grayscale",
+    width,
+    height,
+    [grayscale_samples12],
+    precision=12,
+    predictor=1,
+)
+generate_lossless(
+    "lossless_huffman",
+    "grayscale",
+    width,
+    height,
+    [grayscale_samples16],
+    precision=16,
+    predictor=1,
+)
+generate_lossless(
+    "lossless_huffman",
+    "rgb",
+    width,
+    height,
+    rgb_samples,
+    predictor=1,
+)
+generate_lossless(
+    "lossless_huffman",
+    "restarts",
+    width,
+    height,
+    [grayscale_samples8],
+    predictor=1,
+    restart_interval=32 * 8,
+)
+
+for predictor in range(1, 8):
     generate_lossless(
         "lossless_arithmetic",
         "grayscale_predictor%d" % predictor,
@@ -563,36 +604,6 @@ for predictor in range(1, 8):
         predictor=predictor,
         arithmetic=True,
     )
-
-generate_lossless(
-    "lossless_huffman",
-    "grayscale",
-    width,
-    height,
-    [grayscale_samples12],
-    precision=12,
-    predictor=1,
-)
-
-generate_lossless(
-    "lossless_huffman",
-    "grayscale",
-    width,
-    height,
-    [grayscale_samples16],
-    precision=16,
-    predictor=1,
-)
-
-generate_lossless(
-    "lossless_huffman",
-    "rgb",
-    width,
-    height,
-    rgb_samples,
-    predictor=1,
-)
-
 generate_lossless(
     "lossless_arithmetic",
     "grayscale",
@@ -603,7 +614,6 @@ generate_lossless(
     predictor=1,
     arithmetic=True,
 )
-
 generate_lossless(
     "lossless_arithmetic",
     "grayscale",
@@ -614,7 +624,6 @@ generate_lossless(
     predictor=1,
     arithmetic=True,
 )
-
 generate_lossless(
     "lossless_arithmetic",
     "rgb",
