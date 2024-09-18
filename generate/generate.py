@@ -76,6 +76,7 @@ def make_dct_sequential(
     sampling_factors=None,
     precision=8,
     use_dnl=False,
+    restart_interval=0,
     interleaved=False,
     color_space=None,
     comments=[],
@@ -156,9 +157,17 @@ def make_dct_sequential(
         )
     if not arithmetic:
         if use_chrominance:
-            luminance_dc_table = jpeg.make_dct_huffman_dc_table(coefficients[:1])
+            luminance_dc_table = jpeg.make_dct_huffman_dc_table(
+                coefficients[:1],
+                sampling_factors[:1],
+                restart_interval=restart_interval,
+            )
             luminance_ac_table = jpeg.make_dct_huffman_ac_table(coefficients[:1])
-            chrominance_dc_table = jpeg.make_dct_huffman_dc_table(coefficients[1:])
+            chrominance_dc_table = jpeg.make_dct_huffman_dc_table(
+                coefficients[1:],
+                sampling_factors[1:],
+                restart_interval=restart_interval,
+            )
             chrominance_ac_table = jpeg.make_dct_huffman_ac_table(coefficients[1:])
             huffman_tables = [
                 jpeg.HuffmanTable.dc(0, luminance_dc_table),
@@ -167,7 +176,9 @@ def make_dct_sequential(
                 jpeg.HuffmanTable.ac(1, chrominance_ac_table),
             ]
         else:
-            luminance_dc_table = jpeg.make_dct_huffman_dc_table(coefficients)
+            luminance_dc_table = jpeg.make_dct_huffman_dc_table(
+                coefficients, sampling_factors, restart_interval=restart_interval
+            )
             luminance_ac_table = jpeg.make_dct_huffman_ac_table(coefficients)
             huffman_tables = [
                 jpeg.HuffmanTable.dc(0, luminance_dc_table),
@@ -242,6 +253,8 @@ def make_dct_sequential(
         data += jpeg.start_of_frame_baseline(width, number_of_lines, components)
     if not arithmetic:
         data += jpeg.define_huffman_tables(tables=huffman_tables)
+    if restart_interval != 0:
+        data += jpeg.define_restart_interval(restart_interval)
     if interleaved and n_components > 1:
         huffman_components = []
         for i in range(n_components):
@@ -257,7 +270,9 @@ def make_dct_sequential(
         if arithmetic:
             raise Exception("Not implemented")
         else:
-            data += jpeg.huffman_dct_scan_interleaved(huffman_components)
+            data += jpeg.huffman_dct_scan_interleaved(
+                huffman_components, restart_interval=restart_interval
+            )
         if use_dnl:
             data += jpeg.define_number_of_lines(height)
     else:
@@ -268,12 +283,15 @@ def make_dct_sequential(
                 ]
             )
             if arithmetic:
-                data += jpeg.arithmetic_dct_scan(coefficients=coefficients[i])
+                data += jpeg.arithmetic_dct_scan(
+                    coefficients=coefficients[i], restart_interval=restart_interval
+                )
             else:
                 data += jpeg.huffman_dct_scan(
                     dc_table=component_dc_tables[i],
                     ac_table=component_ac_tables[i],
                     coefficients=coefficients[i],
+                    restart_interval=restart_interval,
                 )
             if use_dnl and i == 0:
                 data += jpeg.define_number_of_lines(height)
@@ -287,6 +305,7 @@ def make_lossless(
     component_samples,
     precision=8,
     predictor=1,
+    restart_interval=0,
     arithmetic=False,
 ):
     conditioning_range = (0, 1)
@@ -314,6 +333,8 @@ def make_lossless(
     )
     if len(huffman_tables) > 0:
         data += jpeg.define_huffman_tables(tables=huffman_tables)
+    if restart_interval != 0:
+        data += jpeg.define_restart_interval(restart_interval)
     # FIXME: Interleaved
     for i, scan_component in enumerate(scan_components):
         data += jpeg.start_of_scan_lossless(
@@ -322,11 +343,16 @@ def make_lossless(
         )
         if arithmetic:
             data += jpeg.arithmetic_lossless_scan(
-                conditioning_range, width, component_values[i]
+                conditioning_range,
+                width,
+                component_values[i],
+                restart_interval=restart_interval,
             )
         else:
             data += jpeg.huffman_lossless_scan(
-                huffman_tables[i].symbols_by_length, component_values[i]
+                huffman_tables[i].symbols_by_length,
+                component_values[i],
+                restart_interval=restart_interval,
             )
     data += jpeg.end_of_image()
     return data
@@ -339,6 +365,7 @@ def generate_dct(
     height,
     component_samples,
     precision=8,
+    restart_interval=0,
     use_dnl=False,
     sampling_factors=None,
     interleaved=False,
@@ -356,6 +383,7 @@ def generate_dct(
             height,
             component_samples,
             precision=precision,
+            restart_interval=restart_interval,
             use_dnl=use_dnl,
             sampling_factors=sampling_factors,
             interleaved=interleaved,
@@ -480,6 +508,9 @@ generate_dct(
     color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
 )
 generate_dct("baseline", "dnl", width, height, [grayscale_samples8], use_dnl=True)
+generate_dct(
+    "baseline", "restarts", width, height, [grayscale_samples8], restart_interval=4
+)
 
 generate_dct(
     "extended_huffman", "grayscale", width, height, [grayscale_samples8], extended=True

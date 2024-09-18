@@ -127,15 +127,20 @@ def define_quantization_tables(tables=[]):
     return marker(0xDB) + struct.pack(">H", 2 + len(data)) + data
 
 
+def restart(index):
+    assert index >= 0 and index <= 7
+    return marker(0xD0 + index)
+
+
 def define_number_of_lines(number_of_lines):
     assert number_of_lines >= 1 and number_of_lines <= 65535
-    data = struct.pack("H", number_of_lines)
+    data = struct.pack(">H", number_of_lines)
     return marker(0xDC) + struct.pack(">H", 2 + len(data)) + data
 
 
 def define_restart_interval(restart_interval):
     assert restart_interval >= 0 and restart_interval <= 65535
-    data = struct.pack("H", restart_interval)
+    data = struct.pack(">H", restart_interval)
     return marker(0xDD) + struct.pack(">H", 2 + len(data)) + data
 
 
@@ -357,6 +362,10 @@ def encode_amplitude(value):
 
 
 def encode_scan_bits(bits):
+    # Pad with 1 bits
+    if len(bits) % 8 != 0:
+        bits.extend([1] * (8 - len(bits) % 8))
+
     data = []
     for i in range(0, len(bits), 8):
         b = (
@@ -375,7 +384,7 @@ def encode_scan_bits(bits):
         if b == 0xFF:
             data.append(0)
 
-    return data
+    return bytes(data)
 
 
 class HuffmanDCTComponent:
@@ -388,13 +397,15 @@ class HuffmanDCTComponent:
         self.sampling_factor = sampling_factor
 
 
-def _encode_huffman_data_unit(bits, component, data_unit_offset, selection):
+def _encode_huffman_data_unit(
+    bits, component, data_unit_offset, selection, block_start_offset=0
+):
     i = selection[0]
     while i <= selection[1]:
         coefficient = component.coefficients[data_unit_offset + i]
         if i == 0:
             # DC coefficient, encode relative to previous DC value
-            if data_unit_offset == 0:
+            if data_unit_offset == block_start_offset:
                 dc_diff = coefficient
             else:
                 dc_diff = coefficient - component.coefficients[data_unit_offset - 64]
@@ -431,6 +442,7 @@ def _encode_huffman_data_unit(bits, component, data_unit_offset, selection):
 def huffman_dct_scan_interleaved(
     components=[],
     selection=(0, 63),
+    restart_interval=0,
 ):
     assert len(components) > 0
     n_mcus = len(components[0].coefficients) // (
@@ -445,23 +457,33 @@ def huffman_dct_scan_interleaved(
         sampling_limit += c.sampling_factor[0] * c.sampling_factor[1]
     assert sampling_limit <= 10
     bits = []
+    data = b""
     data_unit_offsets = [0] * len(components)
+    block_start_offsets = [0] * len(components)
     for m in range(n_mcus):
+        if restart_interval != 0 and m != 0 and m % restart_interval == 0:
+            data += encode_scan_bits(bits)
+            bits = []
+            data += restart((m // restart_interval - 1) % 8)
+            block_start_offsets = data_unit_offsets[:]
+
         for i, component in enumerate(components):
             for _ in range(component.sampling_factor[0] * component.sampling_factor[1]):
                 _encode_huffman_data_unit(
-                    bits, component, data_unit_offsets[i], selection
+                    bits,
+                    component,
+                    data_unit_offsets[i],
+                    selection,
+                    block_start_offset=block_start_offsets[i],
                 )
                 data_unit_offsets[i] += 64
 
-    # Pad with 1 bits
-    if len(bits) % 8 != 0:
-        bits.extend([1] * (8 - len(bits) % 8))
-
-    return bytes(encode_scan_bits(bits))
+    return data + encode_scan_bits(bits)
 
 
-def huffman_dct_scan(dc_table=None, ac_table=None, coefficients=[], selection=(0, 63)):
+def huffman_dct_scan(
+    dc_table=None, ac_table=None, coefficients=[], selection=(0, 63), restart_interval=0
+):
     return huffman_dct_scan_interleaved(
         components=[
             HuffmanDCTComponent(
@@ -472,6 +494,7 @@ def huffman_dct_scan(dc_table=None, ac_table=None, coefficients=[], selection=(0
             )
         ],
         selection=selection,
+        restart_interval=restart_interval,
     )
 
 
@@ -595,6 +618,7 @@ def arithmetic_dct_scan(
     conditioning_range=(0, 1),
     kx=5,
     selection=(0, 63),
+    restart_interval=0,
 ):
     assert len(coefficients) % 64 == 0
     n_data_units = len(coefficients) // 64
@@ -802,6 +826,7 @@ def make_lossless_huffman_table(values):
 def huffman_lossless_scan(
     table,
     values,
+    restart_interval=0,  # FIXME
 ):
     bits = []
     for value in values:
@@ -810,17 +835,14 @@ def huffman_lossless_scan(
         bits.extend(get_huffman_code(table, len(value_bits)))
         bits.extend(value_bits)
 
-    # Pad with 1 bits
-    if len(bits) % 8 != 0:
-        bits.extend([1] * (8 - len(bits) % 8))
-
-    return bytes(encode_scan_bits(bits))
+    return encode_scan_bits(bits)
 
 
 def arithmetic_lossless_scan(
     conditioning_range,
     width,
     values,
+    restart_interval=0,  # FIXME
 ):
     encoder = arithmetic.Encoder()
     sstates = []
@@ -967,16 +989,23 @@ def make_dct_coefficients(
     return coefficients
 
 
-def make_dct_huffman_dc_table(channels):
+def make_dct_huffman_dc_table(channels, sampling_factors, restart_interval=0):
     frequencies = [0] * 256
-    for coefficients in channels:
+    for channel_index, coefficients in enumerate(channels):
         last_dc = 0
-        for i in range(0, len(coefficients), 64):
-            dc = coefficients[i]
-            dc_diff = dc - last_dc
-            last_dc = dc
-            symbol = get_amplitude_length(dc_diff)
-            frequencies[symbol] += 1
+        sampling_factor = sampling_factors[channel_index]
+        n_mcus = len(coefficients) // (64 * sampling_factor[0] * sampling_factor[1])
+        data_unit_offset = 0
+        for m in range(n_mcus):
+            if restart_interval != 0 and m % restart_interval == 0:
+                last_dc = 0
+            for _ in range(0, sampling_factor[0] * sampling_factor[1]):
+                dc = coefficients[data_unit_offset]
+                dc_diff = dc - last_dc
+                last_dc = dc
+                symbol = get_amplitude_length(dc_diff)
+                frequencies[symbol] += 1
+                data_unit_offset += 64
     return make_huffman_table(frequencies)
 
 
