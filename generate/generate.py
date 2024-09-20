@@ -659,9 +659,11 @@ generate_dct(
     spectral_selection=[(0, 0), (1, 63)],
     progressive=True,
 )
-all_selection = []
-for i in range(64):
+all_selection = [(0, 0)]
+all_reverse_selection = [(0, 0)]
+for i in range(1, 64):
     all_selection.append((i, i))
+    all_reverse_selection.append((64 - i, 64 - i))
 generate_dct(
     "progressive_huffman",
     "grayscale_spectral_all",
@@ -669,6 +671,15 @@ generate_dct(
     height,
     [grayscale_samples8],
     spectral_selection=all_selection,
+    progressive=True,
+)
+generate_dct(
+    "progressive_huffman",
+    "grayscale_spectral_all_reverse",
+    width,
+    height,
+    [grayscale_samples8],
+    spectral_selection=all_reverse_selection,
     progressive=True,
 )
 
@@ -689,6 +700,16 @@ generate_dct(
     height,
     [grayscale_samples8],
     spectral_selection=all_selection,
+    progressive=True,
+    arithmetic=True,
+)
+generate_dct(
+    "progressive_arithmetic",
+    "grayscale_spectral_all_reverse",
+    width,
+    height,
+    [grayscale_samples8],
+    spectral_selection=all_reverse_selection,
     progressive=True,
     arithmetic=True,
 )
