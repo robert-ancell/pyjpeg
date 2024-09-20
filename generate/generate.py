@@ -532,187 +532,117 @@ generate_dct(
     "baseline", "restarts", width, height, [grayscale_samples8], restart_interval=4
 )
 
-generate_dct(
-    "extended_huffman", "grayscale", width, height, [grayscale_samples8], extended=True
-)
-generate_dct(
-    "extended_huffman",
-    "grayscale",
-    width,
-    height,
-    [grayscale_samples12],
-    precision=12,
-    extended=True,
-)
+for encoding in ["huffman", "arithmetic"]:
+    arithmetic = encoding == "arithmetic"
 
-generate_dct(
-    "extended_arithmetic",
-    "grayscale",
-    width,
-    height,
-    [grayscale_samples8],
-    extended=True,
-    arithmetic=True,
-)
-generate_dct(
-    "extended_arithmetic",
-    "grayscale",
-    width,
-    height,
-    [grayscale_samples12],
-    precision=12,
-    extended=True,
-    arithmetic=True,
-)
-
-for predictor in range(1, 8):
-    generate_lossless(
-        "lossless_huffman",
-        "grayscale_predictor%d" % predictor,
+    section = "extended_%s" % encoding
+    generate_dct(
+        section,
+        "grayscale",
         width,
         height,
         [grayscale_samples8],
-        predictor=predictor,
+        extended=True,
+        arithmetic=arithmetic,
     )
-generate_lossless(
-    "lossless_huffman",
-    "grayscale",
-    width,
-    height,
-    [grayscale_samples12],
-    precision=12,
-    predictor=1,
-)
-generate_lossless(
-    "lossless_huffman",
-    "grayscale",
-    width,
-    height,
-    [grayscale_samples16],
-    precision=16,
-    predictor=1,
-)
-generate_lossless(
-    "lossless_huffman",
-    "rgb",
-    width,
-    height,
-    rgb_samples,
-    predictor=1,
-)
-generate_lossless(
-    "lossless_huffman",
-    "restarts",
-    width,
-    height,
-    [grayscale_samples8],
-    predictor=1,
-    restart_interval=32 * 8,
-)
+    generate_dct(
+        section,
+        "grayscale",
+        width,
+        height,
+        [grayscale_samples12],
+        precision=12,
+        extended=True,
+        arithmetic=arithmetic,
+    )
 
-for predictor in range(1, 8):
-    generate_lossless(
-        "lossless_arithmetic",
-        "grayscale_predictor%d" % predictor,
+    section = "progressive_%s" % encoding
+    generate_dct(
+        section,
+        "grayscale_spectral",
         width,
         height,
         [grayscale_samples8],
-        predictor=predictor,
-        arithmetic=True,
+        spectral_selection=[(0, 0), (1, 63)],
+        progressive=True,
+        arithmetic=arithmetic,
     )
-generate_lossless(
-    "lossless_arithmetic",
-    "grayscale",
-    width,
-    height,
-    [grayscale_samples12],
-    precision=12,
-    predictor=1,
-    arithmetic=True,
-)
-generate_lossless(
-    "lossless_arithmetic",
-    "grayscale",
-    width,
-    height,
-    [grayscale_samples16],
-    precision=16,
-    predictor=1,
-    arithmetic=True,
-)
-generate_lossless(
-    "lossless_arithmetic",
-    "rgb",
-    width,
-    height,
-    rgb_samples,
-    predictor=1,
-    arithmetic=True,
-)
+    all_selection = [(0, 0)]
+    all_reverse_selection = [(0, 0)]
+    for i in range(1, 64):
+        all_selection.append((i, i))
+        all_reverse_selection.append((64 - i, 64 - i))
+    generate_dct(
+        section,
+        "grayscale_spectral_all",
+        width,
+        height,
+        [grayscale_samples8],
+        spectral_selection=all_selection,
+        progressive=True,
+        arithmetic=arithmetic,
+    )
+    generate_dct(
+        section,
+        "grayscale_spectral_all_reverse",
+        width,
+        height,
+        [grayscale_samples8],
+        spectral_selection=all_reverse_selection,
+        progressive=True,
+        arithmetic=arithmetic,
+    )
 
-generate_dct(
-    "progressive_huffman",
-    "grayscale_spectral",
-    width,
-    height,
-    [grayscale_samples8],
-    spectral_selection=[(0, 0), (1, 63)],
-    progressive=True,
-)
-all_selection = [(0, 0)]
-all_reverse_selection = [(0, 0)]
-for i in range(1, 64):
-    all_selection.append((i, i))
-    all_reverse_selection.append((64 - i, 64 - i))
-generate_dct(
-    "progressive_huffman",
-    "grayscale_spectral_all",
-    width,
-    height,
-    [grayscale_samples8],
-    spectral_selection=all_selection,
-    progressive=True,
-)
-generate_dct(
-    "progressive_huffman",
-    "grayscale_spectral_all_reverse",
-    width,
-    height,
-    [grayscale_samples8],
-    spectral_selection=all_reverse_selection,
-    progressive=True,
-)
-
-generate_dct(
-    "progressive_arithmetic",
-    "grayscale_spectral",
-    width,
-    height,
-    [grayscale_samples8],
-    spectral_selection=[(0, 0), (1, 63)],
-    progressive=True,
-    arithmetic=True,
-)
-generate_dct(
-    "progressive_arithmetic",
-    "grayscale_spectral_all",
-    width,
-    height,
-    [grayscale_samples8],
-    spectral_selection=all_selection,
-    progressive=True,
-    arithmetic=True,
-)
-generate_dct(
-    "progressive_arithmetic",
-    "grayscale_spectral_all_reverse",
-    width,
-    height,
-    [grayscale_samples8],
-    spectral_selection=all_reverse_selection,
-    progressive=True,
-    arithmetic=True,
-)
+    section = "lossless_%s" % encoding
+    for predictor in range(1, 8):
+        generate_lossless(
+            section,
+            "grayscale_predictor%d" % predictor,
+            width,
+            height,
+            [grayscale_samples8],
+            predictor=predictor,
+            arithmetic=arithmetic,
+        )
+    generate_lossless(
+        section,
+        "grayscale",
+        width,
+        height,
+        [grayscale_samples12],
+        precision=12,
+        predictor=1,
+        arithmetic=arithmetic,
+    )
+    generate_lossless(
+        section,
+        "grayscale",
+        width,
+        height,
+        [grayscale_samples16],
+        precision=16,
+        predictor=1,
+        arithmetic=arithmetic,
+    )
+    generate_lossless(
+        section,
+        "rgb",
+        width,
+        height,
+        rgb_samples,
+        predictor=1,
+        arithmetic=arithmetic,
+    )
+    generate_lossless(
+        section,
+        "restarts",
+        width,
+        height,
+        [grayscale_samples8],
+        predictor=1,
+        restart_interval=32 * 8,
+        arithmetic=arithmetic,
+    )
 
 # 3 channel, red, green, blue, white, mixed color
 # version 1.1
