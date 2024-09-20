@@ -852,57 +852,44 @@ def huffman_lossless_scan(
     return data + encode_scan_bits(bits)
 
 
-def arithmetic_lossless_scan(
-    conditioning_range,
-    width,
-    values,
-    restart_interval=0,  # FIXME
-):
-    encoder = arithmetic.Encoder()
-    sstates = []
-    for i in range(N_ARITHMETIC_CLASSIFICATIONS):
-        s = []
+class LosslessArithmeticEncoder:
+    def __init__(self, conditioning_range):
+        self.encoder = arithmetic.Encoder()
+        self.conditioning_range = conditioning_range
+        self.sstates = []
         for i in range(N_ARITHMETIC_CLASSIFICATIONS):
-            s.append(ArithmeticDCStates())
-        sstates.append(s)
-    small_xstates = []
-    large_xstates = []
-    for i in range(15):
-        small_xstates.append(arithmetic.State())
-        large_xstates.append(arithmetic.State())
-    small_mstates = []
-    large_mstates = []
-    for i in range(14):
-        small_mstates.append(arithmetic.State())
-        large_mstates.append(arithmetic.State())
-    for i, value in enumerate(values):
-        x = i % width
-        y = i // width
-        if x == 0:
-            a = 0
-        else:
-            a = values[i - 1]
-        if y == 0:
-            b = 0
-        else:
-            b = values[i - width]
+            s = []
+            for i in range(N_ARITHMETIC_CLASSIFICATIONS):
+                s.append(ArithmeticDCStates())
+            self.sstates.append(s)
+        self.small_xstates = []
+        self.large_xstates = []
+        for i in range(15):
+            self.small_xstates.append(arithmetic.State())
+            self.large_xstates.append(arithmetic.State())
+        self.small_mstates = []
+        self.large_mstates = []
+        for i in range(14):
+            self.small_mstates.append(arithmetic.State())
+            self.large_mstates.append(arithmetic.State())
 
-        ca = classify_arithmetic_value(conditioning_range, a)
-        cb = classify_arithmetic_value(conditioning_range, b)
-        sstate = sstates[ca][cb]
+    def encode_dc(self, a, b, value):
+        ca = classify_arithmetic_value(self.conditioning_range, a)
+        cb = classify_arithmetic_value(self.conditioning_range, b)
+        sstate = self.sstates[ca][cb]
 
         if (
             cb == ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE
             or cb == ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE
         ):
-            mstates = large_mstates
-            xstates = large_xstates
+            mstates = self.large_mstates
+            xstates = self.large_xstates
         else:
-            mstates = small_mstates
-            xstates = small_xstates
+            mstates = self.small_mstates
+            xstates = self.small_xstates
 
         encode_arithmetic_dc(
-            encoder,
+            self.encoder,
             sstate.non_zero,
             sstate.negative,
             sstate.sp,
@@ -912,9 +899,40 @@ def arithmetic_lossless_scan(
             value,
         )
 
-    encoder.flush()
+    def get_data(self):
+        self.encoder.flush()
+        return bytes(self.encoder.data)
 
-    return bytes(encoder.data)
+
+def arithmetic_lossless_scan(
+    conditioning_range,
+    width,
+    values,
+    restart_interval=0,
+):
+    data = b""
+    encoder = LosslessArithmeticEncoder(conditioning_range)
+    y0 = 0
+    for i, value in enumerate(values):
+        if restart_interval != 0 and i != 0 and i % restart_interval == 0:
+            data += encoder.get_data()
+            encoder = LosslessArithmeticEncoder(conditioning_range)
+            data += restart((i // restart_interval - 1) % 8)
+            y0 = i // width
+        x = i % width
+        y = i // width
+        if x == 0:
+            a = 0
+        else:
+            a = values[i - 1]
+        if y == y0:
+            b = 0
+        else:
+            b = values[i - width]
+
+        encoder.encode_dc(a, b, value)
+
+    return data + encoder.get_data()
 
 
 def end_of_image():
