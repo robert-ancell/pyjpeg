@@ -79,12 +79,14 @@ def make_dct_sequential(
     restart_interval=0,
     interleaved=False,
     color_space=None,
+    spectral_selection=[(0, 63)],
     comments=[],
     extended=False,
+    progressive=False,
     arithmetic=False,
 ):
     if arithmetic:
-        assert extended
+        assert extended or progressive
 
     n_components = len(component_samples)
 
@@ -249,6 +251,10 @@ def make_dct_sequential(
         data += jpeg.start_of_frame_extended(
             width, number_of_lines, precision, components, arithmetic=arithmetic
         )
+    elif progressive:
+        data += jpeg.start_of_frame_progressive(
+            width, number_of_lines, precision, components, arithmetic=arithmetic
+        )
     else:
         data += jpeg.start_of_frame_baseline(width, number_of_lines, components)
     if not arithmetic:
@@ -256,6 +262,7 @@ def make_dct_sequential(
     if restart_interval != 0:
         data += jpeg.define_restart_interval(restart_interval)
     if interleaved and n_components > 1:
+        assert spectral_selection == [(0, 63)]
         huffman_components = []
         for i in range(n_components):
             huffman_components.append(
@@ -266,7 +273,7 @@ def make_dct_sequential(
                     sampling_factor=sampling_factors[i],
                 )
             )
-        data += jpeg.start_of_scan_sequential(components=scan_components)
+        data += jpeg.start_of_scan_dct(components=scan_components)
         if arithmetic:
             raise Exception("Not implemented")
         else:
@@ -276,25 +283,30 @@ def make_dct_sequential(
         if use_dnl:
             data += jpeg.define_number_of_lines(height)
     else:
-        for i in range(n_components):
-            data += jpeg.start_of_scan_sequential(
-                components=[
-                    scan_components[i],
-                ]
-            )
-            if arithmetic:
-                data += jpeg.arithmetic_dct_scan(
-                    coefficients=coefficients[i], restart_interval=restart_interval
+        for selection in spectral_selection:
+            for i in range(n_components):
+                data += jpeg.start_of_scan_dct(
+                    components=[
+                        scan_components[i],
+                    ],
+                    selection=selection,
                 )
-            else:
-                data += jpeg.huffman_dct_scan(
-                    dc_table=component_dc_tables[i],
-                    ac_table=component_ac_tables[i],
-                    coefficients=coefficients[i],
-                    restart_interval=restart_interval,
-                )
-            if use_dnl and i == 0:
-                data += jpeg.define_number_of_lines(height)
+                if arithmetic:
+                    data += jpeg.arithmetic_dct_scan(
+                        coefficients=coefficients[i],
+                        restart_interval=restart_interval,
+                        selection=selection,
+                    )
+                else:
+                    data += jpeg.huffman_dct_scan(
+                        dc_table=component_dc_tables[i],
+                        ac_table=component_ac_tables[i],
+                        coefficients=coefficients[i],
+                        restart_interval=restart_interval,
+                        selection=selection,
+                    )
+                if use_dnl and i == 0 and selection[0] == 0:
+                    data += jpeg.define_number_of_lines(height)
     data += jpeg.end_of_image()
     return data
 
@@ -372,8 +384,10 @@ def generate_dct(
     sampling_factors=None,
     interleaved=False,
     color_space=None,
+    spectral_selection=[(0, 63)],
     comments=[],
     extended=False,
+    progressive=False,
     arithmetic=False,
 ):
     open(
@@ -390,8 +404,10 @@ def generate_dct(
             sampling_factors=sampling_factors,
             interleaved=interleaved,
             color_space=color_space,
+            spectral_selection=spectral_selection,
             comments=comments,
             extended=extended,
+            progressive=progressive,
             arithmetic=arithmetic,
         )
     )
@@ -631,6 +647,27 @@ generate_lossless(
     height,
     rgb_samples,
     predictor=1,
+    arithmetic=True,
+)
+
+generate_dct(
+    "progressive_huffman",
+    "grayscale_spectral",
+    width,
+    height,
+    [grayscale_samples8],
+    spectral_selection=[(0, 0), (1, 63)],
+    progressive=True,
+)
+
+generate_dct(
+    "progressive_arithmetic",
+    "grayscale_spectral",
+    width,
+    height,
+    [grayscale_samples8],
+    spectral_selection=[(0, 0), (1, 63)],
+    progressive=True,
     arithmetic=True,
 )
 

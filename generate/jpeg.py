@@ -317,8 +317,10 @@ def start_of_scan(components=[], ss=0, se=0, ah=0, al=0):
     return marker(0xDA) + struct.pack(">H", 2 + len(data)) + data
 
 
-def start_of_scan_sequential(components=[]):
-    return start_of_scan(components=components, ss=0, se=63, ah=0, al=0)
+def start_of_scan_dct(components=[], selection=(0, 63)):
+    return start_of_scan(
+        components=components, ss=selection[0], se=selection[1], ah=0, al=0
+    )
 
 
 def start_of_scan_lossless(components=[], predictor=1, point_transform=0):
@@ -1021,6 +1023,7 @@ def make_dct_huffman_dc_table(channels, sampling_factors, restart_interval=0):
     return make_huffman_table(frequencies)
 
 
+# FIXME: Doesn't handle spectral selection
 def make_dct_huffman_ac_table(channels):
     frequencies = [0] * 256
     for coefficients in channels:
