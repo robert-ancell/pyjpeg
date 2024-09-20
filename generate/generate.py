@@ -5,29 +5,42 @@ import jpeg
 from pgm import *
 
 
-def rgb_to_ycbcr(r, g, b):
+WIDTH = 32
+HEIGHT = 32
+
+
+def rgb_to_ycbcr(r, g, b, precision):
+    offset = 1 << (precision - 1)
     y = round(0.299 * r + 0.587 * g + 0.114 * b)
-    cb = round(-0.1687 * r - 0.3313 * g + 0.5 * b + 128)
-    cr = round(0.5 * r - 0.4187 * g - 0.0813 * b + 128)
+    cb = round(-0.1687 * r - 0.3313 * g + 0.5 * b + offset)
+    cr = round(0.5 * r - 0.4187 * g - 0.0813 * b + offset)
     return (y, cb, cr)
 
 
-def rgb_to_cmyk(r8, g8, b8):
-    r = r8 / 255.0
-    g = g8 / 255.0
-    b = b8 / 255.0
-    k = 1 - max(r, g, b)
+def rgb_to_cmyk(r, g, b, precision):
+    max_value = 1 << (precision - 1)
+    rf = r / max_value
+    gf = g / max_value
+    bf = b / max_value
+    k = 1 - max(rf, gf, bf)
     if k == 1:
         c, m, y = 0, 0, 0
     else:
-        c = (1 - r - k) / (1 - k)
-        m = (1 - g - k) / (1 - k)
-        y = (1 - b - k) / (1 - k)
-    return (round(c * 255), round(m * 255), round(y * 255), round(k * 255))
+        c = (1 - rf - k) / (1 - k)
+        m = (1 - gf - k) / (1 - k)
+        y = (1 - bf - k) / (1 - k)
+    return (
+        round(c * max_value),
+        round(m * max_value),
+        round(y * max_value),
+        round(k * max_value),
+    )
 
 
 def make_grayscale(precision):
     width, height, max_value, raw_samples = read_pgm("test-face.pgm")
+    assert width == WIDTH
+    assert height == HEIGHT
     samples = []
     for s in raw_samples:
         samples.append(round(s * ((1 << precision) - 1) / max_value))
@@ -37,27 +50,57 @@ def make_grayscale(precision):
 grayscale_samples8 = make_grayscale(8)
 grayscale_samples12 = make_grayscale(12)
 
-width, height, max_value, raw_samples = read_pgm("test-face.ppm")
-rgb_samples = ([], [], [])
-ycbcr_samples = ([], [], [])
-cmyk_samples = ([], [], [], [])
-for s in raw_samples:
-    (r, g, b) = s
-    r8 = round(r * 255 / max_value)
-    g8 = round(g * 255 / max_value)
-    b8 = round(b * 255 / max_value)
-    rgb_samples[0].append(r8)
-    rgb_samples[1].append(g8)
-    rgb_samples[2].append(b8)
-    (y, cb, cr) = rgb_to_ycbcr(r8, g8, b8)
-    ycbcr_samples[0].append(y)
-    ycbcr_samples[1].append(cb)
-    ycbcr_samples[2].append(cr)
-    (c, m, y, k) = rgb_to_cmyk(r8, g8, b8)
-    cmyk_samples[0].append(c)
-    cmyk_samples[1].append(m)
-    cmyk_samples[2].append(y)
-    cmyk_samples[3].append(k)
+
+def make_rgb(precision):
+    width, height, max_value, raw_samples = read_pgm("test-face.ppm")
+    assert width == WIDTH
+    assert height == HEIGHT
+    r_samples = []
+    g_samples = []
+    b_samples = []
+    for r, g, b in raw_samples:
+        r_samples.append(round(r * ((1 << precision) - 1) / max_value))
+        g_samples.append(round(g * ((1 << precision) - 1) / max_value))
+        b_samples.append(round(b * ((1 << precision) - 1) / max_value))
+    return (r_samples, g_samples, b_samples)
+
+
+rgb_samples8 = make_rgb(8)
+
+
+def make_ycbcr(precision):
+    r_samples, g_samples, b_samples = make_rgb(precision)
+    y_samples = []
+    cb_samples = []
+    cr_samples = []
+    for i in range(len(r_samples)):
+        (y, cb, cr) = rgb_to_ycbcr(r_samples[i], g_samples[i], b_samples[i], precision)
+        y_samples.append(y)
+        cb_samples.append(cb)
+        cr_samples.append(cr)
+    return (y_samples, cb_samples, cr_samples)
+
+
+ycbcr_samples8 = make_ycbcr(8)
+ycbcr_samples12 = make_ycbcr(12)
+
+
+def make_cmyk(precision):
+    r_samples, g_samples, b_samples = make_rgb(precision)
+    c_samples = []
+    m_samples = []
+    y_samples = []
+    k_samples = []
+    for i in range(len(r_samples)):
+        (c, m, y, k) = rgb_to_cmyk(r_samples[i], g_samples[i], b_samples[i], precision)
+        c_samples.append(c)
+        m_samples.append(m)
+        y_samples.append(y)
+        k_samples.append(k)
+    return (c_samples, m_samples, y_samples, k_samples)
+
+
+cmyk_samples8 = make_cmyk(8)
 
 
 def scale_samples(width, height, samples, h_max, h, v_max, v):
@@ -443,96 +486,96 @@ def generate_lossless(
     )
 
 
-generate_dct("baseline", "grayscale", width, height, [grayscale_samples8])
-generate_dct("baseline", "ycbcr", width, height, ycbcr_samples)
+generate_dct("baseline", "grayscale", WIDTH, HEIGHT, [grayscale_samples8])
+generate_dct("baseline", "ycbcr", WIDTH, HEIGHT, ycbcr_samples8)
 generate_dct(
-    "baseline", "ycbcr_interleaved", width, height, ycbcr_samples, interleaved=True
+    "baseline", "ycbcr_interleaved", WIDTH, HEIGHT, ycbcr_samples8, interleaved=True
 )
 generate_dct(
     "baseline",
     "ycbcr_scale_22_11_11",
-    width,
-    height,
-    ycbcr_samples,
+    WIDTH,
+    HEIGHT,
+    ycbcr_samples8,
     sampling_factors=[(2, 2), (1, 1), (1, 1)],
 )
 generate_dct(
     "baseline",
     "ycbcr_scale_22_11_11_interleaved",
-    width,
-    height,
-    ycbcr_samples,
+    WIDTH,
+    HEIGHT,
+    ycbcr_samples8,
     sampling_factors=[(2, 2), (1, 1), (1, 1)],
     interleaved=True,
 )
 generate_dct(
     "baseline",
     "ycbcr_scale_22_21_12",
-    width,
-    height,
-    ycbcr_samples,
+    WIDTH,
+    HEIGHT,
+    ycbcr_samples8,
     sampling_factors=[(2, 2), (2, 1), (1, 2)],
 )
 generate_dct(
     "baseline",
     "ycbcr_scale_22_21_12_interleaved",
-    width,
-    height,
-    ycbcr_samples,
+    WIDTH,
+    HEIGHT,
+    ycbcr_samples8,
     sampling_factors=[(2, 2), (2, 1), (1, 2)],
     interleaved=True,
 )
 generate_dct(
     "baseline",
     "ycbcr_scale_44_11_11",
-    width,
-    height,
-    ycbcr_samples,
+    WIDTH,
+    HEIGHT,
+    ycbcr_samples8,
     sampling_factors=[(4, 4), (1, 1), (1, 1)],
 )
 generate_dct(
     "baseline",
     "ycbcr_scale_44_22_11",
-    width,
-    height,
-    ycbcr_samples,
+    WIDTH,
+    HEIGHT,
+    ycbcr_samples8,
     sampling_factors=[(4, 4), (2, 2), (1, 1)],
 )
 generate_dct(
     "baseline",
     "comment",
-    width,
-    height,
+    WIDTH,
+    HEIGHT,
     [grayscale_samples8],
     comments=[b"Hello World"],
 )
 generate_dct(
     "baseline",
     "comments",
-    width,
-    height,
+    WIDTH,
+    HEIGHT,
     [grayscale_samples8],
     comments=[b"Hello", b"World"],
 )
 generate_dct(
     "baseline",
     "rgb",
-    width,
-    height,
-    rgb_samples,
+    WIDTH,
+    HEIGHT,
+    rgb_samples8,
     color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
 )
 generate_dct(
     "baseline",
     "cmyk",
-    width,
-    height,
-    cmyk_samples,
+    WIDTH,
+    HEIGHT,
+    cmyk_samples8,
     color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
 )
-generate_dct("baseline", "dnl", width, height, [grayscale_samples8], use_dnl=True)
+generate_dct("baseline", "dnl", WIDTH, HEIGHT, [grayscale_samples8], use_dnl=True)
 generate_dct(
-    "baseline", "restarts", width, height, [grayscale_samples8], restart_interval=4
+    "baseline", "restarts", WIDTH, HEIGHT, [grayscale_samples8], restart_interval=4
 )
 
 for encoding in ["huffman", "arithmetic"]:
@@ -542,8 +585,8 @@ for encoding in ["huffman", "arithmetic"]:
     generate_dct(
         section,
         "grayscale",
-        width,
-        height,
+        WIDTH,
+        HEIGHT,
         [grayscale_samples8],
         extended=True,
         arithmetic=arithmetic,
@@ -551,9 +594,19 @@ for encoding in ["huffman", "arithmetic"]:
     generate_dct(
         section,
         "grayscale",
-        width,
-        height,
+        WIDTH,
+        HEIGHT,
         [grayscale_samples12],
+        precision=12,
+        extended=True,
+        arithmetic=arithmetic,
+    )
+    generate_dct(
+        section,
+        "ycbcr",
+        WIDTH,
+        HEIGHT,
+        ycbcr_samples12,
         precision=12,
         extended=True,
         arithmetic=arithmetic,
@@ -563,8 +616,8 @@ for encoding in ["huffman", "arithmetic"]:
     generate_dct(
         section,
         "grayscale_spectral",
-        width,
-        height,
+        WIDTH,
+        HEIGHT,
         [grayscale_samples8],
         spectral_selection=[(0, 0), (1, 63)],
         progressive=True,
@@ -578,8 +631,8 @@ for encoding in ["huffman", "arithmetic"]:
     generate_dct(
         section,
         "grayscale_spectral_all",
-        width,
-        height,
+        WIDTH,
+        HEIGHT,
         [grayscale_samples8],
         spectral_selection=all_selection,
         progressive=True,
@@ -588,8 +641,8 @@ for encoding in ["huffman", "arithmetic"]:
     generate_dct(
         section,
         "grayscale_spectral_all_reverse",
-        width,
-        height,
+        WIDTH,
+        HEIGHT,
         [grayscale_samples8],
         spectral_selection=all_reverse_selection,
         progressive=True,
@@ -601,8 +654,8 @@ for encoding in ["huffman", "arithmetic"]:
         generate_lossless(
             section,
             "grayscale_predictor%d" % predictor,
-            width,
-            height,
+            WIDTH,
+            HEIGHT,
             [grayscale_samples8],
             predictor=predictor,
             arithmetic=arithmetic,
@@ -611,8 +664,8 @@ for encoding in ["huffman", "arithmetic"]:
         generate_lossless(
             section,
             "grayscale",
-            width,
-            height,
+            WIDTH,
+            HEIGHT,
             [make_grayscale(precision)],
             precision=precision,
             predictor=1,
@@ -621,17 +674,17 @@ for encoding in ["huffman", "arithmetic"]:
     generate_lossless(
         section,
         "rgb",
-        width,
-        height,
-        rgb_samples,
+        WIDTH,
+        HEIGHT,
+        rgb_samples8,
         predictor=1,
         arithmetic=arithmetic,
     )
     generate_lossless(
         section,
         "restarts",
-        width,
-        height,
+        WIDTH,
+        HEIGHT,
         [grayscale_samples8],
         predictor=1,
         restart_interval=32 * 8,
