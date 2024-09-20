@@ -26,13 +26,16 @@ def rgb_to_cmyk(r8, g8, b8):
     return (round(c * 255), round(m * 255), round(y * 255), round(k * 255))
 
 
-width, height, max_value, grayscale_samples16 = read_pgm("test-face.pgm")
-assert max_value == 65535
-grayscale_samples8 = []
-grayscale_samples12 = []
-for s in grayscale_samples16:
-    grayscale_samples8.append(round(s * 255 / max_value))
-    grayscale_samples12.append(round(s * 4095 / max_value))
+def make_grayscale(precision):
+    width, height, max_value, raw_samples = read_pgm("test-face.pgm")
+    samples = []
+    for s in raw_samples:
+        samples.append(round(s * ((1 << precision) - 1) / max_value))
+    return samples
+
+
+grayscale_samples8 = make_grayscale(8)
+grayscale_samples12 = make_grayscale(12)
 
 width, height, max_value, raw_samples = read_pgm("test-face.ppm")
 rgb_samples = ([], [], [])
@@ -604,26 +607,17 @@ for encoding in ["huffman", "arithmetic"]:
             predictor=predictor,
             arithmetic=arithmetic,
         )
-    generate_lossless(
-        section,
-        "grayscale",
-        width,
-        height,
-        [grayscale_samples12],
-        precision=12,
-        predictor=1,
-        arithmetic=arithmetic,
-    )
-    generate_lossless(
-        section,
-        "grayscale",
-        width,
-        height,
-        [grayscale_samples16],
-        precision=16,
-        predictor=1,
-        arithmetic=arithmetic,
-    )
+    for precision in range(2, 17):
+        generate_lossless(
+            section,
+            "grayscale",
+            width,
+            height,
+            [make_grayscale(precision)],
+            precision=precision,
+            predictor=1,
+            arithmetic=arithmetic,
+        )
     generate_lossless(
         section,
         "rgb",
