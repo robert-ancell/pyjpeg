@@ -659,6 +659,18 @@ generate_dct(
     spectral_selection=[(0, 0), (1, 63)],
     progressive=True,
 )
+all_selection = []
+for i in range(64):
+    all_selection.append((i, i))
+generate_dct(
+    "progressive_huffman",
+    "grayscale_spectral_all",
+    width,
+    height,
+    [grayscale_samples8],
+    spectral_selection=all_selection,
+    progressive=True,
+)
 
 generate_dct(
     "progressive_arithmetic",
@@ -667,6 +679,16 @@ generate_dct(
     height,
     [grayscale_samples8],
     spectral_selection=[(0, 0), (1, 63)],
+    progressive=True,
+    arithmetic=True,
+)
+generate_dct(
+    "progressive_arithmetic",
+    "grayscale_spectral_all",
+    width,
+    height,
+    [grayscale_samples8],
+    spectral_selection=all_selection,
     progressive=True,
     arithmetic=True,
 )
