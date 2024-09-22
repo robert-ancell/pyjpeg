@@ -8,10 +8,7 @@ from huffman import *
 # https://www.w3.org/Graphics/JPEG/jfif3.pdf
 
 
-# FIXME: comment markers
-# FIXME: restart intervals
 # FIXME: unknown application data
-# FIXME: number of lines maker
 
 
 SOF_BASELINE = 0
@@ -317,9 +314,15 @@ def start_of_scan(components=[], ss=0, se=0, ah=0, al=0):
     return marker(0xDA) + struct.pack(">H", 2 + len(data)) + data
 
 
-def start_of_scan_dct(components=[], selection=(0, 63)):
+def start_of_scan_dct(
+    components=[], selection=(0, 63), point_transform=0, previous_point_transform=0
+):
     return start_of_scan(
-        components=components, ss=selection[0], se=selection[1], ah=0, al=0
+        components=components,
+        ss=selection[0],
+        se=selection[1],
+        ah=previous_point_transform,
+        al=point_transform,
     )
 
 
@@ -399,27 +402,55 @@ class HuffmanDCTComponent:
         self.sampling_factor = sampling_factor
 
 
+def _transform_coefficient(coefficient, point_transform):
+    if coefficient > 0:
+        return coefficient >> point_transform
+    else:
+        return -(-coefficient >> point_transform)
+
+
 class HuffmanCode:
     def __init__(self, table_class, table, symbol):
         self.table_class = table_class
         self.table = table
         self.symbol = symbol
 
+    def dc(table, symbol):
+        return HuffmanCode(0, table, symbol)
+
+    def ac(table, symbol):
+        return HuffmanCode(1, table, symbol)
+
+    def __repr__(self):
+        if self.table_class == 0:
+            return "HuffmanCode.dc(%d, %d)" % (self.table, self.symbol)
+        else:
+            return "HuffmanCode.ac(%d, %d)" % (self.table, self.symbol)
+
 
 def _encode_huffman_data_unit(
-    scan_data, component, data_unit_offset, selection, block_start_offset=0
+    scan_data,
+    component,
+    data_unit_offset,
+    selection,
+    point_transform,
+    block_start_offset=0,
 ):
     i = selection[0]
     while i <= selection[1]:
-        coefficient = component.coefficients[data_unit_offset + i]
+        coefficient = _transform_coefficient(
+            component.coefficients[data_unit_offset + i], point_transform
+        )
         if i == 0:
             # DC coefficient, encode relative to previous DC value
             if data_unit_offset == block_start_offset:
                 dc_diff = coefficient
             else:
-                dc_diff = coefficient - component.coefficients[data_unit_offset - 64]
+                dc_diff = coefficient - _transform_coefficient(
+                    component.coefficients[data_unit_offset - 64], point_transform
+                )
             diff_bits = encode_amplitude(dc_diff)
-            scan_data.append(HuffmanCode(0, component.dc_table, len(diff_bits)))
+            scan_data.append(HuffmanCode.dc(component.dc_table, len(diff_bits)))
             scan_data.append(diff_bits)
             i += 1
         else:
@@ -428,16 +459,23 @@ def _encode_huffman_data_unit(
             run_length = 0
             while (
                 i + run_length <= selection[1]
-                and component.coefficients[data_unit_offset + i + run_length] == 0
+                and _transform_coefficient(
+                    component.coefficients[data_unit_offset + i + run_length],
+                    point_transform,
+                )
+                == 0
             ):
                 run_length += 1
             if i + run_length > 63:
-                scan_data.append(HuffmanCode(1, component.ac_table, 0))  # EOB
+                scan_data.append(HuffmanCode.ac(component.ac_table, 0))  # EOB
                 i = selection[1] + 1
             else:
                 if run_length > 15:
                     run_length = 15
-                coefficient = component.coefficients[data_unit_offset + i + run_length]
+                coefficient = _transform_coefficient(
+                    component.coefficients[data_unit_offset + i + run_length],
+                    point_transform,
+                )
                 coefficient_bits = encode_amplitude(coefficient)
                 scan_data.append(
                     HuffmanCode(
@@ -451,6 +489,7 @@ def _encode_huffman_data_unit(
 def huffman_dct_scan_data(
     components=[],
     selection=(0, 63),
+    point_transform=0,
     restart_interval=0,
 ):
     assert len(components) > 0
@@ -480,9 +519,121 @@ def huffman_dct_scan_data(
                     component,
                     data_unit_offsets[i],
                     selection,
+                    point_transform,
                     block_start_offset=block_start_offsets[i],
                 )
                 data_unit_offsets[i] += 64
+
+    return scan_data
+
+
+def huffman_dct_dc_scan_successive_data(coefficients, point_transform):
+    bits = []
+    for i in range(0, len(coefficients), 64):
+        coefficient = coefficients[i]
+        if i == 0:
+            dc_diff = coefficient
+        else:
+            dc_diff = coefficient - coefficients[i - 64]
+        if dc_diff < 0:
+            dc_diff = -dc_diff
+        bits.append((dc_diff >> point_transform) & 0x1)
+    return [bits]
+
+
+def get_eob_length(count):
+    assert count >= 1 and count <= 32767
+    length = 0
+    while count != 1:
+        count >>= 1
+        length += 1
+    return length
+
+
+def encode_eob(count):
+    length = get_eob_length(count)
+    return get_bits(count, length)
+
+
+def huffman_dct_ac_scan_successive_data(
+    table=0, coefficients=[], selection=(1, 63), point_transform=0
+):
+    assert selection[0] >= 1
+
+    assert len(coefficients) % 64 == 0
+    n_data_units = len(coefficients) // 64
+
+    scan_data = []
+    correction_bits = [[]]
+    eob_count = 0
+    eob_correction_bits = []
+    for data_unit in range(n_data_units):
+        run_length = 0
+        for i in range(selection[0], selection[1] + 1):
+            coefficient = coefficients[data_unit * 64 + i]
+            old_transformed_coefficient = _transform_coefficient(
+                coefficient, point_transform + 1
+            )
+            transformed_coefficient = _transform_coefficient(
+                coefficient, point_transform
+            )
+
+            if old_transformed_coefficient == 0:
+                if transformed_coefficient == 0:
+                    run_length += 1
+
+                    # Max run length is 16, so need to keep correction bits in these blocks.
+                    if run_length % 16 == 0:
+                        correction_bits.append([])
+
+                    if i == selection[1]:
+                        eob_count += 1
+                        for bits in correction_bits:
+                            eob_correction_bits.extend(bits)
+                        correction_bits = [[]]
+                        run_length = 0
+                        # FIXME: If eob_count is 32767 then have to generate it now
+                else:
+                    if eob_count > 0:
+                        eob_bits = encode_eob(eob_count)
+                        scan_data.append(HuffmanCode.ac(table, len(eob_bits) << 4 | 0))
+                        scan_data.append(eob_bits)
+                        scan_data.append(eob_correction_bits)
+                        eob_count = 0
+                        eob_correction_bits = []
+
+                    while run_length > 15:
+                        # ZRL
+                        scan_data.append(HuffmanCode.ac(table, 15 << 4 | 0))
+                        scan_data.append(correction_bits[0])
+                        run_length -= 16
+                        correction_bits = correction_bits[1:]
+                    assert len(correction_bits) == 1
+
+                    scan_data.append(HuffmanCode.ac(table, run_length << 4 | 1))
+                    if transformed_coefficient < 0:
+                        scan_data.append([0])
+                    else:
+                        scan_data.append([1])
+                    scan_data.append(correction_bits[0])
+                    run_length = 0
+                    correction_bits = [[]]
+            else:
+                correction_bits[-1].append(transformed_coefficient & 0x1)
+
+                # FIXME: Same case as above
+                if i == selection[1]:
+                    eob_count += 1
+                    for bits in correction_bits:
+                        eob_correction_bits.extend(bits)
+                    correction_bits = [[]]
+                    run_length = 0
+
+    if eob_count > 0:
+        eob_bits = encode_eob(eob_count)
+        scan_data.append(HuffmanCode.ac(table, len(eob_bits) << 4 | 0))
+        scan_data.append(eob_bits)
+        scan_data.append(eob_correction_bits)
 
     return scan_data
 
@@ -633,6 +784,7 @@ def arithmetic_dct_scan(
     conditioning_range=(0, 1),
     kx=5,
     selection=(0, 63),
+    point_transform=0,
     restart_interval=0,
 ):
     assert len(coefficients) % 64 == 0
@@ -848,7 +1000,7 @@ def huffman_lossless_scan_data(
             scan_data.append(restart((i // restart_interval - 1) % 8))
         value_bits = encode_amplitude(value)
         # FIXME: Handle size 16 - no extra bits - 32768
-        scan_data.append(HuffmanCode(0, table, len(value_bits)))
+        scan_data.append(HuffmanCode.dc(table, len(value_bits)))
         scan_data.append(value_bits)
 
     return scan_data

@@ -125,7 +125,7 @@ def make_dct_sequential(
     restart_interval=0,
     interleaved=False,
     color_space=None,
-    spectral_selection=[(0, 63)],
+    spectral_selection=[(0, 63, 0)],  # FIXME: Change to "scans" and make required
     comments=[],
     extended=False,
     progressive=False,
@@ -242,7 +242,10 @@ def make_dct_sequential(
             jpeg.ScanComponent(i + 1, dc_table=dc_table_index, ac_table=ac_table_index)
         )
     if interleaved:
-        sos = jpeg.start_of_scan_dct(components=scan_components)
+        assert spectral_selection == [(0, 63, 0)]
+        sos = jpeg.start_of_scan_dct(
+            components=scan_components,
+        )
         if arithmetic:
             raise Exception("Not implemented")
         else:
@@ -261,16 +264,20 @@ def make_dct_sequential(
             )
         scans.append((sos, scan_data))
     else:
-        for selection in spectral_selection:
+        for start, end, point_transform in spectral_selection:
+            selection = (start, end)
             for i in range(n_components):
                 sos = jpeg.start_of_scan_dct(
-                    components=[scan_components[i]], selection=selection
+                    components=[scan_components[i]],
+                    selection=selection,
+                    point_transform=point_transform,
                 )
                 if arithmetic:
                     scan_data = jpeg.arithmetic_dct_scan(
                         coefficients=coefficients[i],
                         restart_interval=restart_interval,
                         selection=selection,
+                        point_transform=point_transform,
                     )
                 else:
                     scan_data = jpeg.huffman_dct_scan_data(
@@ -283,8 +290,39 @@ def make_dct_sequential(
                         ],
                         restart_interval=restart_interval,
                         selection=selection,
+                        point_transform=point_transform,
                     )
                 scans.append((sos, scan_data))
+
+                # Add successive scans
+                if point_transform != 0:
+                    for p in range(point_transform - 1, -1, -1):
+                        sos = jpeg.start_of_scan_dct(
+                            components=[scan_components[i]],
+                            selection=selection,
+                            point_transform=p,
+                            previous_point_transform=p + 1,
+                        )
+                        if selection[0] == 0:
+                            assert selection[1] == 0
+                            if arithmetic:
+                                pass
+                            else:
+                                scan_data = jpeg.huffman_dct_dc_scan_successive_data(
+                                    coefficients[i],
+                                    p,
+                                )
+                        else:
+                            if arithmetic:
+                                pass
+                            else:
+                                scan_data = jpeg.huffman_dct_ac_scan_successive_data(
+                                    table=scan_components[i].ac_table,
+                                    coefficients=coefficients[i],
+                                    selection=selection,
+                                    point_transform=p,
+                                )
+                        scans.append((sos, scan_data))
 
     # Generate Huffman tables and encode scans.
     if not arithmetic:
@@ -440,7 +478,7 @@ def generate_dct(
     sampling_factors=None,
     interleaved=False,
     color_space=None,
-    spectral_selection=[(0, 63)],
+    spectral_selection=[(0, 63, 0)],
     comments=[],
     extended=False,
     progressive=False,
@@ -629,15 +667,15 @@ for encoding in ["huffman", "arithmetic"]:
         WIDTH,
         HEIGHT,
         [grayscale_samples8],
-        spectral_selection=[(0, 0), (1, 63)],
+        spectral_selection=[(0, 0, 0), (1, 63, 0)],
         progressive=True,
         arithmetic=arithmetic,
     )
-    all_selection = [(0, 0)]
-    all_reverse_selection = [(0, 0)]
+    all_selection = [(0, 0, 0)]
+    all_reverse_selection = [(0, 0, 0)]
     for i in range(1, 64):
-        all_selection.append((i, i))
-        all_reverse_selection.append((64 - i, 64 - i))
+        all_selection.append((i, i, 0))
+        all_reverse_selection.append((64 - i, 64 - i, 0))
     generate_dct(
         section,
         "grayscale_spectral_all",
@@ -658,6 +696,27 @@ for encoding in ["huffman", "arithmetic"]:
         progressive=True,
         arithmetic=arithmetic,
     )
+    if not arithmetic:
+        generate_dct(
+            section,
+            "grayscale_successive_dc",
+            WIDTH,
+            HEIGHT,
+            [grayscale_samples8],
+            spectral_selection=[(0, 0, 4), (1, 63, 0)],
+            progressive=True,
+            arithmetic=arithmetic,
+        )
+        generate_dct(
+            section,
+            "grayscale_successive_ac",
+            WIDTH,
+            HEIGHT,
+            [grayscale_samples8],
+            spectral_selection=[(0, 0, 0), (1, 63, 4)],
+            progressive=True,
+            arithmetic=arithmetic,
+        )
 
     section = "lossless_%s" % encoding
     for predictor in range(1, 8):
