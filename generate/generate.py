@@ -173,15 +173,39 @@ def make_dct_sequential(
         assert n_components == 4
     assert len(sampling_factors) == n_components
 
-    luminance_quantization_table = [1] * 64  # FIXME: Using nothing at this point
-    chrominance_quantization_table = [1] * 64  # FIXME: Using nothing at this point
-
     if (
         color_space is None and n_components == 3
     ) or color_space == jpeg.ADOBE_COLOR_SPACE_Y_CB_CR:
         use_chrominance = True
     else:
         use_chrominance = False
+
+    luminance_quantization_table = [1] * 64  # FIXME: Using nothing at this point
+    chrominance_quantization_table = [1] * 64  # FIXME: Using nothing at this point
+    quantization_tables = [
+        jpeg.QuantizationTable(destination=0, data=luminance_quantization_table),
+    ]
+    if use_chrominance:
+        quantization_tables.append(
+            jpeg.QuantizationTable(destination=1, data=chrominance_quantization_table)
+        )
+    component_quantization_tables = []
+    for i in range(n_components):
+        if i == 0 or not use_chrominance:
+            table_index = 0
+        else:
+            table_index = 1
+        component_quantization_tables.append(table_index)
+
+    components = []
+    for i in range(n_components):
+        components.append(
+            jpeg.Component(
+                id=i + 1,
+                sampling_factor=sampling_factors[i],
+                quantization_table=component_quantization_tables[i],
+            )
+        )
 
     coefficients = []
     for i in range(n_components):
@@ -203,83 +227,95 @@ def make_dct_sequential(
                 quantization_table,
             )
         )
-    if not arithmetic:
-        if use_chrominance:
-            luminance_dc_table = jpeg.make_dct_huffman_dc_table(
-                coefficients[:1],
-                sampling_factors[:1],
-                restart_interval=restart_interval,
-            )
-            luminance_ac_table = jpeg.make_dct_huffman_ac_table(coefficients[:1])
-            chrominance_dc_table = jpeg.make_dct_huffman_dc_table(
-                coefficients[1:],
-                sampling_factors[1:],
-                restart_interval=restart_interval,
-            )
-            chrominance_ac_table = jpeg.make_dct_huffman_ac_table(coefficients[1:])
-            huffman_tables = [
-                jpeg.HuffmanTable.dc(0, luminance_dc_table),
-                jpeg.HuffmanTable.ac(0, luminance_ac_table),
-                jpeg.HuffmanTable.dc(1, chrominance_dc_table),
-                jpeg.HuffmanTable.ac(1, chrominance_ac_table),
-            ]
-        else:
-            luminance_dc_table = jpeg.make_dct_huffman_dc_table(
-                coefficients, sampling_factors, restart_interval=restart_interval
-            )
-            luminance_ac_table = jpeg.make_dct_huffman_ac_table(coefficients)
-            huffman_tables = [
-                jpeg.HuffmanTable.dc(0, luminance_dc_table),
-                jpeg.HuffmanTable.ac(0, luminance_ac_table),
-            ]
 
-    quantization_tables = [
-        jpeg.QuantizationTable(destination=0, data=luminance_quantization_table),
-    ]
-    if use_chrominance:
-        quantization_tables.append(
-            jpeg.QuantizationTable(destination=1, data=chrominance_quantization_table)
-        )
-    component_quantization_tables = []
-    for i in range(n_components):
-        if i == 0 or not use_chrominance:
-            table_index = 0
-        else:
-            table_index = 1
-        component_quantization_tables.append(table_index)
+    # Generate scans
+    scans = []
     scan_components = []
-    component_dc_tables = []
-    component_ac_tables = []
     for i in range(n_components):
-        if arithmetic:
+        if arithmetic or i == 0 or not use_chrominance:
             dc_table_index = 0
             ac_table_index = 0
         else:
-            if i == 0 or not use_chrominance:
-                dc_table_index = 0
-                ac_table_index = 0
-                dc_table = luminance_dc_table
-                ac_table = luminance_ac_table
-            else:
-                dc_table_index = 1
-                ac_table_index = 1
-                dc_table = chrominance_dc_table
-                ac_table = chrominance_ac_table
-            component_dc_tables.append(dc_table)
-            component_ac_tables.append(ac_table)
+            dc_table_index = 1
+            ac_table_index = 1
         scan_components.append(
             jpeg.ScanComponent(i + 1, dc_table=dc_table_index, ac_table=ac_table_index)
         )
-
-    components = []
-    for i in range(n_components):
-        components.append(
-            jpeg.Component(
-                id=i + 1,
-                sampling_factor=sampling_factors[i],
-                quantization_table=component_quantization_tables[i],
+    if interleaved:
+        sos = jpeg.start_of_scan_dct(components=scan_components)
+        if arithmetic:
+            raise Exception("Not implemented")
+        else:
+            huffman_components = []
+            for i in range(n_components):
+                huffman_components.append(
+                    jpeg.HuffmanDCTComponent(
+                        dc_table=scan_components[i].dc_table,
+                        ac_table=scan_components[i].ac_table,
+                        coefficients=coefficients[i],
+                        sampling_factor=sampling_factors[i],
+                    )
+                )
+            scan_data = jpeg.huffman_dct_scan_data(
+                huffman_components, restart_interval=restart_interval
             )
-        )
+        scans.append((sos, scan_data))
+    else:
+        for selection in spectral_selection:
+            for i in range(n_components):
+                sos = jpeg.start_of_scan_dct(
+                    components=[scan_components[i]], selection=selection
+                )
+                if arithmetic:
+                    scan_data = jpeg.arithmetic_dct_scan(
+                        coefficients=coefficients[i],
+                        restart_interval=restart_interval,
+                        selection=selection,
+                    )
+                else:
+                    scan_data = jpeg.huffman_dct_scan_data(
+                        components=[
+                            jpeg.HuffmanDCTComponent(
+                                dc_table=scan_components[i].dc_table,
+                                ac_table=scan_components[i].ac_table,
+                                coefficients=coefficients[i],
+                            )
+                        ],
+                        restart_interval=restart_interval,
+                        selection=selection,
+                    )
+                scans.append((sos, scan_data))
+
+    # Generate Huffman tables and encode scans.
+    if not arithmetic:
+        all_huffman_bits = []
+        for _, scan_data in scans:
+            all_huffman_bits.extend(scan_data)
+        huffman_tables = [
+            jpeg.HuffmanTable.dc(
+                0, jpeg.make_dct_huffman_dc_table(all_huffman_bits, 0)
+            ),
+            jpeg.HuffmanTable.ac(
+                0, jpeg.make_dct_huffman_ac_table(all_huffman_bits, 0)
+            ),
+        ]
+        if use_chrominance:
+            huffman_tables.append(
+                jpeg.HuffmanTable.dc(
+                    1, jpeg.make_dct_huffman_dc_table(all_huffman_bits, 1)
+                )
+            )
+            huffman_tables.append(
+                jpeg.HuffmanTable.ac(
+                    1, jpeg.make_dct_huffman_ac_table(all_huffman_bits, 1)
+                )
+            )
+
+        for i, (sos, scan_data) in enumerate(scans):
+            scans[i] = (
+                sos,
+                jpeg.huffman_dct_scan(huffman_tables, scan_data),
+            )
 
     data = jpeg.start_of_image()
     for comment in comments:
@@ -307,52 +343,10 @@ def make_dct_sequential(
         data += jpeg.define_huffman_tables(tables=huffman_tables)
     if restart_interval != 0:
         data += jpeg.define_restart_interval(restart_interval)
-    if interleaved and n_components > 1:
-        assert spectral_selection == [(0, 63)]
-        huffman_components = []
-        for i in range(n_components):
-            huffman_components.append(
-                jpeg.HuffmanDCTComponent(
-                    dc_table=component_dc_tables[i],
-                    ac_table=component_ac_tables[i],
-                    coefficients=coefficients[i],
-                    sampling_factor=sampling_factors[i],
-                )
-            )
-        data += jpeg.start_of_scan_dct(components=scan_components)
-        if arithmetic:
-            raise Exception("Not implemented")
-        else:
-            data += jpeg.huffman_dct_scan_interleaved(
-                huffman_components, restart_interval=restart_interval
-            )
-        if use_dnl:
+    for i, (sos, scan_data) in enumerate(scans):
+        data += sos + scan_data
+        if i == 0 and use_dnl:
             data += jpeg.define_number_of_lines(height)
-    else:
-        for selection in spectral_selection:
-            for i in range(n_components):
-                data += jpeg.start_of_scan_dct(
-                    components=[
-                        scan_components[i],
-                    ],
-                    selection=selection,
-                )
-                if arithmetic:
-                    data += jpeg.arithmetic_dct_scan(
-                        coefficients=coefficients[i],
-                        restart_interval=restart_interval,
-                        selection=selection,
-                    )
-                else:
-                    data += jpeg.huffman_dct_scan(
-                        dc_table=component_dc_tables[i],
-                        ac_table=component_ac_tables[i],
-                        coefficients=coefficients[i],
-                        restart_interval=restart_interval,
-                        selection=selection,
-                    )
-                if use_dnl and i == 0 and selection[0] == 0:
-                    data += jpeg.define_number_of_lines(height)
     data += jpeg.end_of_image()
     return data
 
@@ -362,58 +356,74 @@ def make_lossless(
     height,
     component_samples,
     precision=8,
+    use_dnl=False,
     predictor=1,
     restart_interval=0,
     arithmetic=False,
 ):
     conditioning_range = (0, 1)
     components = []
-    scan_components = []
-    component_values = []
-    component_tables = []
-    huffman_tables = []
+    scans = []
     for i, samples in enumerate(component_samples):
         values = jpeg.make_lossless_values(
             predictor, width, precision, samples, restart_interval=restart_interval
         )
-        component_values.append(values)
         if arithmetic:
             table = 0
-        else:
-            huffman_tables.append(
-                jpeg.HuffmanTable.dc(i, jpeg.make_lossless_huffman_table(values))
+            scan_data = jpeg.arithmetic_lossless_scan(
+                conditioning_range,
+                width,
+                values,
+                restart_interval=restart_interval,
             )
+        else:
             table = i
+            scan_data = jpeg.huffman_lossless_scan_data(
+                table,
+                values,
+                restart_interval=restart_interval,
+            )
         components.append(jpeg.Component(id=i + 1))
-        scan_components.append(jpeg.ScanComponent.lossless(i + 1, table=table))
+        sos = jpeg.start_of_scan_lossless(
+            components=[jpeg.ScanComponent.lossless(i + 1, table=table)],
+            predictor=predictor,
+        )
+        scans.append((sos, scan_data))
+
+    # Generate Huffman tables and encode scans.
+    if not arithmetic:
+        all_huffman_bits = []
+        for _, scan_data in scans:
+            all_huffman_bits.extend(scan_data)
+        huffman_tables = []
+        for i in range(len(components)):
+            huffman_tables.append(
+                jpeg.HuffmanTable.dc(
+                    i, jpeg.make_dct_huffman_dc_table(all_huffman_bits, i)
+                )
+            )
+        for i, (sos, scan_data) in enumerate(scans):
+            scans[i] = (
+                sos,
+                jpeg.huffman_lossless_scan(huffman_tables, scan_data),
+            )
 
     data = jpeg.start_of_image()
+    if use_dnl:
+        number_of_lines = 0
+    else:
+        number_of_lines = height
     data += jpeg.start_of_frame_lossless(
-        width, height, precision, components, arithmetic=arithmetic
+        width, number_of_lines, precision, components, arithmetic=arithmetic
     )
-    if len(huffman_tables) > 0:
+    if not arithmetic:
         data += jpeg.define_huffman_tables(tables=huffman_tables)
     if restart_interval != 0:
         data += jpeg.define_restart_interval(restart_interval)
-    # FIXME: Interleaved
-    for i, scan_component in enumerate(scan_components):
-        data += jpeg.start_of_scan_lossless(
-            components=[scan_component],
-            predictor=predictor,
-        )
-        if arithmetic:
-            data += jpeg.arithmetic_lossless_scan(
-                conditioning_range,
-                width,
-                component_values[i],
-                restart_interval=restart_interval,
-            )
-        else:
-            data += jpeg.huffman_lossless_scan(
-                huffman_tables[i].symbols_by_length,
-                component_values[i],
-                restart_interval=restart_interval,
-            )
+    for i, (sos, scan_data) in enumerate(scans):
+        data += sos + scan_data
+        if i == 0 and use_dnl:
+            data += jpeg.define_number_of_lines(height)
     data += jpeg.end_of_image()
     return data
 

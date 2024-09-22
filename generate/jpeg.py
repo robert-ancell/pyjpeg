@@ -399,8 +399,15 @@ class HuffmanDCTComponent:
         self.sampling_factor = sampling_factor
 
 
+class HuffmanBits:
+    def __init__(self, table_class, table, symbol):
+        self.table_class = table_class
+        self.table = table
+        self.symbol = symbol
+
+
 def _encode_huffman_data_unit(
-    bits, component, data_unit_offset, selection, block_start_offset=0
+    scan_data, component, data_unit_offset, selection, block_start_offset=0
 ):
     i = selection[0]
     while i <= selection[1]:
@@ -412,8 +419,8 @@ def _encode_huffman_data_unit(
             else:
                 dc_diff = coefficient - component.coefficients[data_unit_offset - 64]
             diff_bits = encode_amplitude(dc_diff)
-            bits.extend(get_huffman_code(component.dc_table, len(diff_bits)))
-            bits.extend(diff_bits)
+            scan_data.append(HuffmanBits(0, component.dc_table, len(diff_bits)))
+            scan_data.append(diff_bits)
             i += 1
         else:
             # AC coefficient
@@ -425,23 +432,23 @@ def _encode_huffman_data_unit(
             ):
                 run_length += 1
             if i + run_length > 63:
-                bits.extend(get_huffman_code(component.ac_table, 0))  # EOB
+                scan_data.append(HuffmanBits(1, component.ac_table, 0))  # EOB
                 i = selection[1] + 1
             else:
                 if run_length > 15:
                     run_length = 15
                 coefficient = component.coefficients[data_unit_offset + i + run_length]
                 coefficient_bits = encode_amplitude(coefficient)
-                bits.extend(
-                    get_huffman_code(
-                        component.ac_table, run_length << 4 | len(coefficient_bits)
+                scan_data.append(
+                    HuffmanBits(
+                        1, component.ac_table, run_length << 4 | len(coefficient_bits)
                     )
                 )
-                bits.extend(coefficient_bits)
+                scan_data.append(coefficient_bits)
                 i += run_length + 1
 
 
-def huffman_dct_scan_interleaved(
+def huffman_dct_scan_data(
     components=[],
     selection=(0, 63),
     restart_interval=0,
@@ -458,21 +465,18 @@ def huffman_dct_scan_interleaved(
         )
         sampling_limit += c.sampling_factor[0] * c.sampling_factor[1]
     assert sampling_limit <= 10
-    bits = []
-    data = b""
+    scan_data = []
     data_unit_offsets = [0] * len(components)
     block_start_offsets = [0] * len(components)
     for m in range(n_mcus):
         if restart_interval != 0 and m != 0 and m % restart_interval == 0:
-            data += encode_scan_bits(bits)
-            bits = []
-            data += restart((m // restart_interval - 1) % 8)
+            scan_data.append(restart((m // restart_interval - 1) % 8))
             block_start_offsets = data_unit_offsets[:]
 
         for i, component in enumerate(components):
             for _ in range(component.sampling_factor[0] * component.sampling_factor[1]):
                 _encode_huffman_data_unit(
-                    bits,
+                    scan_data,
                     component,
                     data_unit_offsets[i],
                     selection,
@@ -480,24 +484,33 @@ def huffman_dct_scan_interleaved(
                 )
                 data_unit_offsets[i] += 64
 
-    return data + encode_scan_bits(bits)
+    return scan_data
 
 
-def huffman_dct_scan(
-    dc_table=None, ac_table=None, coefficients=[], selection=(0, 63), restart_interval=0
-):
-    return huffman_dct_scan_interleaved(
-        components=[
-            HuffmanDCTComponent(
-                dc_table=dc_table,
-                ac_table=ac_table,
-                coefficients=coefficients,
-                sampling_factor=(1, 1),
+def get_table(huffman_tables, table_class, destination):
+    for t in huffman_tables:
+        if t.table_class == table_class and t.destination == destination:
+            return t.symbols_by_length
+    raise Exception("Missing table %d %d" % (table_class, destination))
+
+
+def huffman_dct_scan(huffman_tables, scan_data):
+    data = b""
+    bits = []
+    for d in scan_data:
+        if isinstance(d, HuffmanBits):
+            bits.extend(
+                get_huffman_code(
+                    get_table(huffman_tables, d.table_class, d.table), d.symbol
+                )
             )
-        ],
-        selection=selection,
-        restart_interval=restart_interval,
-    )
+        elif isinstance(d, bytes):
+            data += encode_scan_bits(bits)
+            bits = []
+            data += d
+        else:
+            bits.extend(d)
+    return data + encode_scan_bits(bits)
 
 
 ARITHMETIC_CLASSIFICATION_ZERO = 0
@@ -824,31 +837,39 @@ def make_lossless_values(predictor, width, precision, samples, restart_interval=
     return values
 
 
-def make_lossless_huffman_table(values):
-    frequencies = [0] * 256
-    for value in values:
-        symbol = get_amplitude_length(value)
-        frequencies[symbol] += 1
-    return make_huffman_table(frequencies)
-
-
-def huffman_lossless_scan(
+def huffman_lossless_scan_data(
     table,
     values,
     restart_interval=0,
 ):
-    bits = []
-    data = b""
+    scan_data = []
     for i, value in enumerate(values):
         if restart_interval != 0 and i != 0 and i % restart_interval == 0:
-            data += encode_scan_bits(bits)
-            bits = []
-            data += restart((i // restart_interval - 1) % 8)
+            scan_data.append(restart((i // restart_interval - 1) % 8))
         value_bits = encode_amplitude(value)
         # FIXME: Handle size 16 - no extra bits - 32768
-        bits.extend(get_huffman_code(table, len(value_bits)))
-        bits.extend(value_bits)
+        scan_data.append(HuffmanBits(0, table, len(value_bits)))
+        scan_data.append(value_bits)
 
+    return scan_data
+
+
+def huffman_lossless_scan(huffman_tables, scan_data):
+    bits = []
+    data = b""
+    for d in scan_data:
+        if isinstance(d, HuffmanBits):
+            bits.extend(
+                get_huffman_code(
+                    get_table(huffman_tables, d.table_class, d.table), d.symbol
+                )
+            )
+        elif isinstance(d, bytes):
+            data += encode_scan_bits(bits)
+            bits = []
+            data += d
+        else:
+            bits.extend(d)
     return data + encode_scan_bits(bits)
 
 
@@ -1021,43 +1042,17 @@ def make_dct_coefficients(
     return coefficients
 
 
-def make_dct_huffman_dc_table(channels, sampling_factors, restart_interval=0):
+def make_dct_huffman_dc_table(scan_data, table):
     frequencies = [0] * 256
-    for channel_index, coefficients in enumerate(channels):
-        last_dc = 0
-        sampling_factor = sampling_factors[channel_index]
-        n_mcus = len(coefficients) // (64 * sampling_factor[0] * sampling_factor[1])
-        data_unit_offset = 0
-        for m in range(n_mcus):
-            if restart_interval != 0 and m % restart_interval == 0:
-                last_dc = 0
-            for _ in range(0, sampling_factor[0] * sampling_factor[1]):
-                dc = coefficients[data_unit_offset]
-                dc_diff = dc - last_dc
-                last_dc = dc
-                symbol = get_amplitude_length(dc_diff)
-                frequencies[symbol] += 1
-                data_unit_offset += 64
+    for d in scan_data:
+        if isinstance(d, HuffmanBits) and d.table_class == 0 and d.table == table:
+            frequencies[d.symbol] += 1
     return make_huffman_table(frequencies)
 
 
-# FIXME: Doesn't handle spectral selection
-def make_dct_huffman_ac_table(channels):
+def make_dct_huffman_ac_table(scan_data, table):
     frequencies = [0] * 256
-    for coefficients in channels:
-        for i in range(0, len(coefficients), 64):
-            end = i + 63
-            while i < end:
-                run_length = 0
-                while i + run_length <= end and coefficients[i + run_length] == 0:
-                    run_length += 1
-                if i + run_length > end:
-                    symbol = 0  # EOB
-                else:
-                    if run_length > 15:
-                        run_length = 15
-                    ac = coefficients[i + run_length]
-                    symbol = run_length << 4 | get_amplitude_length(ac)
-                frequencies[symbol] += 1
-                i += run_length + 1
+    for d in scan_data:
+        if isinstance(d, HuffmanBits) and d.table_class == 1 and d.table == table:
+            frequencies[d.symbol] += 1
     return make_huffman_table(frequencies)
