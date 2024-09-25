@@ -821,13 +821,18 @@ def arithmetic_dct_scan(
         data_unit_index = data_unit * 64
         coefficient_index = selection[0]
         while coefficient_index <= selection[1]:
-            coefficient = coefficients[data_unit_index + coefficient_index]
+            coefficient = _transform_coefficient(
+                coefficients[data_unit_index + coefficient_index], point_transform
+            )
+
             if coefficient_index == 0:
                 # DC coefficient, encode relative to previous DC value
                 if data_unit == 0:
                     dc_diff = coefficient
                 else:
-                    dc_diff = coefficient - coefficients[(data_unit - 1) * 64]
+                    dc_diff = coefficient - _transform_coefficient(
+                        coefficients[(data_unit - 1) * 64], point_transform
+                    )
 
                 sstate = sstates[
                     classify_arithmetic_value(conditioning_range, prev_dc_diff)
@@ -852,7 +857,12 @@ def arithmetic_dct_scan(
                 if selection[1] == 63:
                     end_of_block = True
                     for j in range(coefficient_index, selection[1] + 1):
-                        if coefficients[data_unit_index + j] != 0:
+                        if (
+                            _transform_coefficient(
+                                coefficients[data_unit_index + j], point_transform
+                            )
+                            != 0
+                        ):
                             end_of_block = False
                 else:
                     end_of_block = False
@@ -868,7 +878,10 @@ def arithmetic_dct_scan(
                     while coefficient == 0 and coefficient_index <= selection[1]:
                         encoder.encode_bit(ac_states[coefficient_index - 1].non_zero, 0)
                         coefficient_index += 1
-                        coefficient = coefficients[data_unit_index + coefficient_index]
+                        coefficient = _transform_coefficient(
+                            coefficients[data_unit_index + coefficient_index],
+                            point_transform,
+                        )
                         zero_count += 1
 
                     sstate = ac_states[coefficient_index - 1]
@@ -888,6 +901,22 @@ def arithmetic_dct_scan(
                     )
 
                     coefficient_index += 1
+
+    encoder.flush()
+    return bytes(encoder.data)
+
+
+def arithmetic_dct_dc_scan_successive(coefficients, point_transform):
+    encoder = arithmetic.Encoder()
+    for i in range(0, len(coefficients), 64):
+        coefficient = coefficients[i]
+        if i == 0:
+            dc_diff = coefficient
+        else:
+            dc_diff = coefficient - coefficients[i - 64]
+        if dc_diff < 0:
+            dc_diff = -dc_diff
+        encoder.encode_fixed_bit((dc_diff >> point_transform) & 0x1)
 
     encoder.flush()
     return bytes(encoder.data)

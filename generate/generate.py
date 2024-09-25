@@ -306,7 +306,10 @@ def make_dct_sequential(
                         if selection[0] == 0:
                             assert selection[1] == 0
                             if arithmetic:
-                                pass
+                                scan_data = jpeg.arithmetic_dct_dc_scan_successive(
+                                    coefficients[i],
+                                    p,
+                                )
                             else:
                                 scan_data = jpeg.huffman_dct_dc_scan_successive_data(
                                     coefficients[i],
@@ -696,27 +699,26 @@ for encoding in ["huffman", "arithmetic"]:
         progressive=True,
         arithmetic=arithmetic,
     )
-    if not arithmetic:
-        generate_dct(
-            section,
-            "grayscale_successive_dc",
-            WIDTH,
-            HEIGHT,
-            [grayscale_samples8],
-            spectral_selection=[(0, 0, 4), (1, 63, 0)],
-            progressive=True,
-            arithmetic=arithmetic,
-        )
-        generate_dct(
-            section,
-            "grayscale_successive_ac",
-            WIDTH,
-            HEIGHT,
-            [grayscale_samples8],
-            spectral_selection=[(0, 0, 0), (1, 63, 4)],
-            progressive=True,
-            arithmetic=arithmetic,
-        )
+    generate_dct(
+        section,
+        "grayscale_successive_dc",
+        WIDTH,
+        HEIGHT,
+        [grayscale_samples8],
+        spectral_selection=[(0, 0, 4), (1, 63, 0)],
+        progressive=True,
+        arithmetic=arithmetic,
+    )
+    generate_dct(
+        section,
+        "grayscale_successive_ac",
+        WIDTH,
+        HEIGHT,
+        [grayscale_samples8],
+        spectral_selection=[(0, 0, 0), (1, 63, 4)],
+        progressive=True,
+        arithmetic=arithmetic,
+    )
 
     section = "lossless_%s" % encoding
     for predictor in range(1, 8):
