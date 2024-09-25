@@ -585,14 +585,6 @@ def huffman_dct_ac_scan_successive_data(
                     # Max run length is 16, so need to keep correction bits in these blocks.
                     if run_length % 16 == 0:
                         correction_bits.append([])
-
-                    if i == selection[1]:
-                        eob_count += 1
-                        for bits in correction_bits:
-                            eob_correction_bits.extend(bits)
-                        correction_bits = [[]]
-                        run_length = 0
-                        # FIXME: If eob_count is 32767 then have to generate it now
                 else:
                     if eob_count > 0:
                         eob_bits = encode_eob(eob_count)
@@ -621,13 +613,13 @@ def huffman_dct_ac_scan_successive_data(
             else:
                 correction_bits[-1].append(transformed_coefficient & 0x1)
 
-                # FIXME: Same case as above
-                if i == selection[1]:
-                    eob_count += 1
-                    for bits in correction_bits:
-                        eob_correction_bits.extend(bits)
-                    correction_bits = [[]]
-                    run_length = 0
+            if i == selection[1] and (run_length + len(correction_bits[-1])) > 0:
+                eob_count += 1
+                for bits in correction_bits:
+                    eob_correction_bits.extend(bits)
+                correction_bits = [[]]
+                run_length = 0
+                # FIXME: If eob_count is 32767 then have to generate it now
 
     if eob_count > 0:
         eob_bits = encode_eob(eob_count)
