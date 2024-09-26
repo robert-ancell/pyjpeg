@@ -723,6 +723,18 @@ for encoding in ["huffman", "arithmetic"]:
         progressive=True,
         arithmetic=arithmetic,
     )
+    generate_dct(
+        section,
+        "grayscale_successive",
+        WIDTH,
+        HEIGHT,
+        [grayscale_samples8],
+        spectral_selection=[(0, 0, 4), (1, 63, 4)],
+        progressive=True,
+        arithmetic=arithmetic,
+    )
+    # FIXME: successive 3, 2, 1
+    # FIXME: successive with restarts
 
     section = "lossless_%s" % encoding
     for predictor in range(1, 8):
