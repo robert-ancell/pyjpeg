@@ -436,12 +436,12 @@ def _encode_huffman_data_unit(
     point_transform,
     block_start_offset=0,
 ):
-    i = selection[0]
-    while i <= selection[1]:
+    k = selection[0]
+    while k <= selection[1]:
         coefficient = _transform_coefficient(
-            component.coefficients[data_unit_offset + i], point_transform
+            component.coefficients[data_unit_offset + k], point_transform
         )
-        if i == 0:
+        if k == 0:
             # DC coefficient, encode relative to previous DC value
             if data_unit_offset == block_start_offset:
                 dc_diff = coefficient
@@ -452,28 +452,28 @@ def _encode_huffman_data_unit(
             diff_bits = encode_amplitude(dc_diff)
             scan_data.append(HuffmanCode.dc(component.dc_table, len(diff_bits)))
             scan_data.append(diff_bits)
-            i += 1
+            k += 1
         else:
             # AC coefficient
             # Count number of zero coefficients before the next positive one
             run_length = 0
             while (
-                i + run_length <= selection[1]
+                k + run_length <= selection[1]
                 and _transform_coefficient(
-                    component.coefficients[data_unit_offset + i + run_length],
+                    component.coefficients[data_unit_offset + k + run_length],
                     point_transform,
                 )
                 == 0
             ):
                 run_length += 1
-            if i + run_length > 63:
+            if k + run_length > 63:
                 scan_data.append(HuffmanCode.ac(component.ac_table, 0))  # EOB
-                i = selection[1] + 1
+                k = selection[1] + 1
             else:
                 if run_length > 15:
                     run_length = 15
                 coefficient = _transform_coefficient(
-                    component.coefficients[data_unit_offset + i + run_length],
+                    component.coefficients[data_unit_offset + k + run_length],
                     point_transform,
                 )
                 coefficient_bits = encode_amplitude(coefficient)
@@ -483,7 +483,7 @@ def _encode_huffman_data_unit(
                     )
                 )
                 scan_data.append(coefficient_bits)
-                i += run_length + 1
+                k += run_length + 1
 
 
 def huffman_dct_scan_data(
@@ -529,12 +529,12 @@ def huffman_dct_scan_data(
 
 def huffman_dct_dc_scan_successive_data(coefficients, point_transform):
     bits = []
-    for i in range(0, len(coefficients), 64):
-        coefficient = coefficients[i]
-        if i == 0:
+    for k in range(0, len(coefficients), 64):
+        coefficient = coefficients[k]
+        if k == 0:
             dc_diff = coefficient
         else:
-            dc_diff = coefficient - coefficients[i - 64]
+            dc_diff = coefficient - coefficients[k - 64]
         if dc_diff < 0:
             dc_diff = -dc_diff
         bits.append((dc_diff >> point_transform) & 0x1)
@@ -569,8 +569,8 @@ def huffman_dct_ac_scan_successive_data(
     eob_correction_bits = []
     for data_unit in range(n_data_units):
         run_length = 0
-        for i in range(selection[0], selection[1] + 1):
-            coefficient = coefficients[data_unit * 64 + i]
+        for k in range(selection[0], selection[1] + 1):
+            coefficient = coefficients[data_unit * 64 + k]
             old_transformed_coefficient = _transform_coefficient(
                 coefficient, point_transform + 1
             )
@@ -613,7 +613,7 @@ def huffman_dct_ac_scan_successive_data(
             else:
                 correction_bits[-1].append(transformed_coefficient & 0x1)
 
-            if i == selection[1] and (run_length + len(correction_bits[-1])) > 0:
+            if k == selection[1] and (run_length + len(correction_bits[-1])) > 0:
                 eob_count += 1
                 for bits in correction_bits:
                     eob_correction_bits.extend(bits)
@@ -783,13 +783,13 @@ def arithmetic_dct_scan(
     n_data_units = len(coefficients) // 64
 
     sstates = []
-    for i in range(N_ARITHMETIC_CLASSIFICATIONS):
+    for _ in range(N_ARITHMETIC_CLASSIFICATIONS):
         sstates.append(ArithmeticDCStates())
     dc_xstates = []
-    for i in range(15):
+    for _ in range(15):
         dc_xstates.append(arithmetic.State())
     dc_mstates = []
-    for i in range(14):
+    for _ in range(14):
         dc_mstates.append(arithmetic.State())
 
     # States for AC coefficients
@@ -801,17 +801,17 @@ def arithmetic_dct_scan(
             self.sn_sp_x1 = arithmetic.State()
 
     ac_states = []
-    for i in range(63):
+    for _ in range(63):
         ac_states.append(ACStates())
 
     ac_low_xstates = []
     ac_high_xstates = []
-    for i in range(14):
+    for _ in range(14):
         ac_low_xstates.append(arithmetic.State())
         ac_high_xstates.append(arithmetic.State())
     ac_low_mstates = []
     ac_high_mstates = []
-    for i in range(14):
+    for _ in range(14):
         ac_low_mstates.append(arithmetic.State())
         ac_high_mstates.append(arithmetic.State())
 
@@ -908,12 +908,12 @@ def arithmetic_dct_scan(
 
 def arithmetic_dct_dc_scan_successive(coefficients, point_transform):
     encoder = arithmetic.Encoder()
-    for i in range(0, len(coefficients), 64):
-        coefficient = coefficients[i]
-        if i == 0:
+    for k in range(0, len(coefficients), 64):
+        coefficient = coefficients[k]
+        if k == 0:
             dc_diff = coefficient
         else:
-            dc_diff = coefficient - coefficients[i - 64]
+            dc_diff = coefficient - coefficients[k - 64]
         if dc_diff < 0:
             dc_diff = -dc_diff
         encoder.encode_fixed_bit((dc_diff >> point_transform) & 0x1)
@@ -925,8 +925,78 @@ def arithmetic_dct_dc_scan_successive(coefficients, point_transform):
 def arithmetic_dct_ac_scan_successive(
     coefficients=[], selection=(1, 63), point_transform=0
 ):
-    # FIXME
-    return b""
+    assert selection[0] >= 1
+
+    assert len(coefficients) % 64 == 0
+    n_data_units = len(coefficients) // 64
+
+    eob_states = []
+    nonzero_states = []
+    additional_states = []
+    for _ in range(63):
+        eob_states.append(arithmetic.State())
+        nonzero_states.append(arithmetic.State())
+        additional_states.append(arithmetic.State())
+
+    encoder = arithmetic.Encoder()
+    for data_unit in range(n_data_units):
+        eob = selection[1] + 1
+        while eob > selection[0]:
+            if (
+                _transform_coefficient(
+                    coefficients[data_unit * 64 + eob - 1], point_transform
+                )
+                != 0
+            ):
+                break
+            eob -= 1
+
+        eob_prev = eob
+        while eob_prev > selection[0]:
+            if (
+                _transform_coefficient(
+                    coefficients[data_unit * 64 + eob_prev - 1], point_transform + 1
+                )
+                != 0
+            ):
+                break
+            eob_prev -= 1
+
+        k = selection[0]
+        while k <= selection[1]:
+            if k >= eob_prev:
+                if k == eob:
+                    encoder.encode_bit(eob_states[k - 1], 1)
+                    break
+                encoder.encode_bit(eob_states[k - 1], 0)
+
+            # Encode run of zeros
+            while (
+                _transform_coefficient(
+                    coefficients[data_unit * 64 + k], point_transform
+                )
+                == 0
+            ):
+                encoder.encode_bit(nonzero_states[k - 1], 0)
+                k += 1
+
+            transformed_coefficient = _transform_coefficient(
+                coefficients[data_unit * 64 + k], point_transform
+            )
+            if transformed_coefficient < -1 or transformed_coefficient > 1:
+                encoder.encode_bit(
+                    additional_states[k - 1], transformed_coefficient & 0x1
+                )
+            else:
+                encoder.encode_bit(nonzero_states[k - 1], 1)
+                if transformed_coefficient < 0:
+                    encoder.encode_fixed_bit(1)
+                else:
+                    encoder.encode_fixed_bit(0)
+            k += 1
+
+    encoder.flush()
+    return bytes(encoder.data)
 
 
 def predictor1(a, b, c):
@@ -1058,19 +1128,19 @@ class LosslessArithmeticEncoder:
         self.encoder = arithmetic.Encoder()
         self.conditioning_range = conditioning_range
         self.sstates = []
-        for i in range(N_ARITHMETIC_CLASSIFICATIONS):
+        for _ in range(N_ARITHMETIC_CLASSIFICATIONS):
             s = []
-            for i in range(N_ARITHMETIC_CLASSIFICATIONS):
+            for _ in range(N_ARITHMETIC_CLASSIFICATIONS):
                 s.append(ArithmeticDCStates())
             self.sstates.append(s)
         self.small_xstates = []
         self.large_xstates = []
-        for i in range(15):
+        for _ in range(15):
             self.small_xstates.append(arithmetic.State())
             self.large_xstates.append(arithmetic.State())
         self.small_mstates = []
         self.large_mstates = []
-        for i in range(14):
+        for _ in range(14):
             self.small_mstates.append(arithmetic.State())
             self.large_mstates.append(arithmetic.State())
 
@@ -1165,7 +1235,7 @@ def zig_zag(coefficients):
     dx = 1
     dy = -1
     zz = []
-    for i in range(64):
+    for _ in range(64):
         zz.append(coefficients[y * 8 + x])
         if x + dx >= 8:
             y += 1
