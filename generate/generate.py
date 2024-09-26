@@ -317,7 +317,11 @@ def make_dct_sequential(
                                 )
                         else:
                             if arithmetic:
-                                pass
+                                scan_data = jpeg.arithmetic_dct_ac_scan_successive(
+                                    coefficients=coefficients[i],
+                                    selection=selection,
+                                    point_transform=p,
+                                )
                             else:
                                 scan_data = jpeg.huffman_dct_ac_scan_successive_data(
                                     table=scan_components[i].ac_table,

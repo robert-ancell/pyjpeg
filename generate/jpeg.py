@@ -922,6 +922,13 @@ def arithmetic_dct_dc_scan_successive(coefficients, point_transform):
     return bytes(encoder.data)
 
 
+def arithmetic_dct_ac_scan_successive(
+    coefficients=[], selection=(1, 63), point_transform=0
+):
+    # FIXME
+    return b""
+
+
 def predictor1(a, b, c):
     return a
 
