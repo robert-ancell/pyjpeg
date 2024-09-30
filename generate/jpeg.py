@@ -1263,33 +1263,41 @@ def quantize(coefficients, quantization_table):
     return quantized_coefficients
 
 
-def make_dct_coefficients(
-    width, height, sampling_factor, depth, samples, quantization_table
-):
+def make_dct_coefficients(width, height, depth, samples, quantization_table):
     offset = 1 << (depth - 1)
     coefficients = []
-    for mcu_y in range(0, height, 8 * sampling_factor[1]):
-        for mcu_x in range(0, width, 8 * sampling_factor[0]):
-            for du_y in range(0, sampling_factor[1] * 8, 8):
-                for du_x in range(0, sampling_factor[0] * 8, 8):
-                    values = []
-                    for y in range(8):
-                        for x in range(8):
-                            px = mcu_x + du_x + x
-                            py = mcu_y + du_y + y
-                            if px >= width:
-                                px = width - 1
-                            if py >= height:
-                                py = height - 1
-                            p = samples[py * width + px]
-                            values.append(p - offset)
+    for du_y in range(0, height, 8):
+        for du_x in range(0, width, 8):
+            values = []
+            for y in range(8):
+                for x in range(8):
+                    px = du_x + x
+                    py = du_y + y
+                    if px >= width:
+                        px = width - 1
+                    if py >= height:
+                        py = height - 1
+                    p = samples[py * width + px]
+                    values.append(p - offset)
 
-                    du_coefficients = zig_zag(
-                        quantize(dct2d(values), quantization_table)
-                    )
-                    coefficients.extend(du_coefficients)
+            du_coefficients = zig_zag(quantize(dct2d(values), quantization_table))
+            coefficients.extend(du_coefficients)
 
     return coefficients
+
+
+def order_mcu_dct_coefficients(width, height, coefficients, sampling_factor):
+    if sampling_factor == (1, 1):
+        return coefficients
+    mcu_coefficients = []
+    for mcu_y in range(0, height, sampling_factor[1] * 8):
+        for mcu_x in range(0, width, sampling_factor[0] * 8):
+            for du_y in range(0, sampling_factor[1] * 8, 8):
+                for du_x in range(0, sampling_factor[0] * 8, 8):
+                    offset = (mcu_y + du_y) * width + mcu_x + du_x
+                    mcu_coefficients.extend(coefficients[offset : offset + 64])
+    assert len(mcu_coefficients) == len(coefficients)
+    return mcu_coefficients
 
 
 def make_dct_huffman_dc_table(scan_data, table):
