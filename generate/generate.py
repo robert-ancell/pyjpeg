@@ -558,7 +558,7 @@ generate_dct(
 )
 generate_dct(
     "baseline",
-    "ycbcr_scale_22_11_11",
+    "ycbcr_2x2_1x1_1x1",
     WIDTH,
     HEIGHT,
     ycbcr_samples8,
@@ -567,7 +567,7 @@ generate_dct(
 )
 generate_dct(
     "baseline",
-    "ycbcr_scale_22_11_11_interleaved",
+    "ycbcr_2x2_1x1_1x1_interleaved",
     WIDTH,
     HEIGHT,
     ycbcr_samples8,
@@ -576,7 +576,7 @@ generate_dct(
 )
 generate_dct(
     "baseline",
-    "ycbcr_scale_22_21_12",
+    "ycbcr_2x2_2x1_1x2",
     WIDTH,
     HEIGHT,
     ycbcr_samples8,
@@ -585,7 +585,7 @@ generate_dct(
 )
 generate_dct(
     "baseline",
-    "ycbcr_scale_22_21_12_interleaved",
+    "ycbcr_2x2_2x1_1x2_interleaved",
     WIDTH,
     HEIGHT,
     ycbcr_samples8,
