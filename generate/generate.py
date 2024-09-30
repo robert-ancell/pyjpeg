@@ -638,7 +638,15 @@ generate_dct(
     scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0)],
     color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
 )
-# FIXME: RGB interleaved
+generate_dct(
+    "baseline",
+    "rgb_interleaved",
+    WIDTH,
+    HEIGHT,
+    rgb_samples8,
+    scans=[([0, 1, 2], 0, 63, 0)],
+    color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
+)
 generate_dct(
     "baseline",
     "cmyk",
