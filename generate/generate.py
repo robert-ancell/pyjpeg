@@ -532,162 +532,18 @@ def generate_lossless(
     )
 
 
-generate_dct(
-    "baseline",
-    "grayscale",
-    WIDTH,
-    HEIGHT,
-    [grayscale_samples8],
-    scans=[([0], 0, 63, 0)],
-)
-generate_dct(
-    "baseline",
-    "ycbcr",
-    WIDTH,
-    HEIGHT,
-    ycbcr_samples8,
-    scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0)],
-)
-generate_dct(
-    "baseline",
-    "ycbcr_interleaved",
-    WIDTH,
-    HEIGHT,
-    ycbcr_samples8,
-    scans=[([0, 1, 2], 0, 63, 0)],
-)
-generate_dct(
-    "baseline",
-    "ycbcr_2x2_1x1_1x1",
-    WIDTH,
-    HEIGHT,
-    ycbcr_samples8,
-    scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0)],
-    sampling_factors=[(2, 2), (1, 1), (1, 1)],
-)
-generate_dct(
-    "baseline",
-    "ycbcr_2x2_1x1_1x1_interleaved",
-    WIDTH,
-    HEIGHT,
-    ycbcr_samples8,
-    scans=[([0, 1, 2], 0, 63, 0)],
-    sampling_factors=[(2, 2), (1, 1), (1, 1)],
-)
-generate_dct(
-    "baseline",
-    "ycbcr_2x2_2x1_1x2",
-    WIDTH,
-    HEIGHT,
-    ycbcr_samples8,
-    scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0)],
-    sampling_factors=[(2, 2), (2, 1), (1, 2)],
-)
-generate_dct(
-    "baseline",
-    "ycbcr_2x2_2x1_1x2_interleaved",
-    WIDTH,
-    HEIGHT,
-    ycbcr_samples8,
-    scans=[([0, 1, 2], 0, 63, 0)],
-    sampling_factors=[(2, 2), (2, 1), (1, 2)],
-)
-# FIXME: Sampling limit
-# generate_dct(
-#    "baseline",
-#    "ycbcr_scale_44_11_11",
-#    WIDTH,
-#    HEIGHT,
-#    ycbcr_samples8,
-#    scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0)],
-#    sampling_factors=[(4, 4), (1, 1), (1, 1)],
-# )
-# generate_dct(
-#    "baseline",
-#    "ycbcr_scale_44_22_11",
-#    WIDTH,
-#    HEIGHT,
-#    ycbcr_samples8,
-#    scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0)],
-#    sampling_factors=[(4, 4), (2, 2), (1, 1)],
-# )
-generate_dct(
-    "baseline",
-    "comment",
-    WIDTH,
-    HEIGHT,
-    [grayscale_samples8],
-    scans=[([0], 0, 63, 0)],
-    comments=[b"Hello World"],
-)
-generate_dct(
-    "baseline",
-    "comments",
-    WIDTH,
-    HEIGHT,
-    [grayscale_samples8],
-    scans=[([0], 0, 63, 0)],
-    comments=[b"Hello", b"World"],
-)
-generate_dct(
-    "baseline",
-    "rgb",
-    WIDTH,
-    HEIGHT,
-    rgb_samples8,
-    scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0)],
-    color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
-)
-generate_dct(
-    "baseline",
-    "rgb_interleaved",
-    WIDTH,
-    HEIGHT,
-    rgb_samples8,
-    scans=[([0, 1, 2], 0, 63, 0)],
-    color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
-)
-generate_dct(
-    "baseline",
-    "cmyk",
-    WIDTH,
-    HEIGHT,
-    cmyk_samples8,
-    scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0), ([3], 0, 63, 0)],
-    color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
-)
-generate_dct(
-    "baseline",
-    "cmyk_interleaved",
-    WIDTH,
-    HEIGHT,
-    cmyk_samples8,
-    scans=[([0, 1, 2, 3], 0, 63, 0)],
-    color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
-)
-generate_dct(
-    "baseline",
-    "dnl",
-    WIDTH,
-    HEIGHT,
-    [grayscale_samples8],
-    scans=[([0], 0, 63, 0)],
-    use_dnl=True,
-)
-generate_dct(
-    "baseline",
-    "restarts",
-    WIDTH,
-    HEIGHT,
-    [grayscale_samples8],
-    scans=[([0], 0, 63, 0)],
-    restart_interval=4,
-)
-
-for encoding in ["huffman", "arithmetic"]:
+# Encodings that work in all modes
+for mode, encoding in [
+    ("baseline", "huffman"),
+    ("extended", "huffman"),
+    ("extended", "arithmetic"),
+]:
+    extended = mode == "extended"
     arithmetic = encoding == "arithmetic"
-
-    section = "extended_%s" % encoding
+    if extended:
+        section = "extended_%s" % encoding
+    else:
+        section = "baseline"
     generate_dct(
         section,
         "grayscale",
@@ -695,9 +551,174 @@ for encoding in ["huffman", "arithmetic"]:
         HEIGHT,
         [grayscale_samples8],
         scans=[([0], 0, 63, 0)],
-        extended=True,
+        extended=extended,
         arithmetic=arithmetic,
     )
+    generate_dct(
+        section,
+        "ycbcr",
+        WIDTH,
+        HEIGHT,
+        ycbcr_samples8,
+        scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0)],
+        extended=extended,
+        arithmetic=arithmetic,
+    )
+    # FIXME: Support interleaved arithmetic
+    if not arithmetic:
+        generate_dct(
+            section,
+            "ycbcr_interleaved",
+            WIDTH,
+            HEIGHT,
+            ycbcr_samples8,
+            scans=[([0, 1, 2], 0, 63, 0)],
+            extended=extended,
+            arithmetic=arithmetic,
+        )
+    # FIXME: Greyscale sampling
+    generate_dct(
+        section,
+        "ycbcr_2x2_1x1_1x1",
+        WIDTH,
+        HEIGHT,
+        ycbcr_samples8,
+        scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0)],
+        sampling_factors=[(2, 2), (1, 1), (1, 1)],
+        extended=extended,
+        arithmetic=arithmetic,
+    )
+    if not arithmetic:
+        generate_dct(
+            section,
+            "ycbcr_2x2_1x1_1x1_interleaved",
+            WIDTH,
+            HEIGHT,
+            ycbcr_samples8,
+            scans=[([0, 1, 2], 0, 63, 0)],
+            sampling_factors=[(2, 2), (1, 1), (1, 1)],
+            extended=extended,
+            arithmetic=arithmetic,
+        )
+    generate_dct(
+        section,
+        "ycbcr_2x2_2x1_1x2",
+        WIDTH,
+        HEIGHT,
+        ycbcr_samples8,
+        scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0)],
+        sampling_factors=[(2, 2), (2, 1), (1, 2)],
+        extended=extended,
+        arithmetic=arithmetic,
+    )
+    if not arithmetic:
+        generate_dct(
+            section,
+            "ycbcr_2x2_2x1_1x2_interleaved",
+            WIDTH,
+            HEIGHT,
+            ycbcr_samples8,
+            scans=[([0, 1, 2], 0, 63, 0)],
+            sampling_factors=[(2, 2), (2, 1), (1, 2)],
+            extended=extended,
+            arithmetic=arithmetic,
+        )
+    generate_dct(
+        section,
+        "comment",
+        WIDTH,
+        HEIGHT,
+        [grayscale_samples8],
+        scans=[([0], 0, 63, 0)],
+        comments=[b"Hello World"],
+        extended=extended,
+        arithmetic=arithmetic,
+    )
+    generate_dct(
+        section,
+        "comments",
+        WIDTH,
+        HEIGHT,
+        [grayscale_samples8],
+        scans=[([0], 0, 63, 0)],
+        comments=[b"Hello", b"World"],
+        extended=extended,
+        arithmetic=arithmetic,
+    )
+    generate_dct(
+        section,
+        "rgb",
+        WIDTH,
+        HEIGHT,
+        rgb_samples8,
+        scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0)],
+        color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
+        extended=extended,
+        arithmetic=arithmetic,
+    )
+    if not arithmetic:
+        generate_dct(
+            section,
+            "rgb_interleaved",
+            WIDTH,
+            HEIGHT,
+            rgb_samples8,
+            scans=[([0, 1, 2], 0, 63, 0)],
+            color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
+            extended=extended,
+            arithmetic=arithmetic,
+        )
+    generate_dct(
+        section,
+        "cmyk",
+        WIDTH,
+        HEIGHT,
+        cmyk_samples8,
+        scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0), ([3], 0, 63, 0)],
+        color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
+        extended=extended,
+        arithmetic=arithmetic,
+    )
+    if not arithmetic:
+        generate_dct(
+            section,
+            "cmyk_interleaved",
+            WIDTH,
+            HEIGHT,
+            cmyk_samples8,
+            scans=[([0, 1, 2, 3], 0, 63, 0)],
+            color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
+            extended=extended,
+            arithmetic=arithmetic,
+        )
+    generate_dct(
+        section,
+        "dnl",
+        WIDTH,
+        HEIGHT,
+        [grayscale_samples8],
+        scans=[([0], 0, 63, 0)],
+        use_dnl=True,
+        extended=extended,
+        arithmetic=arithmetic,
+    )
+    generate_dct(
+        section,
+        "restarts",
+        WIDTH,
+        HEIGHT,
+        [grayscale_samples8],
+        scans=[([0], 0, 63, 0)],
+        restart_interval=4,
+        extended=extended,
+        arithmetic=arithmetic,
+    )
+
+for encoding in ["huffman", "arithmetic"]:
+    arithmetic = encoding == "arithmetic"
+
+    # Encodings that require extended (12 bit)
+    section = "extended_%s" % encoding
     generate_dct(
         section,
         "grayscale",
