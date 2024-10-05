@@ -938,6 +938,14 @@ def arithmetic_dct_scan(
     n_mcus = len(components[0].coefficients) // (
         64 * components[0].sampling_factor[0] * components[0].sampling_factor[1]
     )
+    sampling_limit = 0
+    for c in components:
+        assert (
+            len(c.coefficients)
+            == 64 * n_mcus * c.sampling_factor[0] * c.sampling_factor[1]
+        )
+        sampling_limit += c.sampling_factor[0] * c.sampling_factor[1]
+    assert sampling_limit <= 10
 
     # FIXME: Per component.
     data = b""

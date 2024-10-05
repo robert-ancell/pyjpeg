@@ -273,9 +273,21 @@ def make_dct_sequential(
                         point_transform,
                     )
             else:
-                assert len(components) == 1
+                arithmetic_components = []
+                for i in components:
+                    # MCU is 1 in non-interleaved
+                    if len(components) == 1:
+                        sampling_factor = (1, 1)
+                    else:
+                        sampling_factor = sampling_factors[i]
+                    arithmetic_components.append(
+                        jpeg.ArithmeticDCTComponent(
+                            coefficients=coefficients[i],
+                            sampling_factor=sampling_factor,
+                        )
+                    )
                 scan_data = jpeg.arithmetic_dct_scan(
-                    components=[jpeg.ArithmeticDCTComponent(coefficients=coefficients[components[0]], sampling_factor=sampling_factors[0])],
+                    components=arithmetic_components,
                     restart_interval=restart_interval,
                     selection=selection,
                     point_transform=point_transform,
@@ -564,18 +576,16 @@ for mode, encoding in [
         extended=extended,
         arithmetic=arithmetic,
     )
-    # FIXME: Support interleaved arithmetic
-    if not arithmetic:
-        generate_dct(
-            section,
-            "ycbcr_interleaved",
-            WIDTH,
-            HEIGHT,
-            ycbcr_samples8,
-            scans=[([0, 1, 2], 0, 63, 0)],
-            extended=extended,
-            arithmetic=arithmetic,
-        )
+    generate_dct(
+        section,
+        "ycbcr_interleaved",
+        WIDTH,
+        HEIGHT,
+        ycbcr_samples8,
+        scans=[([0, 1, 2], 0, 63, 0)],
+        extended=extended,
+        arithmetic=arithmetic,
+    )
     # FIXME: Greyscale sampling
     generate_dct(
         section,
@@ -588,18 +598,17 @@ for mode, encoding in [
         extended=extended,
         arithmetic=arithmetic,
     )
-    if not arithmetic:
-        generate_dct(
-            section,
-            "ycbcr_2x2_1x1_1x1_interleaved",
-            WIDTH,
-            HEIGHT,
-            ycbcr_samples8,
-            scans=[([0, 1, 2], 0, 63, 0)],
-            sampling_factors=[(2, 2), (1, 1), (1, 1)],
-            extended=extended,
-            arithmetic=arithmetic,
-        )
+    generate_dct(
+        section,
+        "ycbcr_2x2_1x1_1x1_interleaved",
+        WIDTH,
+        HEIGHT,
+        ycbcr_samples8,
+        scans=[([0, 1, 2], 0, 63, 0)],
+        sampling_factors=[(2, 2), (1, 1), (1, 1)],
+        extended=extended,
+        arithmetic=arithmetic,
+    )
     generate_dct(
         section,
         "ycbcr_2x2_2x1_1x2",
@@ -611,18 +620,17 @@ for mode, encoding in [
         extended=extended,
         arithmetic=arithmetic,
     )
-    if not arithmetic:
-        generate_dct(
-            section,
-            "ycbcr_2x2_2x1_1x2_interleaved",
-            WIDTH,
-            HEIGHT,
-            ycbcr_samples8,
-            scans=[([0, 1, 2], 0, 63, 0)],
-            sampling_factors=[(2, 2), (2, 1), (1, 2)],
-            extended=extended,
-            arithmetic=arithmetic,
-        )
+    generate_dct(
+        section,
+        "ycbcr_2x2_2x1_1x2_interleaved",
+        WIDTH,
+        HEIGHT,
+        ycbcr_samples8,
+        scans=[([0, 1, 2], 0, 63, 0)],
+        sampling_factors=[(2, 2), (2, 1), (1, 2)],
+        extended=extended,
+        arithmetic=arithmetic,
+    )
     generate_dct(
         section,
         "comment",
@@ -656,18 +664,17 @@ for mode, encoding in [
         extended=extended,
         arithmetic=arithmetic,
     )
-    if not arithmetic:
-        generate_dct(
-            section,
-            "rgb_interleaved",
-            WIDTH,
-            HEIGHT,
-            rgb_samples8,
-            scans=[([0, 1, 2], 0, 63, 0)],
-            color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
-            extended=extended,
-            arithmetic=arithmetic,
-        )
+    generate_dct(
+        section,
+        "rgb_interleaved",
+        WIDTH,
+        HEIGHT,
+        rgb_samples8,
+        scans=[([0, 1, 2], 0, 63, 0)],
+        color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
+        extended=extended,
+        arithmetic=arithmetic,
+    )
     generate_dct(
         section,
         "cmyk",
@@ -679,18 +686,17 @@ for mode, encoding in [
         extended=extended,
         arithmetic=arithmetic,
     )
-    if not arithmetic:
-        generate_dct(
-            section,
-            "cmyk_interleaved",
-            WIDTH,
-            HEIGHT,
-            cmyk_samples8,
-            scans=[([0, 1, 2, 3], 0, 63, 0)],
-            color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
-            extended=extended,
-            arithmetic=arithmetic,
-        )
+    generate_dct(
+        section,
+        "cmyk_interleaved",
+        WIDTH,
+        HEIGHT,
+        cmyk_samples8,
+        scans=[([0, 1, 2, 3], 0, 63, 0)],
+        color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
+        extended=extended,
+        arithmetic=arithmetic,
+    )
     generate_dct(
         section,
         "dnl",
