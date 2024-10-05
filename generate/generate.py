@@ -550,16 +550,18 @@ def generate_lossless(
     )
 
 
-# Encodings that work in all modes
 for mode, encoding in [
     ("baseline", "huffman"),
     ("extended", "huffman"),
     ("extended", "arithmetic"),
+    ("progressive", "huffman"),
+    ("progressive", "arithmetic"),
 ]:
     extended = mode == "extended"
+    progressive = mode == "progressive"
     arithmetic = encoding == "arithmetic"
-    if extended:
-        section = "extended_%s" % encoding
+    if mode != "baseline":
+        section = "%s_%s" % (mode, encoding)
     else:
         section = "baseline"
     generate_dct(
@@ -570,6 +572,7 @@ for mode, encoding in [
         [grayscale_samples8],
         scans=[([0], 0, 63, 0)],
         extended=extended,
+        progressive=progressive,
         arithmetic=arithmetic,
     )
     generate_dct(
@@ -580,6 +583,7 @@ for mode, encoding in [
         ycbcr_samples8,
         scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0)],
         extended=extended,
+        progressive=progressive,
         arithmetic=arithmetic,
     )
     generate_dct(
@@ -590,6 +594,7 @@ for mode, encoding in [
         ycbcr_samples8,
         scans=[([0, 1, 2], 0, 63, 0)],
         extended=extended,
+        progressive=progressive,
         arithmetic=arithmetic,
     )
     # FIXME: Greyscale sampling
@@ -602,6 +607,7 @@ for mode, encoding in [
         scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0)],
         sampling_factors=[(2, 2), (1, 1), (1, 1)],
         extended=extended,
+        progressive=progressive,
         arithmetic=arithmetic,
     )
     generate_dct(
@@ -613,6 +619,7 @@ for mode, encoding in [
         scans=[([0, 1, 2], 0, 63, 0)],
         sampling_factors=[(2, 2), (1, 1), (1, 1)],
         extended=extended,
+        progressive=progressive,
         arithmetic=arithmetic,
     )
     generate_dct(
@@ -624,6 +631,7 @@ for mode, encoding in [
         scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0)],
         sampling_factors=[(2, 2), (2, 1), (1, 2)],
         extended=extended,
+        progressive=progressive,
         arithmetic=arithmetic,
     )
     generate_dct(
@@ -635,6 +643,7 @@ for mode, encoding in [
         scans=[([0, 1, 2], 0, 63, 0)],
         sampling_factors=[(2, 2), (2, 1), (1, 2)],
         extended=extended,
+        progressive=progressive,
         arithmetic=arithmetic,
     )
     generate_dct(
@@ -646,6 +655,7 @@ for mode, encoding in [
         scans=[([0], 0, 63, 0)],
         comments=[b"Hello World"],
         extended=extended,
+        progressive=progressive,
         arithmetic=arithmetic,
     )
     generate_dct(
@@ -657,6 +667,7 @@ for mode, encoding in [
         scans=[([0], 0, 63, 0)],
         comments=[b"Hello", b"World"],
         extended=extended,
+        progressive=progressive,
         arithmetic=arithmetic,
     )
     generate_dct(
@@ -668,6 +679,7 @@ for mode, encoding in [
         scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0)],
         color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
         extended=extended,
+        progressive=progressive,
         arithmetic=arithmetic,
     )
     generate_dct(
@@ -679,6 +691,7 @@ for mode, encoding in [
         scans=[([0, 1, 2], 0, 63, 0)],
         color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
         extended=extended,
+        progressive=progressive,
         arithmetic=arithmetic,
     )
     generate_dct(
@@ -690,6 +703,7 @@ for mode, encoding in [
         scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0), ([3], 0, 63, 0)],
         color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
         extended=extended,
+        progressive=progressive,
         arithmetic=arithmetic,
     )
     generate_dct(
@@ -701,6 +715,7 @@ for mode, encoding in [
         scans=[([0, 1, 2, 3], 0, 63, 0)],
         color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
         extended=extended,
+        progressive=progressive,
         arithmetic=arithmetic,
     )
     generate_dct(
@@ -712,6 +727,7 @@ for mode, encoding in [
         scans=[([0], 0, 63, 0)],
         use_dnl=True,
         extended=extended,
+        progressive=progressive,
         arithmetic=arithmetic,
     )
     generate_dct(
@@ -723,131 +739,138 @@ for mode, encoding in [
         scans=[([0], 0, 63, 0)],
         restart_interval=4,
         extended=extended,
+        progressive=progressive,
         arithmetic=arithmetic,
     )
+
+    if mode != "baseline":
+        generate_dct(
+            section,
+            "grayscale",
+            WIDTH,
+            HEIGHT,
+            [grayscale_samples12],
+            scans=[([0], 0, 63, 0)],
+            precision=12,
+            extended=extended,
+            progressive=progressive,
+            arithmetic=arithmetic,
+        )
+        generate_dct(
+            section,
+            "ycbcr",
+            WIDTH,
+            HEIGHT,
+            ycbcr_samples12,
+            scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0)],
+            precision=12,
+            extended=extended,
+            progressive=progressive,
+            arithmetic=arithmetic,
+        )
+
+    if mode == "progressive":
+        generate_dct(
+            section,
+            "grayscale_spectral",
+            WIDTH,
+            HEIGHT,
+            [grayscale_samples8],
+            scans=[([0], 0, 0, 0), ([0], 1, 63, 0)],
+            extended=extended,
+            progressive=progressive,
+            arithmetic=arithmetic,
+        )
+        all_selection = [([0], 0, 0, 0)]
+        all_reverse_selection = [([0], 0, 0, 0)]
+        for i in range(1, 64):
+            all_selection.append(([0], i, i, 0))
+            all_reverse_selection.append(([0], 64 - i, 64 - i, 0))
+        generate_dct(
+            section,
+            "grayscale_spectral_all",
+            WIDTH,
+            HEIGHT,
+            [grayscale_samples8],
+            scans=all_selection,
+            extended=extended,
+            progressive=progressive,
+            arithmetic=arithmetic,
+        )
+        generate_dct(
+            section,
+            "grayscale_spectral_all_reverse",
+            WIDTH,
+            HEIGHT,
+            [grayscale_samples8],
+            scans=all_reverse_selection,
+            extended=extended,
+            progressive=progressive,
+            arithmetic=arithmetic,
+        )
+        generate_dct(
+            section,
+            "grayscale_successive_dc",
+            WIDTH,
+            HEIGHT,
+            [grayscale_samples8],
+            scans=[
+                ([0], 0, 0, 4),
+                ([0], 0, 0, 3),
+                ([0], 0, 0, 2),
+                ([0], 0, 0, 1),
+                ([0], 0, 0, 0),
+                ([0], 1, 63, 0),
+            ],
+            extended=extended,
+            progressive=progressive,
+            arithmetic=arithmetic,
+        )
+        generate_dct(
+            section,
+            "grayscale_successive_ac",
+            WIDTH,
+            HEIGHT,
+            [grayscale_samples8],
+            scans=[
+                ([0], 0, 0, 0),
+                ([0], 1, 63, 4),
+                ([0], 1, 63, 3),
+                ([0], 1, 63, 2),
+                ([0], 1, 63, 1),
+                ([0], 1, 63, 0),
+            ],
+            extended=extended,
+            progressive=progressive,
+            arithmetic=arithmetic,
+        )
+        generate_dct(
+            section,
+            "grayscale_successive",
+            WIDTH,
+            HEIGHT,
+            [grayscale_samples8],
+            scans=[
+                ([0], 0, 0, 4),
+                ([0], 0, 0, 3),
+                ([0], 0, 0, 2),
+                ([0], 0, 0, 1),
+                ([0], 0, 0, 0),
+                ([0], 1, 63, 4),
+                ([0], 1, 63, 3),
+                ([0], 1, 63, 2),
+                ([0], 1, 63, 1),
+                ([0], 1, 63, 0),
+            ],
+            extended=extended,
+            progressive=progressive,
+            arithmetic=arithmetic,
+        )
+        # FIXME: successive 3, 2, 1
+        # FIXME: successive with restarts
 
 for encoding in ["huffman", "arithmetic"]:
     arithmetic = encoding == "arithmetic"
-
-    # Encodings that require extended (12 bit)
-    section = "extended_%s" % encoding
-    generate_dct(
-        section,
-        "grayscale",
-        WIDTH,
-        HEIGHT,
-        [grayscale_samples12],
-        scans=[([0], 0, 63, 0)],
-        precision=12,
-        extended=True,
-        arithmetic=arithmetic,
-    )
-    generate_dct(
-        section,
-        "ycbcr",
-        WIDTH,
-        HEIGHT,
-        ycbcr_samples12,
-        scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0)],
-        precision=12,
-        extended=True,
-        arithmetic=arithmetic,
-    )
-
-    section = "progressive_%s" % encoding
-    generate_dct(
-        section,
-        "grayscale_spectral",
-        WIDTH,
-        HEIGHT,
-        [grayscale_samples8],
-        scans=[([0], 0, 0, 0), ([0], 1, 63, 0)],
-        progressive=True,
-        arithmetic=arithmetic,
-    )
-    all_selection = [([0], 0, 0, 0)]
-    all_reverse_selection = [([0], 0, 0, 0)]
-    for i in range(1, 64):
-        all_selection.append(([0], i, i, 0))
-        all_reverse_selection.append(([0], 64 - i, 64 - i, 0))
-    generate_dct(
-        section,
-        "grayscale_spectral_all",
-        WIDTH,
-        HEIGHT,
-        [grayscale_samples8],
-        scans=all_selection,
-        progressive=True,
-        arithmetic=arithmetic,
-    )
-    generate_dct(
-        section,
-        "grayscale_spectral_all_reverse",
-        WIDTH,
-        HEIGHT,
-        [grayscale_samples8],
-        scans=all_reverse_selection,
-        progressive=True,
-        arithmetic=arithmetic,
-    )
-    generate_dct(
-        section,
-        "grayscale_successive_dc",
-        WIDTH,
-        HEIGHT,
-        [grayscale_samples8],
-        scans=[
-            ([0], 0, 0, 4),
-            ([0], 0, 0, 3),
-            ([0], 0, 0, 2),
-            ([0], 0, 0, 1),
-            ([0], 0, 0, 0),
-            ([0], 1, 63, 0),
-        ],
-        progressive=True,
-        arithmetic=arithmetic,
-    )
-    generate_dct(
-        section,
-        "grayscale_successive_ac",
-        WIDTH,
-        HEIGHT,
-        [grayscale_samples8],
-        scans=[
-            ([0], 0, 0, 0),
-            ([0], 1, 63, 4),
-            ([0], 1, 63, 3),
-            ([0], 1, 63, 2),
-            ([0], 1, 63, 1),
-            ([0], 1, 63, 0),
-        ],
-        progressive=True,
-        arithmetic=arithmetic,
-    )
-    generate_dct(
-        section,
-        "grayscale_successive",
-        WIDTH,
-        HEIGHT,
-        [grayscale_samples8],
-        scans=[
-            ([0], 0, 0, 4),
-            ([0], 0, 0, 3),
-            ([0], 0, 0, 2),
-            ([0], 0, 0, 1),
-            ([0], 0, 0, 0),
-            ([0], 1, 63, 4),
-            ([0], 1, 63, 3),
-            ([0], 1, 63, 2),
-            ([0], 1, 63, 1),
-            ([0], 1, 63, 0),
-        ],
-        progressive=True,
-        arithmetic=arithmetic,
-    )
-    # FIXME: successive 3, 2, 1
-    # FIXME: successive with restarts
-
     section = "lossless_%s" % encoding
     for predictor in range(1, 8):
         generate_lossless(
