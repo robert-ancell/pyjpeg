@@ -768,6 +768,18 @@ for mode, encoding in [
             progressive=progressive,
             arithmetic=arithmetic,
         )
+        generate_dct(
+            section,
+            "ycbcr_interleaved",
+            WIDTH,
+            HEIGHT,
+            ycbcr_samples12,
+            scans=[([0, 1, 2], 0, 63, 0)],
+            precision=12,
+            extended=extended,
+            progressive=progressive,
+            arithmetic=arithmetic,
+        )
 
     if mode == "progressive":
         generate_dct(
