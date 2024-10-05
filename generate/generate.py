@@ -280,9 +280,15 @@ def make_dct_sequential(
                         sampling_factor = (1, 1)
                     else:
                         sampling_factor = sampling_factors[i]
+                    mcu_coefficients = jpeg.order_mcu_dct_coefficients(
+                        component_sizes[i][0],
+                        component_sizes[i][1],
+                        coefficients[i],
+                        sampling_factor,
+                    )
                     arithmetic_components.append(
                         jpeg.ArithmeticDCTComponent(
-                            coefficients=coefficients[i],
+                            coefficients=mcu_coefficients,
                             sampling_factor=sampling_factor,
                         )
                     )
@@ -889,4 +895,3 @@ for encoding in ["huffman", "arithmetic"]:
 # density
 # thumbnail
 # multiple tables
-# arithmetic interleaved
