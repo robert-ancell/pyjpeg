@@ -275,7 +275,7 @@ def make_dct_sequential(
             else:
                 assert len(components) == 1
                 scan_data = jpeg.arithmetic_dct_scan(
-                    coefficients=coefficients[components[0]],
+                    components=[jpeg.ArithmeticDCTComponent(coefficients=coefficients[components[0]], sampling_factor=sampling_factors[0])],
                     restart_interval=restart_interval,
                     selection=selection,
                     point_transform=point_transform,
