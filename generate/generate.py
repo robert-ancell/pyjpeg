@@ -894,4 +894,5 @@ for encoding in ["huffman", "arithmetic"]:
 # version 1.1
 # density
 # thumbnail
-# multiple tables
+# multiple huffman tables
+# arithmetic properties
