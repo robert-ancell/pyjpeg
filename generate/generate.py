@@ -529,6 +529,7 @@ def generate_lossless(
     width,
     height,
     component_samples,
+    use_dnl=False,
     precision=8,
     restart_interval=0,
     predictor=1,
@@ -542,6 +543,7 @@ def generate_lossless(
             width,
             height,
             component_samples,
+            use_dnl=use_dnl,
             precision=precision,
             restart_interval=restart_interval,
             predictor=predictor,
@@ -924,6 +926,16 @@ for encoding in ["huffman", "arithmetic"]:
         restart_interval=32 * 8,
         arithmetic=arithmetic,
     )
+    generate_lossless(
+        section,
+        "dnl",
+        WIDTH,
+        HEIGHT,
+        [grayscale_samples8],
+        use_dnl=True,
+        predictor=1,
+        arithmetic=arithmetic,
+    )
 
 # 3 channel, red, green, blue, white, mixed color
 # version 1.1
@@ -931,3 +943,4 @@ for encoding in ["huffman", "arithmetic"]:
 # thumbnail
 # multiple huffman tables
 # arithmetic properties
+# lossless interleaved
