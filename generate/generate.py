@@ -151,6 +151,8 @@ def make_dct_sequential(
     extended=False,
     progressive=False,
     arithmetic=False,
+    arithmetic_conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
+    arithmetic_conditioning_kx=[5, 5, 5, 5],
 ):
     if arithmetic:
         assert extended or progressive
@@ -307,6 +309,8 @@ def make_dct_sequential(
                     )
                     arithmetic_components.append(
                         jpeg.ArithmeticDCTComponent(
+                            conditioning_bounds=arithmetic_conditioning_bounds[0],
+                            kx=arithmetic_conditioning_kx[0],
                             coefficients=mcu_coefficients,
                             sampling_factor=sampling_factor,
                         )
@@ -414,7 +418,17 @@ def make_dct_sequential(
         )
     else:
         data += jpeg.start_of_frame_baseline(width, number_of_lines, sof_components)
-    if not arithmetic:
+    if arithmetic:
+        conditioning = []
+        for i, bounds in enumerate(arithmetic_conditioning_bounds):
+            if bounds != (0, 1):
+                conditioning.append(jpeg.ArithmeticConditioning.dc(i, bounds))
+        for i, kx in enumerate(arithmetic_conditioning_kx):
+            if kx != 5:
+                conditioning.append(jpeg.ArithmeticConditioning.ac(i, kx))
+        if len(conditioning) > 0:
+            data += jpeg.define_arithmetic_conditioning(conditioning)
+    else:
         data += jpeg.define_huffman_tables(tables=huffman_tables)
     if restart_interval != 0:
         data += jpeg.define_restart_interval(restart_interval)
@@ -436,7 +450,7 @@ def make_lossless(
     restart_interval=0,
     arithmetic=False,
 ):
-    conditioning_range = (0, 1)
+    conditioning_bounds = (0, 1)
     components = []
     jpeg_scans = []
     for i, samples in enumerate(component_samples):
@@ -446,7 +460,7 @@ def make_lossless(
         if arithmetic:
             table = 0
             scan_data = jpeg.arithmetic_lossless_scan(
-                conditioning_range,
+                conditioning_bounds,
                 width,
                 values,
                 restart_interval=restart_interval,
@@ -518,6 +532,8 @@ def generate_dct(
     extended=False,
     progressive=False,
     arithmetic=False,
+    arithmetic_conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
+    arithmetic_conditioning_kx=[5, 5, 5, 5],
 ):
     open(
         "../jpeg/%s/%dx%dx%d_%s.jpg" % (section, width, height, precision, description),
@@ -536,6 +552,8 @@ def generate_dct(
             extended=extended,
             progressive=progressive,
             arithmetic=arithmetic,
+            arithmetic_conditioning_bounds=arithmetic_conditioning_bounds,
+            arithmetic_conditioning_kx=arithmetic_conditioning_kx,
         )
     )
 
@@ -773,6 +791,33 @@ for mode, encoding in [
         progressive=progressive,
         arithmetic=arithmetic,
     )
+
+    if arithmetic:
+        generate_dct(
+            section,
+            "conditioning_bounds_4_6",
+            WIDTH,
+            HEIGHT,
+            grayscale_components8,
+            scans=[([0], 0, 63, 0)],
+            extended=extended,
+            progressive=progressive,
+            arithmetic=True,
+            arithmetic_conditioning_bounds=[(4, 6), (4, 6), (4, 6), (4, 6)],
+        )
+
+        generate_dct(
+            section,
+            "conditioning_kx_6",
+            WIDTH,
+            HEIGHT,
+            grayscale_components8,
+            scans=[([0], 0, 63, 0)],
+            extended=extended,
+            progressive=progressive,
+            arithmetic=True,
+            arithmetic_conditioning_kx=[6, 6, 6, 6],
+        )
 
     if mode != "baseline":
         generate_dct(

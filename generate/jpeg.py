@@ -665,8 +665,8 @@ ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE = 4
 N_ARITHMETIC_CLASSIFICATIONS = 5
 
 
-def classify_arithmetic_value(conditioning_range, value):
-    (lower, upper) = conditioning_range
+def classify_arithmetic_value(conditioning_bounds, value):
+    (lower, upper) = conditioning_bounds
     if lower > 0:
         lower = 1 << (lower - 1)
     upper = 1 << upper
@@ -806,7 +806,7 @@ def _encode_arithmetic_data_unit(
             prev_dc_diff = prev_dc - prev_prev_dc
 
             sstate = encoder.sstates[
-                classify_arithmetic_value(encoder.conditioning_range, prev_dc_diff)
+                classify_arithmetic_value(encoder.conditioning_bounds, prev_dc_diff)
             ]
 
             encode_arithmetic_dc(
@@ -884,9 +884,9 @@ class ArithmeticACStates:
 
 
 class DCTArithmeticEncoder:
-    def __init__(self, conditioning_range, kx):
+    def __init__(self, conditioning_bounds, kx):
         self.encoder = arithmetic.Encoder()
-        self.conditioning_range = conditioning_range
+        self.conditioning_bounds = conditioning_bounds
         self.kx = kx
         self.sstates = []
         for _ in range(N_ARITHMETIC_CLASSIFICATIONS):
@@ -920,9 +920,9 @@ class DCTArithmeticEncoder:
 
 class ArithmeticDCTComponent:
     def __init__(
-        self, conditioning_range=(0, 1), kx=5, coefficients=[], sampling_factor=(1, 1)
+        self, conditioning_bounds=(0, 1), kx=5, coefficients=[], sampling_factor=(1, 1)
     ):
-        self.conditioning_range = conditioning_range
+        self.conditioning_bounds = conditioning_bounds
         self.kx = kx
         self.coefficients = coefficients
         self.sampling_factor = sampling_factor
@@ -949,7 +949,7 @@ def arithmetic_dct_scan(
 
     # FIXME: Per component.
     data = b""
-    encoder = DCTArithmeticEncoder(components[0].conditioning_range, components[0].kx)
+    encoder = DCTArithmeticEncoder(components[0].conditioning_bounds, components[0].kx)
     scan_data = []
     data_unit_offsets = [0] * len(components)
     block_start_offsets = [0] * len(components)
@@ -959,7 +959,7 @@ def arithmetic_dct_scan(
             block_start_offsets = data_unit_offsets[:]
             data += encoder.get_data()
             encoder = DCTArithmeticEncoder(
-                components[0].conditioning_range, components[0].kx
+                components[0].conditioning_bounds, components[0].kx
             )
             data += restart((m // restart_interval - 1) % 8)
 
@@ -1197,9 +1197,9 @@ def huffman_lossless_scan(huffman_tables, scan_data):
 
 
 class LosslessArithmeticEncoder:
-    def __init__(self, conditioning_range):
+    def __init__(self, conditioning_bounds):
         self.encoder = arithmetic.Encoder()
-        self.conditioning_range = conditioning_range
+        self.conditioning_bounds = conditioning_bounds
         self.sstates = []
         for _ in range(N_ARITHMETIC_CLASSIFICATIONS):
             s = []
@@ -1218,8 +1218,8 @@ class LosslessArithmeticEncoder:
             self.large_mstates.append(arithmetic.State())
 
     def encode_dc(self, a, b, value):
-        ca = classify_arithmetic_value(self.conditioning_range, a)
-        cb = classify_arithmetic_value(self.conditioning_range, b)
+        ca = classify_arithmetic_value(self.conditioning_bounds, a)
+        cb = classify_arithmetic_value(self.conditioning_bounds, b)
         sstate = self.sstates[ca][cb]
 
         if (
@@ -1249,18 +1249,18 @@ class LosslessArithmeticEncoder:
 
 
 def arithmetic_lossless_scan(
-    conditioning_range,
+    conditioning_bounds,
     width,
     values,
     restart_interval=0,
 ):
     data = b""
-    encoder = LosslessArithmeticEncoder(conditioning_range)
+    encoder = LosslessArithmeticEncoder(conditioning_bounds)
     y0 = 0
     for i, value in enumerate(values):
         if restart_interval != 0 and i != 0 and i % restart_interval == 0:
             data += encoder.get_data()
-            encoder = LosslessArithmeticEncoder(conditioning_range)
+            encoder = LosslessArithmeticEncoder(conditioning_bounds)
             data += restart((i // restart_interval - 1) % 8)
             y0 = i // width
         x = i % width
