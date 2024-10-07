@@ -274,7 +274,7 @@ class ArithmeticConditioning:
         )
 
 
-def define_arithmetic_conditioning(conditioning=[]):
+def define_arithmetic_conditioning(conditioning):
     data = b""
     for c in conditioning:
         data += struct.pack(
