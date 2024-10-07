@@ -49,6 +49,8 @@ def make_grayscale(precision):
 
 grayscale_samples8 = make_grayscale(8)
 grayscale_samples12 = make_grayscale(12)
+grayscale_components8 = [(grayscale_samples8, (1, 1))]
+grayscale_components12 = [(grayscale_samples12, (1, 1))]
 
 
 def make_rgb(precision):
@@ -66,6 +68,11 @@ def make_rgb(precision):
 
 
 rgb_samples8 = make_rgb(8)
+rgb_components8 = [
+    (rgb_samples8[0], (1, 1)),
+    (rgb_samples8[1], (1, 1)),
+    (rgb_samples8[2], (1, 1)),
+]
 
 
 def make_ycbcr(precision):
@@ -83,6 +90,16 @@ def make_ycbcr(precision):
 
 ycbcr_samples8 = make_ycbcr(8)
 ycbcr_samples12 = make_ycbcr(12)
+ycbcr_components8 = [
+    (ycbcr_samples8[0], (1, 1)),
+    (ycbcr_samples8[1], (1, 1)),
+    (ycbcr_samples8[2], (1, 1)),
+]
+ycbcr_components12 = [
+    (ycbcr_samples12[0], (1, 1)),
+    (ycbcr_samples12[1], (1, 1)),
+    (ycbcr_samples12[2], (1, 1)),
+]
 
 
 def make_cmyk(precision):
@@ -101,6 +118,12 @@ def make_cmyk(precision):
 
 
 cmyk_samples8 = make_cmyk(8)
+cmyk_components8 = [
+    (cmyk_samples8[0], (1, 1)),
+    (cmyk_samples8[1], (1, 1)),
+    (cmyk_samples8[2], (1, 1)),
+    (cmyk_samples8[3], (1, 1)),
+]
 
 
 def scale_samples(width, height, samples, h_max, h, v_max, v):
@@ -115,12 +138,10 @@ def scale_samples(width, height, samples, h_max, h, v_max, v):
     return out_samples
 
 
-# FIXME: Merge sampling factors into samples
 def make_dct_sequential(
     width,
     height,
-    component_samples,
-    sampling_factors=None,
+    components=[],
     precision=8,
     use_dnl=False,
     restart_interval=0,
@@ -134,21 +155,18 @@ def make_dct_sequential(
     if arithmetic:
         assert extended or progressive
 
-    n_components = len(component_samples)
-
-    if sampling_factors is None:
-        sampling_factors = [(1, 1)] * n_components
+    n_components = len(components)
 
     max_h_sampling_factor = 0
     max_v_sampling_factor = 0
-    for h, v in sampling_factors:
+    for _, sampling_factor in components:
+        h, v = sampling_factor
         max_h_sampling_factor = max(h, max_h_sampling_factor)
         max_v_sampling_factor = max(v, max_v_sampling_factor)
 
     component_sizes = []
     scaled_component_samples = []
-    for i, samples in enumerate(component_samples):
-        sampling_factor = sampling_factors[i]
+    for samples, sampling_factor in components:
         w = math.ceil(width * sampling_factor[0] / max_h_sampling_factor)
         h = math.ceil(height * sampling_factor[1] / max_v_sampling_factor)
         component_sizes.append((w, h))
@@ -172,7 +190,6 @@ def make_dct_sequential(
         assert n_components == 3
     elif color_space == jpeg.ADOBE_COLOR_SPACE_Y_CB_CR_K:
         assert n_components == 4
-    assert len(sampling_factors) == n_components
 
     if (
         color_space is None and n_components == 3
@@ -215,11 +232,11 @@ def make_dct_sequential(
         )
 
     sof_components = []
-    for i in range(n_components):
+    for i, (_, sampling_factor) in enumerate(components):
         sof_components.append(
             jpeg.Component(
                 id=i + 1,
-                sampling_factor=sampling_factors[i],
+                sampling_factor=sampling_factor,
                 quantization_table=component_quantization_tables[i],
             )
         )
@@ -237,16 +254,18 @@ def make_dct_sequential(
         scan_components.append(
             jpeg.ScanComponent(i + 1, dc_table=dc_table_index, ac_table=ac_table_index)
         )
-    for scan_index, (components, start, end, point_transform) in enumerate(scans):
+    for scan_index, (component_indexes, start, end, point_transform) in enumerate(
+        scans
+    ):
         sos_components = []
-        for i in components:
+        for i in component_indexes:
             sos_components.append(scan_components[i])
         selection = (start, end)
         successive = False
         previous_point_transform = 0
         for i in range(scan_index):
             (c, s, e, p) = scans[i]
-            if (c, s, e) == (components, start, end) and p != 0:
+            if (c, s, e) == (component_indexes, start, end) and p != 0:
                 successive = True
                 previous_point_transform = p
         if successive:
@@ -260,26 +279,26 @@ def make_dct_sequential(
         )
         if arithmetic:
             if successive:
-                assert len(components) == 1
+                assert len(component_indexes) == 1
                 if start == 0:
                     scan_data = jpeg.arithmetic_dct_dc_scan_successive(
-                        coefficients[components[0]],
+                        coefficients[component_indexes[0]],
                         point_transform,
                     )
                 else:
                     scan_data = jpeg.arithmetic_dct_ac_scan_successive(
-                        coefficients[components[0]],
+                        coefficients[component_indexes[0]],
                         selection,
                         point_transform,
                     )
             else:
                 arithmetic_components = []
-                for i in components:
+                for i in component_indexes:
                     # MCU is 1 in non-interleaved
-                    if len(components) == 1:
+                    if len(component_indexes) == 1:
                         sampling_factor = (1, 1)
                     else:
-                        sampling_factor = sampling_factors[i]
+                        _, sampling_factor = components[i]
                     mcu_coefficients = jpeg.order_mcu_dct_coefficients(
                         component_sizes[i][0],
                         component_sizes[i][1],
@@ -300,12 +319,12 @@ def make_dct_sequential(
                 )
         else:
             huffman_components = []
-            for i in components:
+            for i in component_indexes:
                 # MCU is 1 in non-interleaved
-                if len(components) == 1:
+                if len(component_indexes) == 1:
                     sampling_factor = (1, 1)
                 else:
-                    sampling_factor = sampling_factors[i]
+                    _, sampling_factor = components[i]
                 mcu_coefficients = jpeg.order_mcu_dct_coefficients(
                     component_sizes[i][0],
                     component_sizes[i][1],
@@ -321,15 +340,15 @@ def make_dct_sequential(
                     )
                 )
             if successive:
-                assert len(components) == 1
+                assert len(component_indexes) == 1
                 if start == 0:
                     scan_data = jpeg.huffman_dct_dc_scan_successive_data(
-                        coefficients=coefficients[components[0]],
+                        coefficients=coefficients[component_indexes[0]],
                         point_transform=point_transform,
                     )
                 else:
                     scan_data = jpeg.huffman_dct_ac_scan_successive_data(
-                        coefficients=coefficients[components[0]],
+                        coefficients=coefficients[component_indexes[0]],
                         selection=selection,
                         point_transform=point_transform,
                     )
@@ -489,11 +508,10 @@ def generate_dct(
     description,
     width,
     height,
-    component_samples,
+    components,
     precision=8,
     restart_interval=0,
     use_dnl=False,
-    sampling_factors=None,
     color_space=None,
     scans=[],
     comments=[],
@@ -508,11 +526,10 @@ def generate_dct(
         make_dct_sequential(
             width,
             height,
-            component_samples,
+            components,
             precision=precision,
             restart_interval=restart_interval,
             use_dnl=use_dnl,
-            sampling_factors=sampling_factors,
             color_space=color_space,
             scans=scans,
             comments=comments,
@@ -571,7 +588,7 @@ for mode, encoding in [
         "grayscale",
         WIDTH,
         HEIGHT,
-        [grayscale_samples8],
+        grayscale_components8,
         scans=[([0], 0, 63, 0)],
         extended=extended,
         progressive=progressive,
@@ -582,7 +599,7 @@ for mode, encoding in [
         "ycbcr",
         WIDTH,
         HEIGHT,
-        ycbcr_samples8,
+        ycbcr_components8,
         scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0)],
         extended=extended,
         progressive=progressive,
@@ -593,7 +610,7 @@ for mode, encoding in [
         "ycbcr_interleaved",
         WIDTH,
         HEIGHT,
-        ycbcr_samples8,
+        ycbcr_components8,
         scans=[([0, 1, 2], 0, 63, 0)],
         extended=extended,
         progressive=progressive,
@@ -605,9 +622,12 @@ for mode, encoding in [
         "ycbcr_2x2_1x1_1x1",
         WIDTH,
         HEIGHT,
-        ycbcr_samples8,
+        [
+            (ycbcr_samples8[0], (2, 2)),
+            (ycbcr_samples8[1], (1, 1)),
+            (ycbcr_samples8[2], (1, 1)),
+        ],
         scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0)],
-        sampling_factors=[(2, 2), (1, 1), (1, 1)],
         extended=extended,
         progressive=progressive,
         arithmetic=arithmetic,
@@ -617,9 +637,12 @@ for mode, encoding in [
         "ycbcr_2x2_1x1_1x1_interleaved",
         WIDTH,
         HEIGHT,
-        ycbcr_samples8,
+        [
+            (ycbcr_samples8[0], (2, 2)),
+            (ycbcr_samples8[1], (1, 1)),
+            (ycbcr_samples8[2], (1, 1)),
+        ],
         scans=[([0, 1, 2], 0, 63, 0)],
-        sampling_factors=[(2, 2), (1, 1), (1, 1)],
         extended=extended,
         progressive=progressive,
         arithmetic=arithmetic,
@@ -629,9 +652,12 @@ for mode, encoding in [
         "ycbcr_2x2_2x1_1x2",
         WIDTH,
         HEIGHT,
-        ycbcr_samples8,
+        [
+            (ycbcr_samples8[0], (2, 2)),
+            (ycbcr_samples8[1], (2, 1)),
+            (ycbcr_samples8[2], (1, 2)),
+        ],
         scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0)],
-        sampling_factors=[(2, 2), (2, 1), (1, 2)],
         extended=extended,
         progressive=progressive,
         arithmetic=arithmetic,
@@ -641,9 +667,12 @@ for mode, encoding in [
         "ycbcr_2x2_2x1_1x2_interleaved",
         WIDTH,
         HEIGHT,
-        ycbcr_samples8,
+        [
+            (ycbcr_samples8[0], (2, 2)),
+            (ycbcr_samples8[1], (2, 1)),
+            (ycbcr_samples8[2], (1, 2)),
+        ],
         scans=[([0, 1, 2], 0, 63, 0)],
-        sampling_factors=[(2, 2), (2, 1), (1, 2)],
         extended=extended,
         progressive=progressive,
         arithmetic=arithmetic,
@@ -653,7 +682,7 @@ for mode, encoding in [
         "comment",
         WIDTH,
         HEIGHT,
-        [grayscale_samples8],
+        grayscale_components8,
         scans=[([0], 0, 63, 0)],
         comments=[b"Hello World"],
         extended=extended,
@@ -665,7 +694,7 @@ for mode, encoding in [
         "comments",
         WIDTH,
         HEIGHT,
-        [grayscale_samples8],
+        grayscale_components8,
         scans=[([0], 0, 63, 0)],
         comments=[b"Hello", b"World"],
         extended=extended,
@@ -677,7 +706,7 @@ for mode, encoding in [
         "rgb",
         WIDTH,
         HEIGHT,
-        rgb_samples8,
+        rgb_components8,
         scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0)],
         color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
         extended=extended,
@@ -689,7 +718,7 @@ for mode, encoding in [
         "rgb_interleaved",
         WIDTH,
         HEIGHT,
-        rgb_samples8,
+        rgb_components8,
         scans=[([0, 1, 2], 0, 63, 0)],
         color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
         extended=extended,
@@ -701,7 +730,7 @@ for mode, encoding in [
         "cmyk",
         WIDTH,
         HEIGHT,
-        cmyk_samples8,
+        cmyk_components8,
         scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0), ([3], 0, 63, 0)],
         color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
         extended=extended,
@@ -713,7 +742,7 @@ for mode, encoding in [
         "cmyk_interleaved",
         WIDTH,
         HEIGHT,
-        cmyk_samples8,
+        cmyk_components8,
         scans=[([0, 1, 2, 3], 0, 63, 0)],
         color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
         extended=extended,
@@ -725,7 +754,7 @@ for mode, encoding in [
         "dnl",
         WIDTH,
         HEIGHT,
-        [grayscale_samples8],
+        grayscale_components8,
         scans=[([0], 0, 63, 0)],
         use_dnl=True,
         extended=extended,
@@ -737,7 +766,7 @@ for mode, encoding in [
         "restarts",
         WIDTH,
         HEIGHT,
-        [grayscale_samples8],
+        grayscale_components8,
         scans=[([0], 0, 63, 0)],
         restart_interval=4,
         extended=extended,
@@ -751,7 +780,7 @@ for mode, encoding in [
             "grayscale",
             WIDTH,
             HEIGHT,
-            [grayscale_samples12],
+            grayscale_components12,
             scans=[([0], 0, 63, 0)],
             precision=12,
             extended=extended,
@@ -763,7 +792,7 @@ for mode, encoding in [
             "ycbcr",
             WIDTH,
             HEIGHT,
-            ycbcr_samples12,
+            ycbcr_components12,
             scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0)],
             precision=12,
             extended=extended,
@@ -775,7 +804,7 @@ for mode, encoding in [
             "ycbcr_interleaved",
             WIDTH,
             HEIGHT,
-            ycbcr_samples12,
+            ycbcr_components12,
             scans=[([0, 1, 2], 0, 63, 0)],
             precision=12,
             extended=extended,
@@ -789,7 +818,7 @@ for mode, encoding in [
             "grayscale_spectral",
             WIDTH,
             HEIGHT,
-            [grayscale_samples8],
+            grayscale_components8,
             scans=[([0], 0, 0, 0), ([0], 1, 63, 0)],
             extended=extended,
             progressive=progressive,
@@ -805,7 +834,7 @@ for mode, encoding in [
             "grayscale_spectral_all",
             WIDTH,
             HEIGHT,
-            [grayscale_samples8],
+            grayscale_components8,
             scans=all_selection,
             extended=extended,
             progressive=progressive,
@@ -816,7 +845,7 @@ for mode, encoding in [
             "grayscale_spectral_all_reverse",
             WIDTH,
             HEIGHT,
-            [grayscale_samples8],
+            grayscale_components8,
             scans=all_reverse_selection,
             extended=extended,
             progressive=progressive,
@@ -827,7 +856,7 @@ for mode, encoding in [
             "grayscale_successive_dc",
             WIDTH,
             HEIGHT,
-            [grayscale_samples8],
+            grayscale_components8,
             scans=[
                 ([0], 0, 0, 4),
                 ([0], 0, 0, 3),
@@ -845,7 +874,7 @@ for mode, encoding in [
             "grayscale_successive_ac",
             WIDTH,
             HEIGHT,
-            [grayscale_samples8],
+            grayscale_components8,
             scans=[
                 ([0], 0, 0, 0),
                 ([0], 1, 63, 4),
@@ -863,7 +892,7 @@ for mode, encoding in [
             "grayscale_successive",
             WIDTH,
             HEIGHT,
-            [grayscale_samples8],
+            grayscale_components8,
             scans=[
                 ([0], 0, 0, 4),
                 ([0], 0, 0, 3),
