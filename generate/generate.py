@@ -38,7 +38,7 @@ def rgb_to_cmyk(r, g, b, precision):
 
 
 def make_grayscale(precision):
-    width, height, max_value, raw_samples = read_pgm("test-face.pgm")
+    width, height, max_value, raw_samples = read_pgm("32x32x16_grayscale.pgm")
     assert width == WIDTH
     assert height == HEIGHT
     samples = []
@@ -52,7 +52,7 @@ grayscale_samples12 = make_grayscale(12)
 
 
 def make_rgb(precision):
-    width, height, max_value, raw_samples = read_pgm("test-face.ppm")
+    width, height, max_value, raw_samples = read_pgm("32x32x16_rgb.ppm")
     assert width == WIDTH
     assert height == HEIGHT
     r_samples = []
