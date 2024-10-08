@@ -161,11 +161,22 @@ def parse_dht(data):
     for table_class, identifier, symbols_by_length in tables:
         print(" %s Table %d:" % ({0: "DC", 1: "AC"}[table_class], identifier))
         code = 0
+
+        def bitstring(code, length):
+            s = ""
+            m = 1 << (length - 1)
+            for i in range(length):
+                if code & (1 << (length - i - 1)) != 0:
+                    s += "1"
+                else:
+                    s += "0"
+            return s
+
         for i, symbols in enumerate(symbols_by_length):
-            for s in symbols:
-                print('  %02x:' % s)
-            #if len(symbols) > 0:
-            #    print("  Symbols of length %d: %s" % ((i + 1), ' '.join(hex_symbols)))
+            for symbol in symbols:
+                print("  %02x: %s" % (symbol, bitstring(code, i + 1)))
+                code += 1
+            code <<= 1
 
     return data
 
@@ -186,7 +197,7 @@ def parse_sos(data):
     assert len(sos) == 3
     (ss, se, a) = struct.unpack("BBB", sos)
     ah = a >> 4
-    al = a & 0xf
+    al = a & 0xF
     (data, _) = parse_scan(data)
 
     print("SOS Start of Stream")
@@ -194,9 +205,9 @@ def parse_sos(data):
         print(" Component %d:" % component_selector)
         print("  DC Table: %d" % dc_table)
         print("  AC Table: %d" % ac_table)
-    print(' Spectral Selection: %d-%d' % (ss, se))
-    print(' Previous Point Transform: %d' % al)
-    print(' Point Transform: %d' % al)    
+    print(" Spectral Selection: %d-%d" % (ss, se))
+    print(" Previous Point Transform: %d" % al)
+    print(" Point Transform: %d" % al)
 
     return data
 
