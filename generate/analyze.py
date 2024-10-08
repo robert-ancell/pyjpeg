@@ -225,6 +225,17 @@ def parse_scan(data):
 
 def parse_app(data):
     data, _ = parse_segment(data)
+
+    print("APP Application Specific Data")
+
+    return data
+
+
+def parse_comment(data):
+    data, _ = parse_segment(data)
+
+    print("COM Comment")
+
     return data
 
 
@@ -276,6 +287,8 @@ def parse_jpeg(data):
             MARKER_APP15,
         ):
             data = parse_app(data)
+        elif marker == MARKER_COM:
+            data = parse_comment(data)
         else:
             print("%02x" % marker)
 
