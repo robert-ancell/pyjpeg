@@ -995,6 +995,19 @@ for encoding in ["huffman", "arithmetic"]:
             predictor=1,
             arithmetic=arithmetic,
         )
+    for size in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16):
+        (width, height, _, samples) = read_pgm("%dx%dx8_grayscale.pgm" % (size, size))
+        assert width == height == size
+        generate_lossless(
+            section,
+            "grayscale",
+            width,
+            height,
+            [samples],
+            precision=8,
+            predictor=1,
+            arithmetic=arithmetic,
+        )
     generate_lossless(
         section,
         "rgb",
