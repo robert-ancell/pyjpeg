@@ -9,6 +9,8 @@ import jpeg
 class Decoder:
     def __init__(self, data):
         self.data = data
+        self.dc_arithmetic_conditioning = [(0, 1), (0, 1), (0, 1), (0, 1)]
+        self.ac_arithmetic_conditioning = [5, 5, 5, 5]
 
     def parse_marker(self):
         if self.data[0] != 0xFF:
@@ -176,6 +178,32 @@ class Decoder:
                     print("  %02x: %s" % (symbol, bitstring(code, i + 1)))
                     code += 1
                 code <<= 1
+
+    def parse_dac(self):
+        dac = self.parse_segment()
+        conditioning = []
+        while len(dac) > 0:
+            assert len(dac) >= 2
+            (table_class_and_identifier, conditioning_value) = struct.unpack(
+                "BB", dac[:2]
+            )
+            table_class = table_class_and_identifier >> 4
+            identifier = table_class_and_identifier & 0xF
+            if table_class == 0:
+                conditioning_value = (conditioning_value & 0xF, conditioning_value >> 4)
+            dac = dac[2:]
+            conditioning.append((table_class, identifier, conditioning_value))
+
+        print("DAC Define Arithmetic Conditioning")
+        for table_class, identifier, conditioning_value in conditioning:
+            print(
+                " %s Table %d: %s"
+                % (
+                    {0: "DC", 1: "AC"}[table_class],
+                    identifier,
+                    repr(conditioning_value),
+                )
+            )
 
     def parse_sos(self):
         sos = self.parse_segment()
