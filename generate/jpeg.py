@@ -10,6 +10,53 @@ from huffman import *
 
 # FIXME: unknown application data
 
+MARKER_SOF0 = 0xC0
+MARKER_SOF1 = 0xC1
+MARKER_SOF2 = 0xC2
+MARKER_SOF3 = 0xC3
+MARKER_DHT = 0xC4
+MARKER_SOF5 = 0xC5
+MARKER_SOF6 = 0xC6
+MARKER_SOF7 = 0xC7
+MARKER_JPG = 0xC8
+MARKER_SOF9 = 0xC9
+MARKER_SOF10 = 0xCA
+MARKER_SOF11 = 0xCB
+MARKER_DAC = 0xCC
+MARKER_SOF13 = 0xCD
+MARKER_SOF14 = 0xCE
+MARKER_SOF15 = 0xCF
+MARKER_RST0 = 0xD0
+MARKER_RST1 = 0xD1
+MARKER_RST2 = 0xD2
+MARKER_RST3 = 0xD3
+MARKER_RST4 = 0xD4
+MARKER_RST5 = 0xD5
+MARKER_RST6 = 0xD6
+MARKER_RST7 = 0xD7
+MARKER_SOI = 0xD8
+MARKER_EOI = 0xD9
+MARKER_SOS = 0xDA
+MARKER_DQT = 0xDB
+MARKER_DNL = 0xDC
+MARKER_DRI = 0xDD
+MARKER_APP0 = 0xE0
+MARKER_APP1 = 0xE1
+MARKER_APP2 = 0xE2
+MARKER_APP3 = 0xE3
+MARKER_APP4 = 0xE4
+MARKER_APP5 = 0xE5
+MARKER_APP6 = 0xE6
+MARKER_APP7 = 0xE7
+MARKER_APP8 = 0xE8
+MARKER_APP9 = 0xE9
+MARKER_APP10 = 0xEA
+MARKER_APP11 = 0xEB
+MARKER_APP12 = 0xEC
+MARKER_APP13 = 0xED
+MARKER_APP14 = 0xEE
+MARKER_APP15 = 0xEF
+MARKER_COM = 0xFE
 
 SOF_BASELINE = 0
 SOF_EXTENDED_HUFFMAN = 1
@@ -32,7 +79,7 @@ def marker(value):
 
 
 def start_of_image():
-    return marker(0xD8)
+    return marker(MARKER_SOI)
 
 
 class Density:
@@ -52,7 +99,7 @@ class Density:
 
 
 def comment(value):
-    return marker(0xFE) + struct.pack(">H", 2 + len(value)) + value
+    return marker(MARKER_COM) + struct.pack(">H", 2 + len(value)) + value
 
 
 def jfif(
@@ -76,7 +123,7 @@ def jfif(
         )
         + thumbnail_data
     )
-    return marker(0xE0) + struct.pack(">H", 2 + len(data)) + data
+    return marker(MARKER_APP0) + struct.pack(">H", 2 + len(data)) + data
 
 
 def jfxx():
@@ -87,7 +134,7 @@ def jfxx():
         bytes("JFXX", "utf-8"),
         extension_code,
     )
-    return marker(0xE0) + struct.pack(">H", 2 + len(data)) + data
+    return marker(MARKER_APP0) + struct.pack(">H", 2 + len(data)) + data
 
 
 ADOBE_COLOR_SPACE_RGB_OR_CMYK = 0
@@ -104,7 +151,7 @@ def adobe(version=101, flags0=0, flags1=0, color_space=ADOBE_COLOR_SPACE_Y_CB_CR
         flags1,
         color_space,
     )
-    return marker(0xEE) + struct.pack(">H", 2 + len(data)) + data
+    return marker(MARKER_APP14) + struct.pack(">H", 2 + len(data)) + data
 
 
 class QuantizationTable:
@@ -121,31 +168,31 @@ def define_quantization_tables(tables=[]):
         data += struct.pack("B", table.precision << 4 | table.destination) + bytes(
             zig_zag(table.data)
         )
-    return marker(0xDB) + struct.pack(">H", 2 + len(data)) + data
+    return marker(MARKER_DQT) + struct.pack(">H", 2 + len(data)) + data
 
 
 def restart(index):
     assert index >= 0 and index <= 7
-    return marker(0xD0 + index)
+    return marker(MARKER_RST0 + index)
 
 
 def define_number_of_lines(number_of_lines):
     assert number_of_lines >= 1 and number_of_lines <= 65535
     data = struct.pack(">H", number_of_lines)
-    return marker(0xDC) + struct.pack(">H", 2 + len(data)) + data
+    return marker(MARKER_DNL) + struct.pack(">H", 2 + len(data)) + data
 
 
 def define_restart_interval(restart_interval):
     assert restart_interval >= 0 and restart_interval <= 65535
     data = struct.pack(">H", restart_interval)
-    return marker(0xDD) + struct.pack(">H", 2 + len(data)) + data
+    return marker(MARKER_DRI) + struct.pack(">H", 2 + len(data)) + data
 
 
 def expand_segment(expand_horizontal, expand_vertical):
     assert expand_horizontal == 0 or expand_horizontal == 1
     assert expand_vertical == 0 or expand_vertical == 1
     data = struct.pack("B", expand_horizontal << 4 | expand_vertical)
-    return marker(0xDF) + struct.pack(">H", 2 + len(data)) + data
+    return marker(MARKER_EXP) + struct.pack(">H", 2 + len(data)) + data
 
 
 class Component:
@@ -166,7 +213,7 @@ def start_of_frame(frame_type, precision=8, width=0, height=0, components=[]):
             component.sampling_factor[0] << 4 | component.sampling_factor[1],
             component.quantization_table,
         )
-    return marker(0xC0 + frame_type) + struct.pack(">H", 2 + len(data)) + data
+    return marker(MARKER_SOF0 + frame_type) + struct.pack(">H", 2 + len(data)) + data
 
 
 def start_of_frame_baseline(width, height, components):
@@ -246,7 +293,7 @@ def define_huffman_tables(tables=[]):
             data += struct.pack("B", len(symbols))
         for symbols in table.symbols_by_length:
             data += bytes(symbols)
-    return marker(0xC4) + struct.pack(">H", 2 + len(data)) + data
+    return marker(MARKER_DHT) + struct.pack(">H", 2 + len(data)) + data
 
 
 class ArithmeticConditioning:
@@ -280,7 +327,7 @@ def define_arithmetic_conditioning(conditioning):
         data += struct.pack(
             "BB", c.table_class << 4 | c.destination, c.conditioning_value
         )
-    return marker(0xCC) + struct.pack(">H", 2 + len(data)) + data
+    return marker(MARKER_DAC) + struct.pack(">H", 2 + len(data)) + data
 
 
 class ScanComponent:
@@ -311,7 +358,7 @@ def start_of_scan(components=[], ss=0, se=0, ah=0, al=0):
             component.dc_table << 4 | component.ac_table,
         )
     data += struct.pack("BBB", ss, se, ah << 4 | al)
-    return marker(0xDA) + struct.pack(">H", 2 + len(data)) + data
+    return marker(MARKER_SOS) + struct.pack(">H", 2 + len(data)) + data
 
 
 def start_of_scan_dct(
@@ -1280,7 +1327,7 @@ def arithmetic_lossless_scan(
 
 
 def end_of_image():
-    return marker(0xD9)
+    return marker(MARKER_EOI)
 
 
 def dct2d(values):

@@ -5,54 +5,6 @@ import sys
 
 import jpeg
 
-MARKER_SOF0 = 0xC0
-MARKER_SOF1 = 0xC1
-MARKER_SOF2 = 0xC2
-MARKER_SOF3 = 0xC3
-MARKER_DHT = 0xC4
-MARKER_SOF5 = 0xC5
-MARKER_SOF6 = 0xC6
-MARKER_SOF7 = 0xC7
-MARKER_JPG = 0xC8
-MARKER_SOF9 = 0xC9
-MARKER_SOF10 = 0xCA
-MARKER_SOF11 = 0xCB
-MARKER_DAC = 0xCC
-MARKER_SOF13 = 0xCD
-MARKER_SOF14 = 0xCE
-MARKER_SOF15 = 0xCF
-MARKER_RST0 = 0xD0
-MARKER_RST1 = 0xD1
-MARKER_RST2 = 0xD2
-MARKER_RST3 = 0xD3
-MARKER_RST4 = 0xD4
-MARKER_RST5 = 0xD5
-MARKER_RST6 = 0xD6
-MARKER_RST7 = 0xD7
-MARKER_SOI = 0xD8
-MARKER_EOI = 0xD9
-MARKER_SOS = 0xDA
-MARKER_DQT = 0xDB
-MARKER_DNL = 0xDC
-MARKER_DRI = 0xDD
-MARKER_APP0 = 0xE0
-MARKER_APP1 = 0xE1
-MARKER_APP2 = 0xE2
-MARKER_APP3 = 0xE3
-MARKER_APP4 = 0xE4
-MARKER_APP5 = 0xE5
-MARKER_APP6 = 0xE6
-MARKER_APP7 = 0xE7
-MARKER_APP8 = 0xE8
-MARKER_APP9 = 0xE9
-MARKER_APP10 = 0xEA
-MARKER_APP11 = 0xEB
-MARKER_APP12 = 0xEC
-MARKER_APP13 = 0xED
-MARKER_APP14 = 0xEE
-MARKER_APP15 = 0xEF
-MARKER_COM = 0xFE
-
 
 def parse_marker(data):
     if data[0] != 0xFF:
@@ -301,68 +253,68 @@ def parse_jpeg(data):
     while len(data) > 0:
         data, marker = parse_marker(data)
         if marker in (
-            MARKER_SOF0,
-            MARKER_SOF1,
-            MARKER_SOF2,
-            MARKER_SOF3,
-            MARKER_SOF5,
-            MARKER_SOF6,
-            MARKER_SOF7,
-            MARKER_SOF9,
-            MARKER_SOF10,
-            MARKER_SOF11,
-            MARKER_SOF13,
-            MARKER_SOF14,
-            MARKER_SOF15,
+            jpeg.MARKER_SOF0,
+            jpeg.MARKER_SOF1,
+            jpeg.MARKER_SOF2,
+            jpeg.MARKER_SOF3,
+            jpeg.MARKER_SOF5,
+            jpeg.MARKER_SOF6,
+            jpeg.MARKER_SOF7,
+            jpeg.MARKER_SOF9,
+            jpeg.MARKER_SOF10,
+            jpeg.MARKER_SOF11,
+            jpeg.MARKER_SOF13,
+            jpeg.MARKER_SOF14,
+            jpeg.MARKER_SOF15,
         ):
-            data = parse_sof(data, marker - MARKER_SOF0)
-        elif marker == MARKER_DHT:
+            data = parse_sof(data, marker - jpeg.MARKER_SOF0)
+        elif marker == jpeg.MARKER_DHT:
             data = parse_dht(data)
-        elif marker == MARKER_DAC:
+        elif marker == jpeg.MARKER_DAC:
             data = parse_dac(data)
         elif marker in (
-            MARKER_RST0,
-            MARKER_RST1,
-            MARKER_RST2,
-            MARKER_RST3,
-            MARKER_RST4,
-            MARKER_RST5,
-            MARKER_RST6,
-            MARKER_RST7,
+            jpeg.MARKER_RST0,
+            jpeg.MARKER_RST1,
+            jpeg.MARKER_RST2,
+            jpeg.MARKER_RST3,
+            jpeg.MARKER_RST4,
+            jpeg.MARKER_RST5,
+            jpeg.MARKER_RST6,
+            jpeg.MARKER_RST7,
         ):
-            data = parse_rst(data, marker - MARKER_RST0)
-        elif marker == MARKER_SOI:
+            data = parse_rst(data, marker - jpeg.MARKER_RST0)
+        elif marker == jpeg.MARKER_SOI:
             data = parse_soi(data)
-        elif marker == MARKER_EOI:
+        elif marker == jpeg.MARKER_EOI:
             data = parse_eoi(data)
-        elif marker == MARKER_DQT:
+        elif marker == jpeg.MARKER_DQT:
             data = parse_dqt(data)
-        elif marker == MARKER_DNL:
+        elif marker == jpeg.MARKER_DNL:
             data = parse_dnl(data)
-        elif marker == MARKER_DRI:
+        elif marker == jpeg.MARKER_DRI:
             data = parse_dri(data)
-        elif marker == MARKER_SOS:
+        elif marker == jpeg.MARKER_SOS:
             data = parse_sos(data)
         elif marker in (
-            MARKER_APP0,
-            MARKER_APP1,
-            MARKER_APP2,
-            MARKER_APP3,
-            MARKER_APP4,
-            MARKER_APP5,
-            MARKER_APP6,
-            MARKER_APP7,
-            MARKER_APP8,
-            MARKER_APP9,
-            MARKER_APP10,
-            MARKER_APP11,
-            MARKER_APP12,
-            MARKER_APP13,
-            MARKER_APP14,
-            MARKER_APP15,
+            jpeg.MARKER_APP0,
+            jpeg.MARKER_APP1,
+            jpeg.MARKER_APP2,
+            jpeg.MARKER_APP3,
+            jpeg.MARKER_APP4,
+            jpeg.MARKER_APP5,
+            jpeg.MARKER_APP6,
+            jpeg.MARKER_APP7,
+            jpeg.MARKER_APP8,
+            jpeg.MARKER_APP9,
+            jpeg.MARKER_APP10,
+            jpeg.MARKER_APP11,
+            jpeg.MARKER_APP12,
+            jpeg.MARKER_APP13,
+            jpeg.MARKER_APP14,
+            jpeg.MARKER_APP15,
         ):
-            data = parse_app(data, marker - MARKER_APP0)
-        elif marker == MARKER_COM:
+            data = parse_app(data, marker - jpeg.MARKER_APP0)
+        elif marker == jpeg.MARKER_COM:
             data = parse_comment(data)
         else:
             print("%02x" % marker)
