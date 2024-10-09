@@ -1301,15 +1301,14 @@ def dct2d(values):
     return coefficients
 
 
-def zig_zag(coefficients):
-    assert len(coefficients) == 64
+def zig_zag_coordinates():
     x = 0
     y = 0
     dx = 1
     dy = -1
-    zz = []
+    coordinates = []
     for _ in range(64):
-        zz.append(coefficients[y * 8 + x])
+        coordinates.append((x, y))
         if x + dx >= 8:
             y += 1
             dx, dy = -1, 1
@@ -1325,11 +1324,24 @@ def zig_zag(coefficients):
         else:
             x += dx
             y += dy
+    return coordinates
+
+
+def zig_zag(coefficients):
+    assert len(coefficients) == 64
+    coordinates = zig_zag_coordinates()
+    zz = []
+    for x, y in coordinates:
+        zz.append(coefficients[y * 8 + x])
     return zz
 
 
-def unzig_zag(coefficients):
-    # FIXME
+def unzig_zag(zz):
+    assert len(zz) == 64
+    coordinates = zig_zag_coordinates()
+    coefficients = [0] * 64
+    for i, (x, y) in enumerate(coordinates):
+        coefficients[y * 8 + x] = zz[i]
     return coefficients
 
 
