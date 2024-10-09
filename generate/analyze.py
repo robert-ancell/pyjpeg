@@ -11,6 +11,9 @@ class Decoder:
         self.data = data
         self.dc_arithmetic_conditioning = [(0, 1), (0, 1), (0, 1), (0, 1)]
         self.ac_arithmetic_conditioning = [5, 5, 5, 5]
+        self.scan_components = []
+        self.arithmetic = False
+        self.spectral_selection = (0, 63)
 
     def parse_marker(self):
         if self.data[0] != 0xFF:
@@ -107,6 +110,8 @@ class Decoder:
                 (id, (sampling_factor_h, sampling_factor_v), quantization_table)
             )
         assert len(sof) == 0
+
+        self.arithmetic = index >= 8
 
         print(
             "SOF%d Start of Frame, %s"
@@ -210,22 +215,25 @@ class Decoder:
         assert len(sos) >= 1
         n_components = sos[0]
         sos = sos[1:]
-        components = []
+        self.scan_components = []
         for i in range(n_components):
             assert len(sos) >= 2
             (component_selector, tables) = struct.unpack("BB", sos[:2])
             dc_table = tables >> 4
             ac_table = tables & 0xF
             sos = sos[2:]
-            components.append((component_selector, dc_table, ac_table))
+            self.scan_components.append((component_selector, dc_table, ac_table))
         assert len(sos) == 3
         (ss, se, a) = struct.unpack("BBB", sos)
         ah = a >> 4
         al = a & 0xF
+
+        self.spectral_selection = (ss, se)
+
         scan = self.parse_scan()
 
         print("SOS Start of Stream")
-        for component_selector, dc_table, ac_table in components:
+        for component_selector, dc_table, ac_table in self.scan_components:
             print(" Component %d:" % component_selector)
             print("  DC Table: %d" % dc_table)
             print("  AC Table: %d" % ac_table)
