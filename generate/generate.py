@@ -695,6 +695,20 @@ for mode, encoding in [
         progressive=progressive,
         arithmetic=arithmetic,
     )
+    for size in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16):
+        (width, height, _, samples) = read_pgm("%dx%dx8_grayscale.pgm" % (size, size))
+        assert width == height == size
+        generate_dct(
+            section,
+            "grayscale",
+            width,
+            height,
+            [(samples, (1, 1))],
+            scans=[([0], 0, 63, 0)],
+            extended=extended,
+            progressive=progressive,
+            arithmetic=arithmetic,
+        )
     generate_dct(
         section,
         "comment",

@@ -26,17 +26,31 @@ def read_pgm(path):
         elif header_line == 2:
             max_value = int(str(line, "utf-8"))
             values = []
-            if channels == 1:
-                for i in range(0, len(data), 2):
-                    values.append(data[i] << 8 | data[i + 1])
-            elif channels == 3:
-                for i in range(0, len(data), 6):
-                    values.append(
-                        (
-                            data[i] << 8 | data[i + 1],
-                            data[i + 2] << 8 | data[i + 3],
-                            data[i + 4] << 8 | data[i + 5],
+            if max_value > 0xFF:
+                if channels == 1:
+                    for i in range(0, len(data), 2):
+                        values.append(data[i] << 8 | data[i + 1])
+                elif channels == 3:
+                    for i in range(0, len(data), 6):
+                        values.append(
+                            (
+                                data[i] << 8 | data[i + 1],
+                                data[i + 2] << 8 | data[i + 3],
+                                data[i + 4] << 8 | data[i + 5],
+                            )
                         )
-                    )
+            else:
+                if channels == 1:
+                    for i in range(0, len(data)):
+                        values.append(data[i])
+                elif channels == 3:
+                    for i in range(0, len(data), 3):
+                        values.append(
+                            (
+                                data[i],
+                                data[i + 1],
+                                data[i + 2],
+                            )
+                        )
             return (width, height, max_value, values)
         header_line += 1
