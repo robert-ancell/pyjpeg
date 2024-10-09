@@ -1328,6 +1328,11 @@ def zig_zag(coefficients):
     return zz
 
 
+def unzig_zag(coefficients):
+    # FIXME
+    return coefficients
+
+
 def quantize(coefficients, quantization_table):
     assert len(coefficients) == len(quantization_table)
     quantized_coefficients = []

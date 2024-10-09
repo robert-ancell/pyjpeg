@@ -3,6 +3,8 @@
 import struct
 import sys
 
+import jpeg
+
 MARKER_SOF0 = 0xC0
 MARKER_SOF1 = 0xC1
 MARKER_SOF2 = 0xC2
@@ -67,6 +69,12 @@ def parse_segment(data):
     return (data[length:], segment)
 
 
+def parse_rst(data, index):
+    print("RST%d Restart" % index)
+    (data, _) = parse_scan(data)
+    return data
+
+
 def parse_soi(data):
     print("SOI Start of Image")
     return data
@@ -98,17 +106,47 @@ def parse_dqt(data):
                 (q,) = struct.unpack(">H", dqt[:2])
                 values.append(q)
                 dqt = dqt[2:]
-        tables.append((precision, destination, values))
+        tables.append((precision, destination, jpeg.unzig_zag(values)))
 
     print("DQT Define Quantization Tables")
     for precision, destination, values in tables:
         print(" Table %d:" % destination)
         print("  Precision: %d bits" % {0: 8, 1: 16}[precision])
-        print("  Values: %s" % repr(values))  # FIXME: Do in grid
+        rows = []
+        for y in range(8):
+            row = []
+            for x in range(8):
+                row.append("%3d" % values[y * 8 + x])
+            print("  %s" % " ".join(row))
+
     return data
 
 
-def parse_sof(data):
+def parse_dnl(data):
+    data, dnl = parse_segment(data)
+    assert len(dnl) == 2
+
+    (number_of_lines,) = struct.unpack(">H", dnl)
+
+    print("DNL Define Number of Lines")
+    print(" Number of lines: %d" % number_of_lines)
+
+    return data
+
+
+def parse_dri(data):
+    data, dri = parse_segment(data)
+    assert len(dri) == 2
+
+    (restart_interval,) = struct.unpack(">H", dri)
+
+    print("DRI Define Restart Interval")
+    print(" Restart interval: %d" % restart_interval)
+
+    return data
+
+
+def parse_sof(data, index):
     data, sof = parse_segment(data)
     assert len(sof) >= 6
     (precision, number_of_lines, samples_per_line, n_components) = struct.unpack(
@@ -127,7 +165,27 @@ def parse_sof(data):
         )
     assert len(sof) == 0
 
-    print("SOF Start of Frame")
+    print(
+        "SOF%d Start of Frame, %s"
+        % (
+            index,
+            {
+                0: "Baseline DCT",
+                1: "Extended sequential DCT, Huffman coding",
+                2: "Progressive DCT, Huffman coding",
+                3: "Lossless (sequential), Huffman coding",
+                5: "Differential sequential DCT, Huffman coding",
+                6: "Differential progressive DCT, Huffman coding",
+                7: "Differential lossless (sequential), Huffman coding",
+                9: "Extended sequential DCT, arithmetic coding",
+                10: "Progressive DCT, arithmetic coding",
+                11: "Lossless (sequential), arithmetic coding",
+                13: "Differential sequential DCT, arithmetic coding",
+                14: "Differential progressive DCT, arithmetic coding",
+                15: "Differential lossless (sequential), arithmetic coding",
+            }[index],
+        )
+    )
     print(" Precision: %d bits" % precision)
     print(" Number of lines: %d" % number_of_lines)  # FIXME: Note if zero defined later
     print(" Number of samples per line: %d" % samples_per_line)
@@ -223,10 +281,10 @@ def parse_scan(data):
         offset += 1
 
 
-def parse_app(data):
+def parse_app(data, index):
     data, _ = parse_segment(data)
 
-    print("APP Application Specific Data")
+    print("APP%d Application Specific Data" % index)
 
     return data
 
@@ -242,13 +300,7 @@ def parse_comment(data):
 def parse_jpeg(data):
     while len(data) > 0:
         data, marker = parse_marker(data)
-        if marker == MARKER_SOI:
-            data = parse_soi(data)
-        elif marker == MARKER_EOI:
-            data = parse_eoi(data)
-        elif marker == MARKER_DQT:
-            data = parse_dqt(data)
-        elif marker in (
+        if marker in (
             MARKER_SOF0,
             MARKER_SOF1,
             MARKER_SOF2,
@@ -263,9 +315,32 @@ def parse_jpeg(data):
             MARKER_SOF14,
             MARKER_SOF15,
         ):
-            data = parse_sof(data)
+            data = parse_sof(data, marker - MARKER_SOF0)
         elif marker == MARKER_DHT:
             data = parse_dht(data)
+        elif marker == MARKER_DAC:
+            data = parse_dac(data)
+        elif marker in (
+            MARKER_RST0,
+            MARKER_RST1,
+            MARKER_RST2,
+            MARKER_RST3,
+            MARKER_RST4,
+            MARKER_RST5,
+            MARKER_RST6,
+            MARKER_RST7,
+        ):
+            data = parse_rst(data, marker - MARKER_RST0)
+        elif marker == MARKER_SOI:
+            data = parse_soi(data)
+        elif marker == MARKER_EOI:
+            data = parse_eoi(data)
+        elif marker == MARKER_DQT:
+            data = parse_dqt(data)
+        elif marker == MARKER_DNL:
+            data = parse_dnl(data)
+        elif marker == MARKER_DRI:
+            data = parse_dri(data)
         elif marker == MARKER_SOS:
             data = parse_sos(data)
         elif marker in (
@@ -286,7 +361,7 @@ def parse_jpeg(data):
             MARKER_APP14,
             MARKER_APP15,
         ):
-            data = parse_app(data)
+            data = parse_app(data, marker - MARKER_APP0)
         elif marker == MARKER_COM:
             data = parse_comment(data)
         else:
