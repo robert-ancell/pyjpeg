@@ -6,11 +6,38 @@ import sys
 import jpeg
 
 
+def print_du(du):
+    cols = []
+    for x in range(8):
+        col = []
+        for y in range(8):
+            col.append("%d" % du[y * 8 + x])
+        cols.append(col)
+
+    col_widths = []
+    for x in range(8):
+        width = 0
+        for y in range(8):
+            width = max(width, len(cols[x][y]))
+        col_widths.append(width)
+
+    for y in range(8):
+        row = []
+        for x in range(8):
+            row.append(cols[x][y].rjust(col_widths[x]))
+        print("  %s" % " ".join(row))
+
+
 class Decoder:
     def __init__(self, data):
         self.data = data
+        self.number_of_lines = 0
+        self.samples_per_line = 0
+        self.quantization_tables = [[1] * 64, [1] * 64, [1] * 64, [1] * 64]
         self.dc_arithmetic_conditioning = [(0, 1), (0, 1), (0, 1), (0, 1)]
         self.ac_arithmetic_conditioning = [5, 5, 5, 5]
+        self.dc_huffman_tables = [{}, {}, {}, {}]
+        self.ac_huffman_tables = [{}, {}, {}, {}]
         self.scan_components = []
         self.arithmetic = False
         self.spectral_selection = (0, 63)
@@ -61,18 +88,15 @@ class Decoder:
                     (q,) = struct.unpack(">H", dqt[:2])
                     values.append(q)
                     dqt = dqt[2:]
-            tables.append((precision, destination, jpeg.unzig_zag(values)))
+            values = jpeg.unzig_zag(values)
+            tables.append((precision, destination, values))
+            self.quantization_tables[destination] = values
 
         print("DQT Define Quantization Tables")
         for precision, destination, values in tables:
             print(" Table %d:" % destination)
             print("  Precision: %d bits" % {0: 8, 1: 16}[precision])
-            rows = []
-            for y in range(8):
-                row = []
-                for x in range(8):
-                    row.append("%3d" % values[y * 8 + x])
-                print("  %s" % " ".join(row))
+            print_du(values)
 
     def parse_dnl(self):
         dnl = self.parse_segment()
@@ -95,18 +119,18 @@ class Decoder:
     def parse_sof(self, index):
         sof = self.parse_segment()
         assert len(sof) >= 6
-        (precision, number_of_lines, samples_per_line, n_components) = struct.unpack(
-            ">BHHB", sof[:6]
+        (precision, self.number_of_lines, self.samples_per_line, n_components) = (
+            struct.unpack(">BHHB", sof[:6])
         )
         sof = sof[6:]
-        components = []
+        self.components = []
         for i in range(n_components):
             assert len(sof) >= 3
             (id, sampling_factor, quantization_table) = struct.unpack("BBB", sof[:3])
             sampling_factor_h = sampling_factor >> 4
             sampling_factor_v = sampling_factor & 0xF
             sof = sof[3:]
-            components.append(
+            self.components.append(
                 (id, (sampling_factor_h, sampling_factor_v), quantization_table)
             )
         assert len(sof) == 0
@@ -136,10 +160,10 @@ class Decoder:
         )
         print(" Precision: %d bits" % precision)
         print(
-            " Number of lines: %d" % number_of_lines
+            " Number of lines: %d" % self.number_of_lines
         )  # FIXME: Note if zero defined later
-        print(" Number of samples per line: %d" % samples_per_line)
-        for id, sampling_factor, quantization_table in components:
+        print(" Number of samples per line: %d" % self.samples_per_line)
+        for id, sampling_factor, quantization_table in self.components:
             print(" Component %d:" % id)
             print("  Sampling Factor: %dx%d" % (sampling_factor[0], sampling_factor[1]))
             print("  Quantization Table: %d" % quantization_table)
@@ -151,7 +175,9 @@ class Decoder:
             assert len(dht) >= 17
             table_class_and_identifier = dht[0]
             table_class = table_class_and_identifier >> 4
+            assert table_class in (0, 1)
             identifier = table_class_and_identifier & 0xF
+            assert identifier <= 4
             dht = dht[1:]
             lengths = dht[:16]
             dht = dht[16:]
@@ -161,28 +187,40 @@ class Decoder:
                 symbols = list(dht[:count])
                 dht = dht[count:]
                 symbols_by_length.append(symbols)
-            tables.append((table_class, identifier, symbols_by_length))
-
-        print("DHT Define Huffman Tables")
-        for table_class, identifier, symbols_by_length in tables:
-            print(" %s Table %d:" % ({0: "DC", 1: "AC"}[table_class], identifier))
-            code = 0
 
             def bitstring(code, length):
-                s = ""
-                m = 1 << (length - 1)
+                s = []
                 for i in range(length):
-                    if code & (1 << (length - i - 1)) != 0:
-                        s += "1"
-                    else:
-                        s += "0"
-                return s
+                    s.append((code >> (length - i - 1)) & 0x1)
+                return tuple(s)
 
+            table = {}
+            code = 0
             for i, symbols in enumerate(symbols_by_length):
                 for symbol in symbols:
-                    print("  %02x: %s" % (symbol, bitstring(code, i + 1)))
+                    table[bitstring(code, i + 1)] = symbol
                     code += 1
                 code <<= 1
+
+            if table_class == 0:
+                self.dc_huffman_tables[identifier] = table
+            else:
+                self.ac_huffman_tables[identifier] = table
+
+            tables.append((table_class, identifier, table))
+
+        print("DHT Define Huffman Tables")
+        for table_class, identifier, table in tables:
+            print(" %s Table %d:" % ({0: "DC", 1: "AC"}[table_class], identifier))
+
+            def tobitstring(bits):
+                s = ""
+                for b in bits:
+                    s += str(b)
+                return s
+
+            for code in table.keys():
+                print("  %02x: %s" % (table[code], tobitstring(code)))
 
     def parse_dac(self):
         dac = self.parse_segment()
@@ -230,8 +268,6 @@ class Decoder:
 
         self.spectral_selection = (ss, se)
 
-        scan = self.parse_scan()
-
         print("SOS Start of Stream")
         for component_selector, dc_table, ac_table in self.scan_components:
             print(" Component %d:" % component_selector)
@@ -241,17 +277,122 @@ class Decoder:
         print(" Previous Point Transform: %d" % al)
         print(" Point Transform: %d" % al)
 
+        data_units = self.parse_scan()
+        for du in data_units:
+            print(" Data Unit:")
+            print_du(du)
+
     def parse_scan(self):
         offset = 0
+        bits = []
         while True:
             assert offset < len(self.data)
-            if self.data[offset] == 0xFF and offset + 1 < len(self.data):
+            b = self.data[offset]
+            if b == 0xFF and offset + 1 < len(self.data):
                 if self.data[offset + 1] != 0:
-                    scan = self.data[:offset]
                     self.data = self.data[offset:]
-                    return scan
+                    break
                 offset += 1
+            for i in range(8):
+                bits.append((b >> (7 - i)) & 0x1)
             offset += 1
+
+        if self.arithmetic:
+            return
+
+        def read_huffman(bits, table):
+            for i in range(len(bits)):
+                symbol = table.get(tuple(bits[: i + 1]))
+                if symbol is not None:
+                    return (bits[i + 1 :], symbol)
+            raise Exception("Unknown Huffman code")
+
+        def read_ac(bits, table):
+            (bits, symbol) = read_huffman(bits, table)
+            run_length = symbol >> 4
+            s = symbol & 0xF
+            ac = 0
+            if s > 0:
+                for i in range(s):
+                    ac = ac << 1 | bits[i]
+                bits = bits[s:]
+                if ac < (1 << (s - 1)):
+                    ac -= (1 << s) - 1
+            return (bits, run_length, ac)
+
+        def read_dc(bits, table):
+            (bits, run_length, dc_diff) = read_ac(bits, table)
+            assert run_length == 0
+            return (bits, dc_diff)
+
+        def read_du(bits, spectral_selection, dc_table, ac_table, quantization_table):
+            du = [0] * 64
+            k = spectral_selection[0]
+            while k <= spectral_selection[1]:
+                if k == 0:
+                    (bits, dc_diff) = read_dc(bits, dc_table)
+                    du[k] = dc_diff
+                    k += 1
+                else:
+                    (bits, run_length, ac) = read_ac(bits, ac_table)
+                    if ac == 0:
+                        # EOB
+                        if run_length == 0:
+                            k = spectral_selection[1] + 1
+                        elif run_length == 15:
+                            k += 16
+                        else:
+                            raise Exception("Invalid run length")
+                    else:
+                        k += run_length
+                        du[k] = ac
+                        k += 1
+            du = jpeg.unzig_zag(du)
+            for i, q in enumerate(quantization_table):
+                du[i] *= q
+
+            return (bits, du)
+
+        def find_component(id):
+            for id_, sampling_factor, quantization_table in self.components:
+                if id_ == id:
+                    return (sampling_factor, quantization_table)
+            raise Exception("Unknown scan component %d" % id)
+
+        # FIXME: Handle sampling factor
+        def round_size(size):
+            return (size + 7) // 8
+
+        mcu_width = round_size(self.samples_per_line)
+        mcu_height = round_size(self.number_of_lines)
+
+        data_units = []
+        n_mcus = mcu_width * mcu_height
+        prev_dc = {}
+        for _ in range(n_mcus):
+            for component_selector, dc_table, ac_table in self.scan_components:
+                (sampling_factor, quantization_table_index) = find_component(
+                    component_selector
+                )
+                quantization_table = self.quantization_tables[quantization_table_index]
+                for y in range(sampling_factor[1]):
+                    for x in range(sampling_factor[0]):
+                        (bits, du) = read_du(
+                            bits,
+                            self.spectral_selection,
+                            self.dc_huffman_tables[dc_table],
+                            self.ac_huffman_tables[ac_table],
+                            quantization_table,
+                        )
+                        dc = prev_dc.get(component_selector)
+                        if dc is not None:
+                            du[0] += dc
+                        prev_dc[component_selector] = du[0]
+                        data_units.append(du)
+
+        assert len(bits) < 8
+
+        return data_units
 
     def parse_app(self, index):
         _ = self.parse_segment()
