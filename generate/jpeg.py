@@ -666,27 +666,6 @@ ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE = 4
 N_ARITHMETIC_CLASSIFICATIONS = 5
 
 
-def classify_arithmetic_value(conditioning_bounds, value):
-    (lower, upper) = conditioning_bounds
-    if lower > 0:
-        lower = 1 << (lower - 1)
-    upper = 1 << upper
-    if value >= 0:
-        if value <= lower:
-            return ARITHMETIC_CLASSIFICATION_ZERO
-        elif value <= upper:
-            return ARITHMETIC_CLASSIFICATION_SMALL_POSITIVE
-        else:
-            return ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE
-    else:
-        if value >= -lower:
-            return ARITHMETIC_CLASSIFICATION_ZERO
-        elif value >= -upper:
-            return ARITHMETIC_CLASSIFICATION_SMALL_NEGATIVE
-        else:
-            return ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE
-
-
 # States for DC coefficients
 class ArithmeticDCStates:
     def __init__(self):
@@ -698,183 +677,6 @@ class ArithmeticDCStates:
         self.sn = arithmetic.State()
 
 
-# Encode arithmetic DC value
-def encode_arithmetic_dc(
-    encoder, non_zero, is_negative, positive, negative, xstates, mstates, value
-):
-    if value == 0:
-        encoder.encode_bit(non_zero, 0)
-        return
-    encoder.encode_bit(non_zero, 1)
-
-    if value > 0:
-        encoder.encode_bit(is_negative, 0)
-        magnitude = value
-        mag_state = positive
-    else:
-        encoder.encode_bit(is_negative, 1)
-        magnitude = -value
-        mag_state = negative
-
-    if magnitude == 1:
-        encoder.encode_bit(mag_state, 0)
-        return
-    encoder.encode_bit(mag_state, 1)
-
-    # Encode width of (magnitude - 1) (must be 2+ if above not encoded)
-    v = magnitude - 1
-    width = 0
-    while (v >> width) != 0:
-        width += 1
-    for j in range(width - 1):
-        encoder.encode_bit(xstates[j], 1)
-    encoder.encode_bit(xstates[width - 1], 0)
-
-    # Encode lowest bits of magnitude (first bit is implied 1)
-    for j in range(width - 1):
-        bit = v >> (width - j - 2) & 0x1
-        encoder.encode_bit(mstates[width - 2], bit)
-
-
-# Encode arithmetic AC value
-def encode_arithmetic_ac(encoder, non_zero, sn_sp_x1, xstates, mstates, value):
-    # Non-zero coefficient
-    encoder.encode_bit(non_zero, 1)
-    if value > 0:
-        encoder.encode_fixed_bit(0)
-        magnitude = value
-    else:
-        encoder.encode_fixed_bit(1)
-        magnitude = -value
-
-    if magnitude == 1:
-        encoder.encode_bit(sn_sp_x1, 0)
-        return
-
-    encoder.encode_bit(sn_sp_x1, 1)
-
-    # Encode width of (magnitude - 1) (must be 2+ if above not encoded)
-    v = magnitude - 1
-    width = 0
-    while (v >> width) != 0:
-        width += 1
-    if width == 1:
-        encoder.encode_bit(sn_sp_x1, 0)
-    else:
-        encoder.encode_bit(sn_sp_x1, 1)
-        for j in range(1, width - 1):
-            encoder.encode_bit(xstates[j - 1], 1)
-        encoder.encode_bit(xstates[width - 2], 0)
-
-    # Encode lowest bits of magnitude (first bit is implied 1)
-    for j in range(width - 1):
-        bit = v >> (width - j - 2) & 0x1
-        encoder.encode_bit(mstates[width - 2], bit)
-
-
-def _encode_arithmetic_data_unit(
-    encoder,
-    scan_data,
-    component,
-    data_unit_offset,
-    selection,
-    point_transform,
-    block_start_offset,
-):
-    k = selection[0]
-    while k <= selection[1]:
-        coefficient = _transform_coefficient(
-            component.coefficients[data_unit_offset + k], point_transform
-        )
-
-        if k == 0:
-            dc = coefficient
-            # DC coefficient, encode relative to previous DC value
-            if data_unit_offset == block_start_offset:
-                prev_dc = 0
-                prev_prev_dc = 0
-            else:
-                prev_dc = _transform_coefficient(
-                    component.coefficients[data_unit_offset - 64], point_transform
-                )
-                if data_unit_offset - 64 == block_start_offset:
-                    prev_prev_dc = 0
-                else:
-                    prev_prev_dc = _transform_coefficient(
-                        component.coefficients[data_unit_offset - 128], point_transform
-                    )
-            dc_diff = dc - prev_dc
-            prev_dc_diff = prev_dc - prev_prev_dc
-
-            sstate = encoder.sstates[
-                classify_arithmetic_value(encoder.conditioning_bounds, prev_dc_diff)
-            ]
-
-            encode_arithmetic_dc(
-                encoder.encoder,
-                sstate.non_zero,
-                sstate.negative,
-                sstate.sp,
-                sstate.sn,
-                encoder.dc_xstates,
-                encoder.dc_mstates,
-                dc_diff,
-            )
-
-            k += 1
-        else:
-            # AC coefficients
-
-            if selection[1] == 63:
-                end_of_block = True
-                for j in range(k, selection[1] + 1):
-                    if (
-                        _transform_coefficient(
-                            component.coefficients[data_unit_offset + j],
-                            point_transform,
-                        )
-                        != 0
-                    ):
-                        end_of_block = False
-            else:
-                end_of_block = False
-
-            if end_of_block:
-                encoder.encoder.encode_bit(encoder.ac_states[k - 1].end_of_block, 1)
-                k = selection[1] + 1
-            else:
-                encoder.encoder.encode_bit(encoder.ac_states[k - 1].end_of_block, 0)
-
-                # Encode run of zeros
-                zero_count = 0
-                while coefficient == 0 and k <= selection[1]:
-                    encoder.encoder.encode_bit(encoder.ac_states[k - 1].non_zero, 0)
-                    k += 1
-                    coefficient = _transform_coefficient(
-                        component.coefficients[data_unit_offset + k],
-                        point_transform,
-                    )
-                    zero_count += 1
-
-                sstate = encoder.ac_states[k - 1]
-                if k <= encoder.kx:
-                    xstates = encoder.ac_low_xstates
-                    mstates = encoder.ac_low_mstates
-                else:
-                    xstates = encoder.ac_high_xstates
-                    mstates = encoder.ac_high_mstates
-                encode_arithmetic_ac(
-                    encoder.encoder,
-                    sstate.non_zero,
-                    sstate.sn_sp_x1,
-                    xstates,
-                    mstates,
-                    coefficient,
-                )
-
-                k += 1
-
-
 # States for AC coefficients
 class ArithmeticACStates:
     def __init__(self):
@@ -884,11 +686,115 @@ class ArithmeticACStates:
         self.sn_sp_x1 = arithmetic.State()
 
 
+class ArithmeticEncoder:
+    def __init__(self):
+        self.encoder = arithmetic.Encoder()
+
+    def encode_bit(self, state, value):
+        self.encoder.encode_bit(state, value)
+
+    def classify_value(self, conditioning_bounds, value):
+        (lower, upper) = conditioning_bounds
+        if lower > 0:
+            lower = 1 << (lower - 1)
+        upper = 1 << upper
+        if value >= 0:
+            if value <= lower:
+                return ARITHMETIC_CLASSIFICATION_ZERO
+            elif value <= upper:
+                return ARITHMETIC_CLASSIFICATION_SMALL_POSITIVE
+            else:
+                return ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE
+        else:
+            if value >= -lower:
+                return ARITHMETIC_CLASSIFICATION_ZERO
+            elif value >= -upper:
+                return ARITHMETIC_CLASSIFICATION_SMALL_NEGATIVE
+            else:
+                return ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE
+
+    # Encode arithmetic DC value
+    def encode_dc(
+        self, non_zero, is_negative, positive, negative, xstates, mstates, value
+    ):
+        if value == 0:
+            self.encode_bit(non_zero, 0)
+            return
+        self.encode_bit(non_zero, 1)
+
+        if value > 0:
+            self.encode_bit(is_negative, 0)
+            magnitude = value
+            mag_state = positive
+        else:
+            self.encode_bit(is_negative, 1)
+            magnitude = -value
+            mag_state = negative
+
+        if magnitude == 1:
+            self.encode_bit(mag_state, 0)
+            return
+        self.encode_bit(mag_state, 1)
+
+        # Encode width of (magnitude - 1) (must be 2+ if above not encoded)
+        v = magnitude - 1
+        width = 0
+        while (v >> width) != 0:
+            width += 1
+        for j in range(width - 1):
+            self.encode_bit(xstates[j], 1)
+        self.encode_bit(xstates[width - 1], 0)
+
+        # Encode lowest bits of magnitude (first bit is implied 1)
+        for j in range(width - 1):
+            bit = v >> (width - j - 2) & 0x1
+            self.encode_bit(mstates[width - 2], bit)
+
+    # Encode arithmetic AC value
+    def encode_ac(self, non_zero, sn_sp_x1, xstates, mstates, value):
+        # Non-zero coefficient
+        self.encode_bit(non_zero, 1)
+        if value > 0:
+            self.encoder.encode_fixed_bit(0)
+            magnitude = value
+        else:
+            self.encoder.encode_fixed_bit(1)
+            magnitude = -value
+
+        if magnitude == 1:
+            self.encode_bit(sn_sp_x1, 0)
+            return
+
+        self.encode_bit(sn_sp_x1, 1)
+
+        # Encode width of (magnitude - 1) (must be 2+ if above not encoded)
+        v = magnitude - 1
+        width = 0
+        while (v >> width) != 0:
+            width += 1
+        if width == 1:
+            self.encode_bit(sn_sp_x1, 0)
+        else:
+            self.encode_bit(sn_sp_x1, 1)
+            for j in range(1, width - 1):
+                self.encode_bit(xstates[j - 1], 1)
+            self.encode_bit(xstates[width - 2], 0)
+
+        # Encode lowest bits of magnitude (first bit is implied 1)
+        for j in range(width - 1):
+            bit = v >> (width - j - 2) & 0x1
+            self.encode_bit(mstates[width - 2], bit)
+
+    def get_data(self):
+        self.encoder.flush()
+        return bytes(self.encoder.data)
+
+
 class DCTArithmeticEncoder:
     def __init__(self, conditioning_bounds, kx):
-        self.encoder = arithmetic.Encoder()
         self.conditioning_bounds = conditioning_bounds
         self.kx = kx
+        self.encoder = ArithmeticEncoder()
         self.sstates = []
         for _ in range(N_ARITHMETIC_CLASSIFICATIONS):
             self.sstates.append(ArithmeticDCStates())
@@ -914,9 +820,109 @@ class DCTArithmeticEncoder:
             self.ac_low_mstates.append(arithmetic.State())
             self.ac_high_mstates.append(arithmetic.State())
 
+    def encode_data_unit(
+        self,
+        scan_data,
+        component,
+        data_unit_offset,
+        selection,
+        point_transform,
+        block_start_offset,
+    ):
+        k = selection[0]
+        while k <= selection[1]:
+            coefficient = _transform_coefficient(
+                component.coefficients[data_unit_offset + k], point_transform
+            )
+
+            if k == 0:
+                dc = coefficient
+                # DC coefficient, encode relative to previous DC value
+                if data_unit_offset == block_start_offset:
+                    prev_dc = 0
+                    prev_prev_dc = 0
+                else:
+                    prev_dc = _transform_coefficient(
+                        component.coefficients[data_unit_offset - 64], point_transform
+                    )
+                    if data_unit_offset - 64 == block_start_offset:
+                        prev_prev_dc = 0
+                    else:
+                        prev_prev_dc = _transform_coefficient(
+                            component.coefficients[data_unit_offset - 128],
+                            point_transform,
+                        )
+                dc_diff = dc - prev_dc
+                prev_dc_diff = prev_dc - prev_prev_dc
+
+                sstate = self.sstates[
+                    self.encoder.classify_value(self.conditioning_bounds, prev_dc_diff)
+                ]
+
+                self.encoder.encode_dc(
+                    sstate.non_zero,
+                    sstate.negative,
+                    sstate.sp,
+                    sstate.sn,
+                    self.dc_xstates,
+                    self.dc_mstates,
+                    dc_diff,
+                )
+
+                k += 1
+            else:
+                # AC coefficients
+
+                if selection[1] == 63:
+                    end_of_block = True
+                    for j in range(k, selection[1] + 1):
+                        if (
+                            _transform_coefficient(
+                                component.coefficients[data_unit_offset + j],
+                                point_transform,
+                            )
+                            != 0
+                        ):
+                            end_of_block = False
+                else:
+                    end_of_block = False
+
+                if end_of_block:
+                    self.encoder.encode_bit(self.ac_states[k - 1].end_of_block, 1)
+                    k = selection[1] + 1
+                else:
+                    self.encoder.encode_bit(self.ac_states[k - 1].end_of_block, 0)
+
+                    # Encode run of zeros
+                    zero_count = 0
+                    while coefficient == 0 and k <= selection[1]:
+                        self.encoder.encode_bit(self.ac_states[k - 1].non_zero, 0)
+                        k += 1
+                        coefficient = _transform_coefficient(
+                            component.coefficients[data_unit_offset + k],
+                            point_transform,
+                        )
+                        zero_count += 1
+
+                    sstate = self.ac_states[k - 1]
+                    if k <= self.kx:
+                        xstates = self.ac_low_xstates
+                        mstates = self.ac_low_mstates
+                    else:
+                        xstates = self.ac_high_xstates
+                        mstates = self.ac_high_mstates
+                    self.encoder.encode_ac(
+                        sstate.non_zero,
+                        sstate.sn_sp_x1,
+                        xstates,
+                        mstates,
+                        coefficient,
+                    )
+
+                    k += 1
+
     def get_data(self):
-        self.encoder.flush()
-        return bytes(self.encoder.data)
+        return self.encoder.get_data()
 
 
 class ArithmeticDCTComponent:
@@ -966,8 +972,7 @@ def arithmetic_dct_scan(
 
         for i, component in enumerate(components):
             for _ in range(component.sampling_factor[0] * component.sampling_factor[1]):
-                _encode_arithmetic_data_unit(
-                    encoder,
+                encoder.encode_data_unit(
                     scan_data,
                     component,
                     data_unit_offsets[i],
@@ -1199,7 +1204,7 @@ def huffman_lossless_scan(huffman_tables, scan_data):
 
 class LosslessArithmeticEncoder:
     def __init__(self, conditioning_bounds):
-        self.encoder = arithmetic.Encoder()
+        self.encoder = ArithmeticEncoder()
         self.conditioning_bounds = conditioning_bounds
         self.sstates = []
         for _ in range(N_ARITHMETIC_CLASSIFICATIONS):
@@ -1219,8 +1224,8 @@ class LosslessArithmeticEncoder:
             self.large_mstates.append(arithmetic.State())
 
     def encode_dc(self, a, b, value):
-        ca = classify_arithmetic_value(self.conditioning_bounds, a)
-        cb = classify_arithmetic_value(self.conditioning_bounds, b)
+        ca = self.encoder.classify_value(self.conditioning_bounds, a)
+        cb = self.encoder.classify_value(self.conditioning_bounds, b)
         sstate = self.sstates[ca][cb]
 
         if (
@@ -1233,8 +1238,7 @@ class LosslessArithmeticEncoder:
             mstates = self.small_mstates
             xstates = self.small_xstates
 
-        encode_arithmetic_dc(
-            self.encoder,
+        self.encoder.encode_dc(
             sstate.non_zero,
             sstate.negative,
             sstate.sp,
@@ -1245,8 +1249,7 @@ class LosslessArithmeticEncoder:
         )
 
     def get_data(self):
-        self.encoder.flush()
-        return bytes(self.encoder.data)
+        return self.encoder.get_data()
 
 
 def arithmetic_lossless_scan(
