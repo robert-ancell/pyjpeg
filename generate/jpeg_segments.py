@@ -78,8 +78,12 @@ class StreamComponent:
         self.ac_table = ac_table
 
 
-class StartOfStream:
+class StartOfScan:
     def __init__(self, components, ss, se, ah, al):
+        assert ss >= 0 and ss <= 255
+        assert se >= 0 and se <= 255
+        assert ah >= 0 and ah <= 15
+        assert al >= 0 and al <= 15
         self.components = components
         self.ss = ss
         self.se = se

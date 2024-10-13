@@ -112,8 +112,8 @@ for segment in decoder.segments:
                 % (component.sampling_factor[0], component.sampling_factor[1])
             )
             print("  Quantization Table: %d" % component.quantization_table_index)
-    elif isinstance(segment, StartOfStream):
-        print("SOS Start of Stream")
+    elif isinstance(segment, StartOfScan):
+        print("SOS Start of Scan")
         for component in segment.components:
             print(" Component %d:" % component.component_selector)
             print("  DC Table: %d" % component.dc_table)

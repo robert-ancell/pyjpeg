@@ -195,7 +195,7 @@ class Decoder:
         (ss, se, a) = struct.unpack("BBB", sos)
         ah = a >> 4
         al = a & 0xF
-        self.segments.append(StartOfStream(scan_components, ss, se, ah, al))
+        self.segments.append(StartOfScan(scan_components, ss, se, ah, al))
 
         self.scan_components = scan_components
         self.spectral_selection = (ss, se)
