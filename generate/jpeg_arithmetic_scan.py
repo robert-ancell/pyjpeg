@@ -82,9 +82,7 @@ class ArithmeticEncoder:
             self.encode_bit(mstates[width - 2], bit)
 
     # Encode arithmetic AC value
-    def encode_ac(self, non_zero, sn_sp_x1, xstates, mstates, value):
-        # Non-zero coefficient
-        self.encode_bit(non_zero, 1)
+    def encode_ac(self, sn_sp_x1, xstates, mstates, value):
         if value > 0:
             self.encoder.encode_fixed_bit(0)
             magnitude = value
@@ -244,6 +242,7 @@ class DCTArithmeticEncoder:
                             point_transform,
                         )
                         zero_count += 1
+                    self.encoder.encode_bit(self.ac_non_zero[k - 1], 1)
 
                     if k <= self.kx:
                         xstates = self.ac_low_xstates
@@ -252,7 +251,6 @@ class DCTArithmeticEncoder:
                         xstates = self.ac_high_xstates
                         mstates = self.ac_high_mstates
                     self.encoder.encode_ac(
-                        self.ac_non_zero[k - 1],
                         self.ac_sn_sp_x1[k - 1],
                         xstates,
                         mstates,
