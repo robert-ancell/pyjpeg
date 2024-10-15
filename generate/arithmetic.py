@@ -237,7 +237,6 @@ class Decoder:
         self.ct = 0
         self.a = 0
         self.c = 0
-        self.mps = 0
 
         self.byte_in()
         self.c = self.d << 8
@@ -253,21 +252,25 @@ class Decoder:
                 bit = self.cond_mps_exchange(state)
                 self.renormalize()
             else:
-                bit = self.mps
+                bit = state.mps
         else:
             bit = self.cond_lps_exchange(state)
             self.renormalize()
         return bit
 
+    def read_fixed_bit(self):
+        # Default state is 0.5
+        return self.read_bit(State())
+
     def cond_mps_exchange(self, state):
         (qe, lps_next_index, mps_next_index, switch_mps) = states[state.index]
         if self.a < qe:
-            bit = self.mps ^ 0x1
+            bit = state.mps ^ 0x1
             if switch_mps:
-                self.mps ^= 0x1
+                state.mps ^= 0x1
             state.index = lps_next_index
         else:
-            bit = self.mps
+            bit = state.mps
             state.index = mps_next_index
         return bit
 
@@ -275,12 +278,12 @@ class Decoder:
         (qe, lps_next_index, mps_next_index, switch_mps) = states[state.index]
         self.c -= self.a
         if self.a < qe:
-            bit = self.mps
+            bit = state.mps
             state.index = mps_next_index
         else:
-            bit = self.mps ^ 0x1
+            bit = state.mps ^ 0x1
             if switch_mps:
-                self.mps ^= 0x1
+                state.mps ^= 0x1
             state.index = lps_next_index
         self.a = qe
         return bit

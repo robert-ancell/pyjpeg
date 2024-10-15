@@ -1,5 +1,6 @@
 import struct
 
+import arithmetic
 import jpeg
 from jpeg_segments import *
 
@@ -204,7 +205,7 @@ class Decoder:
 
     def parse_scan(self):
         offset = 0
-        bits = []
+        scan_data = []
         while True:
             assert offset < len(self.data)
             b = self.data[offset]
@@ -213,19 +214,137 @@ class Decoder:
                     self.data = self.data[offset:]
                     break
                 offset += 1
-            for i in range(8):
-                bits.append((b >> (7 - i)) & 0x1)
+            scan_data.append(b)
             offset += 1
 
         if self.arithmetic:
-            self.parse_arithmetic_dct_scan(bits)
+            self.parse_arithmetic_dct_scan(scan_data)
         else:
-            self.parse_huffman_dct_scan(bits)
+            self.parse_huffman_dct_scan(scan_data)
 
-    def parse_arithmetic_dct_scan(self, bits):
-        pass
+    def parse_arithmetic_dct_scan(self, scan_data):
+        dc_non_zero = []
+        dc_negative = []
+        dc_sp = []
+        dc_sn = []
+        for _ in range(5):
+            dc_non_zero.append(arithmetic.State())
+            dc_negative.append(arithmetic.State())
+            dc_sp.append(arithmetic.State())
+            dc_sn.append(arithmetic.State())
+        dc_xstates = []
+        for _ in range(15):
+            dc_xstates.append(arithmetic.State())
+        dc_mstates = []
+        for _ in range(14):
+            dc_mstates.append(arithmetic.State())
+        ac_end_of_block = []
+        ac_non_zero = []
+        ac_sn_sp_x1 = []
+        for _ in range(63):
+            ac_end_of_block.append(arithmetic.State())
+            ac_non_zero.append(arithmetic.State())
+            ac_sn_sp_x1.append(arithmetic.State())
+        ac_low_xstates = []
+        ac_high_xstates = []
+        for _ in range(14):
+            ac_low_xstates.append(arithmetic.State())
+            ac_high_xstates.append(arithmetic.State())
+        ac_low_mstates = []
+        ac_high_mstates = []
+        for _ in range(14):
+            ac_low_mstates.append(arithmetic.State())
+            ac_high_mstates.append(arithmetic.State())
 
-    def parse_huffman_dct_scan(self, bits):
+        def read_dc(decoder):
+            if decoder.read_bit(dc_non_zero[0]) == 0:
+                return 0
+
+            if decoder.read_bit(dc_negative[0]) == 0:
+                sign = 1
+                mag_state = dc_sp[0]
+            else:
+                sign = -1
+                mag_state = dc_sn[0]
+            if decoder.read_bit(mag_state) == 0:
+                return sign
+
+            width = 0
+            while decoder.read_bit(dc_xstates[width]) == 1:
+                width += 1
+
+            magnitude = 1
+            for i in range(width):
+                magnitude = magnitude << 1 | decoder.read_bit(dc_mstates[width])
+            magnitude += 1
+
+            return sign * magnitude
+
+        def read_ac(decoder, k, kx=5):
+            if decoder.read_fixed_bit() == 0:
+                sign = 1
+            else:
+                sign = -1
+
+            if decoder.read_bit(ac_sn_sp_x1[k - 1]) == 0:
+                return sign
+
+            if k <= kx:
+                xstates = ac_low_xstates
+            else:
+                xstates = ac_high_xstates
+            width = 1
+            if decoder.read_bit(ac_sn_sp_x1[k - 1]) == 1:
+                width += 1
+                while decoder.read_bit(xstates[width - 2]) == 1:
+                    width += 1
+
+            if k <= kx:
+                mstates = ac_low_mstates
+            else:
+                mstates = ac_high_mstates
+            magnitude = 1
+            for i in range(width - 1):
+                magnitude = magnitude << 1 | decoder.read_bit(mstates[width])
+            magnitude += 1
+
+            return sign * magnitude
+
+        def read_data_unit(decoder, spectral_selection, quantization_table):
+            data_unit = [0] * 64
+            k = spectral_selection[0]
+            while k <= spectral_selection[1]:
+                if k == 0:
+                    data_unit[0] = read_dc(decoder)
+                    k += 1
+                else:
+                    if decoder.read_bit(ac_end_of_block[k - 1]) == 1:
+                        k = spectral_selection[1] + 1
+                    else:
+                        while decoder.read_bit(ac_non_zero[k - 1]) == 0:
+                            k += 1
+                        data_unit[k] = read_ac(decoder, k)
+                        k += 1
+            data_unit = jpeg.unzig_zag(data_unit)
+            for i, q in enumerate(quantization_table):
+                data_unit[i] *= q
+
+            return data_unit
+
+        data_units = []
+        quantization_table = self.quantization_tables[0]
+        decoder = arithmetic.Decoder(scan_data)
+        data_unit = read_data_unit(decoder, self.spectral_selection, quantization_table)
+        data_units.append(data_unit)
+
+        self.segments.append(ArithmeticDCTScan(data_units))
+
+    def parse_huffman_dct_scan(self, scan_data):
+        bits = []
+        for b in scan_data:
+            for i in range(8):
+                bits.append((b >> (7 - i)) & 0x1)
+
         def read_huffman(bits, table):
             for i in range(len(bits)):
                 symbol = table.get(tuple(bits[: i + 1]))
