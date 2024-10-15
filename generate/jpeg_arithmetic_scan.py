@@ -199,14 +199,12 @@ class DCTArithmeticEncoder:
                 dc_diff = dc - prev_dc
                 prev_dc_diff = prev_dc - prev_prev_dc
 
-                prev_dc_diff_class = self.encoder.classify_value(
-                    self.conditioning_bounds, prev_dc_diff
-                )
+                c = self.encoder.classify_value(self.conditioning_bounds, prev_dc_diff)
                 self.encoder.encode_dc(
-                    self.dc_non_zero[prev_dc_diff_class],
-                    self.dc_negative[prev_dc_diff_class],
-                    self.dc_sp[prev_dc_diff_class],
-                    self.dc_sn[prev_dc_diff_class],
+                    self.dc_non_zero[c],
+                    self.dc_negative[c],
+                    self.dc_sp[c],
+                    self.dc_sn[c],
                     self.dc_xstates,
                     self.dc_mstates,
                     dc_diff,
