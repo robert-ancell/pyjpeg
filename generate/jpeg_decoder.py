@@ -218,8 +218,14 @@ class Decoder:
             offset += 1
 
         if self.arithmetic:
-            return
+            self.parse_arithmetic_dct_scan(bits)
+        else:
+            self.parse_huffman_dct_scan(bits)
 
+    def parse_arithmetic_dct_scan(self, bits):
+        pass
+
+    def parse_huffman_dct_scan(self, bits):
         def read_huffman(bits, table):
             for i in range(len(bits)):
                 symbol = table.get(tuple(bits[: i + 1]))

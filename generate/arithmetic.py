@@ -230,6 +230,92 @@ class Encoder:
         self.c &= 0x7FFFF
 
 
+class Decoder:
+    def __init__(self, data):
+        self.data = data
+        self.d = 0
+        self.ct = 0
+        self.a = 0
+        self.c = 0
+        self.mps = 0
+
+        self.byte_in()
+        self.c = self.d << 8
+        self.byte_in()
+        self.c |= self.d
+        self.d = 0
+
+    def read_bit(self, state):
+        (qe, _, _, _) = states[state.index]
+        self.a = (self.a - qe) & 0xFFFF
+        if self.c < self.a:
+            if self.a < 0x8000:
+                bit = self.cond_mps_exchange(state)
+                self.renormalize()
+            else:
+                bit = self.mps
+        else:
+            bit = self.cond_lps_exchange(state)
+            self.renormalize()
+        return bit
+
+    def cond_mps_exchange(self, state):
+        (qe, lps_next_index, mps_next_index, switch_mps) = states[state.index]
+        if self.a < qe:
+            bit = self.mps ^ 0x1
+            if switch_mps:
+                self.mps ^= 0x1
+            state.index = lps_next_index
+        else:
+            bit = self.mps
+            state.index = mps_next_index
+        return bit
+
+    def cond_lps_exchange(self, state):
+        (qe, lps_next_index, mps_next_index, switch_mps) = states[state.index]
+        self.c -= self.a
+        if self.a < qe:
+            bit = self.mps
+            state.index = mps_next_index
+        else:
+            bit = self.mps ^ 0x1
+            if switch_mps:
+                self.mps ^= 0x1
+            state.index = lps_next_index
+        self.a = qe
+        return bit
+
+    def renormalize(self):
+        while True:
+            if self.ct == 16:
+                self.byte_in()
+            self.a <<= 1
+            self.c <<= 1
+            self.c |= self.d >> 7
+            self.d = (self.d << 1) & 0xFF
+            if self.ct == 0:
+                return
+            self.ct -= 1
+            if self.a >= 0x8000:
+                return
+
+    def byte_in(self):
+        # Trailing zeros
+        if len(self.data) == 0:
+            self.d = 0
+            self.ct += 8
+            return
+
+        self.d = self.data[0]
+        self.ct += 8
+        self.data = self.data[1:]
+
+        # Skip stuffed zero
+        if self.d == 0xFF:
+            assert self.data[0] == 0x00
+            self.data = self.data[1:]
+
+
 if __name__ == "__main__":
     data = [
         0x00,
@@ -275,7 +361,6 @@ if __name__ == "__main__":
     for b in bits:
         e.encode_bit(state, b)
     e.flush()
-    e.data.extend([0xFF, 0xD9])
 
     def to_hex(data):
         s = ""
@@ -284,6 +369,16 @@ if __name__ == "__main__":
         return s
 
     assert (
-        to_hex(e.data)
-        == "655B5144F7969D517855BFFF00FC5184C7CEF93900287D46708ECBC0F6FFD9"
+        to_hex(e.data) == "655B5144F7969D517855BFFF00FC5184C7CEF93900287D46708ECBC0F6"
     )
+
+    d = Decoder(e.data)
+    state = State()
+    decoded_data = []
+    for _ in range(len(bits) // 8):
+        byte = 0
+        for i in range(8):
+            byte = byte << 1 | d.read_bit(state)
+        decoded_data.append(byte)
+
+    assert decoded_data == data
