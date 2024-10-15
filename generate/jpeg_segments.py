@@ -91,9 +91,14 @@ class StartOfScan:
         self.al = al
 
 
-class DCTDataUnit:
-    def __init__(self, coefficients):
-        self.coefficients = coefficients
+class HuffmanDCTScan:
+    def __init__(self, data_units):
+        self.data_units = data_units
+
+
+class ArithmeticDCTScan:
+    def __init__(self, data_units):
+        self.data_units = data_units
 
 
 class Restart:

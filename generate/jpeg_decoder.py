@@ -245,13 +245,15 @@ class Decoder:
             assert run_length == 0
             return (bits, dc_diff)
 
-        def read_du(bits, spectral_selection, dc_table, ac_table, quantization_table):
-            du = [0] * 64
+        def read_data_unit(
+            bits, spectral_selection, dc_table, ac_table, quantization_table
+        ):
+            data_unit = [0] * 64
             k = spectral_selection[0]
             while k <= spectral_selection[1]:
                 if k == 0:
                     (bits, dc_diff) = read_dc(bits, dc_table)
-                    du[k] = dc_diff
+                    data_unit[k] = dc_diff
                     k += 1
                 else:
                     (bits, run_length, ac) = read_ac(bits, ac_table)
@@ -265,13 +267,13 @@ class Decoder:
                             raise Exception("Invalid run length")
                     else:
                         k += run_length
-                        du[k] = ac
+                        data_unit[k] = ac
                         k += 1
-            du = jpeg.unzig_zag(du)
+            data_unit = jpeg.unzig_zag(data_unit)
             for i, q in enumerate(quantization_table):
-                du[i] *= q
+                data_unit[i] *= q
 
-            return (bits, du)
+            return (bits, data_unit)
 
         def find_component(id):
             for component in self.components:
@@ -291,6 +293,7 @@ class Decoder:
 
         n_mcus = mcu_width * mcu_height
         prev_dc = {}
+        data_units = []
         for _ in range(n_mcus):
             for component in self.scan_components:
                 (sampling_factor, quantization_table_index) = find_component(
@@ -299,7 +302,7 @@ class Decoder:
                 quantization_table = self.quantization_tables[quantization_table_index]
                 for y in range(sampling_factor[1]):
                     for x in range(sampling_factor[0]):
-                        (bits, du) = read_du(
+                        (bits, data_unit) = read_data_unit(
                             bits,
                             self.spectral_selection,
                             self.dc_huffman_tables[component.dc_table],
@@ -308,9 +311,11 @@ class Decoder:
                         )
                         dc = prev_dc.get(component.component_selector)
                         if dc is not None:
-                            du[0] += dc
-                        prev_dc[component.component_selector] = du[0]
-                        self.segments.append(DCTDataUnit(du))
+                            data_unit[0] += dc
+                        prev_dc[component.component_selector] = data_unit[0]
+                        data_units.append(data_unit)
+
+        self.segments.append(HuffmanDCTScan(data_units))
 
         assert len(bits) < 8
 

@@ -8,12 +8,12 @@ from jpeg_segments import *
 from jpeg_decoder import *
 
 
-def print_du(du):
+def print_data_unit(data_unit):
     cols = []
     for x in range(8):
         col = []
         for y in range(8):
-            col.append("%d" % du[y * 8 + x])
+            col.append("%d" % data_unit[y * 8 + x])
         cols.append(col)
 
     col_widths = []
@@ -47,7 +47,7 @@ for segment in decoder.segments:
         for precision, destination, values in segment.tables:
             print(" Table %d:" % destination)
             print("  Precision: %d bits" % {0: 8, 1: 16}[precision])
-            print_du(values)
+            print_data_unit(values)
     elif isinstance(segment, DefineHuffmanTables):
         print("DHT Define Huffman Tables")
         for table in segment.tables:
@@ -121,9 +121,10 @@ for segment in decoder.segments:
         print(" Spectral Selection: %d-%d" % (segment.ss, segment.se))
         print(" Previous Point Transform: %d" % segment.ah)
         print(" Point Transform: %d" % segment.al)
-    elif isinstance(segment, DCTDataUnit):
-        print(" Data Unit:")
-        print_du(segment.coefficients)
+    elif isinstance(segment, HuffmanDCTScan) or isinstance(segment, ArithmeticDCTScan):
+        for data_unit in segment.data_units:
+            print(" Data Unit:")
+            print_data_unit(data_unit)
     elif isinstance(segment, Restart):
         print("RST%d Restart" % segment.n)
     elif isinstance(segment, DefineNumberOfLines):
