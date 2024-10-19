@@ -11,8 +11,8 @@ class Decoder:
         self.number_of_lines = 0
         self.samples_per_line = 0
         self.quantization_tables = [[1] * 64, [1] * 64, [1] * 64, [1] * 64]
-        self.dc_arithmetic_conditioning = [(0, 1), (0, 1), (0, 1), (0, 1)]
-        self.ac_arithmetic_conditioning = [5, 5, 5, 5]
+        self.dc_arithmetic_conditioning_bounds = [(0, 1), (0, 1), (0, 1), (0, 1)]
+        self.ac_arithmetic_kx = [5, 5, 5, 5]
         self.dc_huffman_tables = [{}, {}, {}, {}]
         self.ac_huffman_tables = [{}, {}, {}, {}]
         self.scan_components = []
@@ -221,8 +221,8 @@ class Decoder:
             scan_decoder = ArithmeticDCTScanDecoder(
                 scan_data,
                 spectral_selection=self.spectral_selection,
-                conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
-                kx=[5, 5, 5, 5],
+                conditioning_bounds=self.dc_arithmetic_conditioning_bounds,
+                kx=self.ac_arithmetic_kx,
             )
         else:
             scan_decoder = HuffmanDCTScanDecoder(
