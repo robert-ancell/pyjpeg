@@ -631,23 +631,32 @@ def huffman_dct_ac_scan_successive_data(
     return scan_data
 
 
-def get_table(huffman_tables, table_class, destination):
-    for t in huffman_tables:
-        if t.table_class == table_class and t.destination == destination:
-            return t.symbols_by_length
-    raise Exception("Missing table %d %d" % (table_class, destination))
-
-
 def huffman_dct_scan(huffman_tables, scan_data):
     data = b""
     bits = []
+    huffman_dc_codecs = [
+        HuffmanCodec([]),
+        HuffmanCodec([]),
+        HuffmanCodec([]),
+        HuffmanCodec([]),
+    ]
+    huffman_ac_codecs = [
+        HuffmanCodec([]),
+        HuffmanCodec([]),
+        HuffmanCodec([]),
+        HuffmanCodec([]),
+    ]
+    for table in huffman_tables:
+        if table.table_class == 0:
+            huffman_dc_codecs[table.destination] = HuffmanCodec(table.symbols_by_length)
+        else:
+            huffman_ac_codecs[table.destination] = HuffmanCodec(table.symbols_by_length)
     for d in scan_data:
         if isinstance(d, HuffmanCode):
-            bits.extend(
-                get_huffman_code(
-                    get_table(huffman_tables, d.table_class, d.table), d.symbol
-                )
-            )
+            if d.table_class == 0:
+                bits.extend(huffman_dc_codecs[d.table].encode_symbol(d.symbol))
+            else:
+                bits.extend(huffman_ac_codecs[d.table].encode_symbol(d.symbol))
         elif isinstance(d, bytes):
             data += encode_scan_bits(bits)
             bits = []
@@ -918,13 +927,29 @@ def huffman_lossless_scan_data(
 def huffman_lossless_scan(huffman_tables, scan_data):
     bits = []
     data = b""
+    huffman_dc_codecs = [
+        HuffmanCodec([]),
+        HuffmanCodec([]),
+        HuffmanCodec([]),
+        HuffmanCodec([]),
+    ]
+    huffman_ac_codecs = [
+        HuffmanCodec([]),
+        HuffmanCodec([]),
+        HuffmanCodec([]),
+        HuffmanCodec([]),
+    ]
+    for table in huffman_tables:
+        if table.table_class == 0:
+            huffman_dc_codecs[table.destination] = HuffmanCodec(table.symbols_by_length)
+        else:
+            huffman_ac_codecs[table.destination] = HuffmanCodec(table.symbols_by_length)
     for d in scan_data:
         if isinstance(d, HuffmanCode):
-            bits.extend(
-                get_huffman_code(
-                    get_table(huffman_tables, d.table_class, d.table), d.symbol
-                )
-            )
+            if d.table_class == 0:
+                bits.extend(huffman_dc_codecs[d.table].encode_symbol(d.symbol))
+            else:
+                bits.extend(huffman_ac_codecs[d.table].encode_symbol(d.symbol))
         elif isinstance(d, bytes):
             data += encode_scan_bits(bits)
             bits = []

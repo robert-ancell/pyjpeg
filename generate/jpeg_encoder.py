@@ -1,6 +1,7 @@
 import struct
 
 import arithmetic
+import huffman
 import jpeg
 from jpeg_segments import *
 from jpeg_marker import *
@@ -42,11 +43,11 @@ class Encoder:
         data = b""
         for table in dht.tables:
             data += struct.pack("B", table.table_class << 4 | table.destination)
-            assert len(table.symbols_by_length) == 16
-            for symbols in table.symbols_by_length:
+            assert len(table.table) == 16
+            for symbols in table.table:
                 data += struct.pack("B", len(symbols))
-                for symbols in table.symbols_by_length:
-                    data += bytes(symbols)
+            for symbols in table.table:
+                data += bytes(symbols)
         self.encode_segment(data)
 
     def encode_dac(self, dac):
@@ -304,9 +305,10 @@ class HuffmanDCTScanEncoder:
         self.ac_tables = ac_tables
         self.prev_dc = 0
         self.bits = []
+        self.symbol_frequencies = [0] * 256
 
     def write_data_unit(self, data_unit, dc_table, ac_table):
-        zz_data_unit = jpeg.ig_zag(data_unit)
+        zz_data_unit = jpeg.zig_zag(data_unit)
 
         k = self.spectral_selection[0]
         while k <= self.spectral_selection[1]:
@@ -334,24 +336,60 @@ class HuffmanDCTScanEncoder:
                     k += 1
 
     def write_dc(self, dc_diff):
-        pass
+        self.write_ac(0, dc_diff)
+
+    def write_eob(self):
+        self.write_ac(0, 0)
 
     def write_ac(self, run_length, ac):
-        pass
+        width = 0
+        while (ac >> width) != 0:
+            width += 1
+        rs = run_length << 4 | width
+        self.write_symbol(rs)
+
+    def write_symbol(self, symbol):
+        self.symbol_frequencies[symbol] += 1
 
     def get_data(self):
-        # FIXME: Append 1 bits
-        # FIXME: Pack into bytes
-        return b""
+        # Pad with 1 bits
+        if len(bits) % 8 != 0:
+            bits.extend([1] * (8 - len(bits) % 8))
 
+        data = []
+        for i in range(0, len(bits), 8):
+            b = (
+                bits[i] << 7
+                | bits[i + 1] << 6
+                | bits[i + 2] << 5
+                | bits[i + 3] << 4
+                | bits[i + 4] << 3
+                | bits[i + 5] << 2
+                | bits[i + 6] << 1
+                | bits[i + 7]
+            )
+            data.append(b)
+
+            # Byte stuff so ff doesn't look like a marker
+            if b == 0xFF:
+                data.append(0)
+
+        return data
+
+
+scan_encoder = HuffmanDCTScanEncoder()
+scan_encoder.write_data_unit([0] * 64, 0, 0)
+huffman_table = huffman.make_huffman_table(scan_encoder.symbol_frequencies)
+print(huffman_table)
 
 encoder = Encoder(
     [
         StartOfImage(),
         DefineQuantizationTables([QuantizationTable(0, 0, [1] * 64)]),
-        StartOfFrame(9, 8, 8, 8, [FrameComponent(1, (1, 1), 0)]),
+        DefineHuffmanTables([HuffmanTable(0, 0, huffman_table)]),
+        StartOfFrame(0, 8, 8, 8, [FrameComponent(1, (1, 1), 0)]),
         StartOfScan([StreamComponent(1, 0, 0)], 0, 63, 0, 0),
-        ArithmeticDCTScan([[0] * 64]),
+        HuffmanDCTScan([[0] * 64]),
         EndOfImage(),
     ]
 )

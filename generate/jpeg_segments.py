@@ -27,9 +27,9 @@ class DefineQuantizationTables:
 
 
 class HuffmanTable:
-    def __init__(self, table_class, identifier, table):
+    def __init__(self, table_class, destination, table):
         self.table_class = table_class
-        self.identifier = identifier
+        self.destination = destination
         self.table = table
 
 
@@ -39,9 +39,9 @@ class DefineHuffmanTables:
 
 
 class ArithmeticConditioning:
-    def __init__(self, table_class, identifier, value):
+    def __init__(self, table_class, destination, value):
         self.table_class = table_class
-        self.identifier = identifier
+        self.destination = destination
         self.value = value
 
 

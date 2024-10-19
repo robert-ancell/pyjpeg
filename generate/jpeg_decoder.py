@@ -124,11 +124,11 @@ class Decoder:
         tables = []
         while len(dht) > 0:
             assert len(dht) >= 17
-            table_class_and_identifier = dht[0]
-            table_class = table_class_and_identifier >> 4
+            table_class_and_destination = dht[0]
+            table_class = table_class_and_destination >> 4
             assert table_class in (0, 1)
-            identifier = table_class_and_identifier & 0xF
-            assert identifier <= 4
+            destination = table_class_and_destination & 0xF
+            assert destination <= 4
             dht = dht[1:]
             lengths = dht[:16]
             dht = dht[16:]
@@ -154,12 +154,12 @@ class Decoder:
                 code <<= 1
 
             if table_class == 0:
-                self.dc_huffman_tables[identifier] = table
+                self.dc_huffman_tables[destination] = table
             else:
-                self.ac_huffman_tables[identifier] = table
+                self.ac_huffman_tables[destination] = table
 
             tables.append(
-                HuffmanTable(table_class, identifier, table)
+                HuffmanTable(table_class, destination, table)
             )  # FIXME: Don't translate table to map
         self.segments.append(DefineHuffmanTables(tables))
 
@@ -168,13 +168,13 @@ class Decoder:
         tables = []
         while len(dac) > 0:
             assert len(dac) >= 2
-            (table_class_and_identifier, value) = struct.unpack("BB", dac[:2])
-            table_class = table_class_and_identifier >> 4
-            identifier = table_class_and_identifier & 0xF
+            (table_class_and_destination, value) = struct.unpack("BB", dac[:2])
+            table_class = table_class_and_destination >> 4
+            destination = table_class_and_destination & 0xF
             if table_class == 0:
                 value = (value & 0xF, value >> 4)
             dac = dac[2:]
-            tables.append(ArithmeticConditioning(table_class, identifier, value))
+            tables.append(ArithmeticConditioning(table_class, destination, value))
         self.segments.append(DefineArithmeticConditioning(tables))
 
     def parse_sos(self):
