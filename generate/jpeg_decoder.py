@@ -370,7 +370,7 @@ class ArithmeticDCTScanDecoder:
 
         self.decoder = arithmetic.Decoder(scan_data)
         self.dc_non_zero = make_states(5)
-        self.dc_negative = make_states(5)
+        self.dc_sign = make_states(5)
         self.dc_sp = make_states(5)
         self.dc_sn = make_states(5)
         self.dc_xstates = make_states(15)
@@ -408,22 +408,24 @@ class ArithmeticDCTScanDecoder:
         if self.decoder.read_bit(self.dc_non_zero[c]) == 0:
             return 0
 
-        if self.decoder.read_bit(self.dc_negative[c]) == 0:
+        if self.decoder.read_bit(self.dc_sign[c]) == 0:
+            if self.decoder.read_bit(self.dc_sp[c]) == 0:
+                return 1
             sign = 1
-            mag_state = self.dc_sp[c]
         else:
+            if self.decoder.read_bit(self.dc_sn[c]) == 0:
+                return -1
             sign = -1
-            mag_state = self.dc_sn[c]
-        if self.decoder.read_bit(mag_state) == 0:
-            return sign
 
         width = 0
         while self.decoder.read_bit(self.dc_xstates[width]) == 1:
             width += 1
 
         magnitude = 1
-        for i in range(width):
-            magnitude = magnitude << 1 | self.decoder.read_bit(self.dc_mstates[width])
+        for _ in range(width):
+            magnitude = magnitude << 1 | self.decoder.read_bit(
+                self.dc_mstates[width - 2]
+            )
         magnitude += 1
 
         return sign * magnitude
@@ -452,8 +454,8 @@ class ArithmeticDCTScanDecoder:
         else:
             mstates = self.ac_high_mstates
         magnitude = 1
-        for i in range(width - 1):
-            magnitude = magnitude << 1 | self.decoder.read_bit(mstates[width])
+        for _ in range(width - 1):
+            magnitude = magnitude << 1 | self.decoder.read_bit(mstates[width - 2])
         magnitude += 1
 
         return sign * magnitude
