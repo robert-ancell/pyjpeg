@@ -132,17 +132,17 @@ class Encoder:
         self.data = []
 
     # Encodes [value] using [state].
-    def encode_bit(self, state, value):
+    def write_bit(self, state, value):
         if value == state.mps:
             self.encode_mps(state)
         else:
             self.encode_lps(state)
 
     # Encodes [value] using fixed probability (0.5).
-    def encode_fixed_bit(self, value):
+    def write_fixed_bit(self, value):
         # Default state is 0.5
         state = State()
-        self.encode_bit(state, value)
+        self.write_bit(state, value)
 
     # Write out any remaining bits
     def flush(self):
@@ -362,7 +362,7 @@ if __name__ == "__main__":
     e = Encoder()
     state = State()
     for b in bits:
-        e.encode_bit(state, b)
+        e.write_bit(state, b)
     e.flush()
 
     def to_hex(data):

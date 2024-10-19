@@ -21,8 +21,8 @@ class ArithmeticEncoder:
     def __init__(self):
         self.encoder = arithmetic.Encoder()
 
-    def encode_bit(self, state, value):
-        self.encoder.encode_bit(state, value)
+    def write_bit(self, state, value):
+        self.encoder.write_bit(state, value)
 
     def classify_value(self, conditioning_bounds, value):
         (lower, upper) = conditioning_bounds
@@ -49,23 +49,23 @@ class ArithmeticEncoder:
         self, non_zero, is_negative, positive, negative, xstates, mstates, value
     ):
         if value == 0:
-            self.encode_bit(non_zero, 0)
+            self.write_bit(non_zero, 0)
             return
-        self.encode_bit(non_zero, 1)
+        self.write_bit(non_zero, 1)
 
         if value > 0:
-            self.encode_bit(is_negative, 0)
+            self.write_bit(is_negative, 0)
             magnitude = value
             mag_state = positive
         else:
-            self.encode_bit(is_negative, 1)
+            self.write_bit(is_negative, 1)
             magnitude = -value
             mag_state = negative
 
         if magnitude == 1:
-            self.encode_bit(mag_state, 0)
+            self.write_bit(mag_state, 0)
             return
-        self.encode_bit(mag_state, 1)
+        self.write_bit(mag_state, 1)
 
         # Encode width of (magnitude - 1) (must be 2+ if above not encoded)
         v = magnitude - 1
@@ -73,28 +73,28 @@ class ArithmeticEncoder:
         while (v >> width) != 0:
             width += 1
         for j in range(width - 1):
-            self.encode_bit(xstates[j], 1)
-        self.encode_bit(xstates[width - 1], 0)
+            self.write_bit(xstates[j], 1)
+        self.write_bit(xstates[width - 1], 0)
 
         # Encode lowest bits of magnitude (first bit is implied 1)
         for j in range(width - 1):
             bit = v >> (width - j - 2) & 0x1
-            self.encode_bit(mstates[width - 2], bit)
+            self.write_bit(mstates[width - 2], bit)
 
     # Encode arithmetic AC value
     def encode_ac(self, sn_sp_x1, xstates, mstates, value):
         if value > 0:
-            self.encoder.encode_fixed_bit(0)
+            self.encoder.write_fixed_bit(0)
             magnitude = value
         else:
-            self.encoder.encode_fixed_bit(1)
+            self.encoder.write_fixed_bit(1)
             magnitude = -value
 
         if magnitude == 1:
-            self.encode_bit(sn_sp_x1, 0)
+            self.write_bit(sn_sp_x1, 0)
             return
 
-        self.encode_bit(sn_sp_x1, 1)
+        self.write_bit(sn_sp_x1, 1)
 
         # Encode width of (magnitude - 1) (must be 2+ if above not encoded)
         v = magnitude - 1
@@ -102,17 +102,17 @@ class ArithmeticEncoder:
         while (v >> width) != 0:
             width += 1
         if width == 1:
-            self.encode_bit(sn_sp_x1, 0)
+            self.write_bit(sn_sp_x1, 0)
         else:
-            self.encode_bit(sn_sp_x1, 1)
+            self.write_bit(sn_sp_x1, 1)
             for j in range(1, width - 1):
-                self.encode_bit(xstates[j - 1], 1)
-            self.encode_bit(xstates[width - 2], 0)
+                self.write_bit(xstates[j - 1], 1)
+            self.write_bit(xstates[width - 2], 0)
 
         # Encode lowest bits of magnitude (first bit is implied 1)
         for j in range(width - 1):
             bit = v >> (width - j - 2) & 0x1
-            self.encode_bit(mstates[width - 2], bit)
+            self.write_bit(mstates[width - 2], bit)
 
     def get_data(self):
         self.encoder.flush()
@@ -227,22 +227,22 @@ class DCTArithmeticEncoder:
                     end_of_block = False
 
                 if end_of_block:
-                    self.encoder.encode_bit(self.ac_end_of_block[k - 1], 1)
+                    self.encoder.write_bit(self.ac_end_of_block[k - 1], 1)
                     k = selection[1] + 1
                 else:
-                    self.encoder.encode_bit(self.ac_end_of_block[k - 1], 0)
+                    self.encoder.write_bit(self.ac_end_of_block[k - 1], 0)
 
                     # Encode run of zeros
                     zero_count = 0
                     while coefficient == 0 and k <= selection[1]:
-                        self.encoder.encode_bit(self.ac_non_zero[k - 1], 0)
+                        self.encoder.write_bit(self.ac_non_zero[k - 1], 0)
                         k += 1
                         coefficient = _transform_coefficient(
                             component.coefficients[data_unit_offset + k],
                             point_transform,
                         )
                         zero_count += 1
-                    self.encoder.encode_bit(self.ac_non_zero[k - 1], 1)
+                    self.encoder.write_bit(self.ac_non_zero[k - 1], 1)
 
                     if k <= self.kx:
                         xstates = self.ac_low_xstates

@@ -727,7 +727,7 @@ def arithmetic_dct_dc_scan_successive(coefficients, point_transform):
             dc_diff = coefficient - coefficients[k - 64]
         if dc_diff < 0:
             dc_diff = -dc_diff
-        encoder.encode_fixed_bit((dc_diff >> point_transform) & 0x1)
+        encoder.write_fixed_bit((dc_diff >> point_transform) & 0x1)
 
     encoder.flush()
     return bytes(encoder.data)
@@ -777,9 +777,9 @@ def arithmetic_dct_ac_scan_successive(
         while k <= selection[1]:
             if k >= eob_prev:
                 if k == eob:
-                    encoder.encode_bit(eob_states[k - 1], 1)
+                    encoder.write_bit(eob_states[k - 1], 1)
                     break
-                encoder.encode_bit(eob_states[k - 1], 0)
+                encoder.write_bit(eob_states[k - 1], 0)
 
             # Encode run of zeros
             while (
@@ -788,22 +788,22 @@ def arithmetic_dct_ac_scan_successive(
                 )
                 == 0
             ):
-                encoder.encode_bit(nonzero_states[k - 1], 0)
+                encoder.write_bit(nonzero_states[k - 1], 0)
                 k += 1
 
             transformed_coefficient = _transform_coefficient(
                 coefficients[data_unit * 64 + k], point_transform
             )
             if transformed_coefficient < -1 or transformed_coefficient > 1:
-                encoder.encode_bit(
+                encoder.write_bit(
                     additional_states[k - 1], transformed_coefficient & 0x1
                 )
             else:
-                encoder.encode_bit(nonzero_states[k - 1], 1)
+                encoder.write_bit(nonzero_states[k - 1], 1)
                 if transformed_coefficient < 0:
-                    encoder.encode_fixed_bit(1)
+                    encoder.write_fixed_bit(1)
                 else:
-                    encoder.encode_fixed_bit(0)
+                    encoder.write_fixed_bit(0)
             k += 1
 
     encoder.flush()
