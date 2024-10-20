@@ -631,17 +631,6 @@ for mode, encoding in [
     )
     generate_dct(
         section,
-        "grayscale_zero_coefficients",
-        8,
-        8,
-        [([128] * 64, (1, 1))],
-        scans=[([0], 0, 63, 0)],
-        extended=extended,
-        progressive=progressive,
-        arithmetic=arithmetic,
-    )
-    generate_dct(
-        section,
         "ycbcr",
         WIDTH,
         HEIGHT,
@@ -732,6 +721,39 @@ for mode, encoding in [
             (ycbcr_samples8[2], (1, 2)),
         ],
         scans=[([0, 1, 2], 0, 63, 0)],
+        extended=extended,
+        progressive=progressive,
+        arithmetic=arithmetic,
+    )
+    generate_dct(
+        section,
+        "grayscale_zero_coefficients",
+        8,
+        8,
+        [([128] * 64, (1, 1))],
+        scans=[([0], 0, 63, 0)],
+        extended=extended,
+        progressive=progressive,
+        arithmetic=arithmetic,
+    )
+    generate_dct(
+        section,
+        "grayscale_black",
+        8,
+        8,
+        [([0] * 64, (1, 1))],
+        scans=[([0], 0, 63, 0)],
+        extended=extended,
+        progressive=progressive,
+        arithmetic=arithmetic,
+    )
+    generate_dct(
+        section,
+        "grayscale_white",
+        8,
+        8,
+        [([255] * 64, (1, 1))],
+        scans=[([0], 0, 63, 0)],
         extended=extended,
         progressive=progressive,
         arithmetic=arithmetic,
