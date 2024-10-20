@@ -1,8 +1,7 @@
-import math
 import struct
 
+from dct import *
 from huffman import *
-
 from jpeg_marker import *
 from jpeg_arithmetic_scan import *
 
@@ -992,24 +991,6 @@ def arithmetic_lossless_scan(
 
 def end_of_image():
     return marker(MARKER_EOI)
-
-
-def dct2d(values):
-    C = [0.70710678118654752440, 1, 1, 1, 1, 1, 1, 1]
-    coefficients = []
-    for v in range(8):
-        for u in range(8):
-            s = 0.0
-            for y in range(8):
-                for x in range(8):
-                    s += (
-                        values[y * 8 + x]
-                        * math.cos((2 * x + 1) * u * math.pi / 16)
-                        * math.cos((2 * y + 1) * v * math.pi / 16)
-                    )
-            coefficients.append(0.25 * C[u] * C[v] * s)
-
-    return coefficients
 
 
 def zig_zag_coordinates():
