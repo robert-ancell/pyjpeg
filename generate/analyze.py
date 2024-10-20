@@ -53,7 +53,7 @@ for segment in decoder.segments:
         for table in segment.tables:
             print(
                 " %s Table %d:"
-                % ({0: "DC", 1: "AC"}[table.table_class], table.identifier)
+                % ({0: "DC", 1: "AC"}[table.table_class], table.destination)
             )
 
             def tobitstring(bits):
@@ -71,7 +71,7 @@ for segment in decoder.segments:
                 " %s Table %d: %s"
                 % (
                     {0: "DC", 1: "AC"}[conditioning.table_class],
-                    conditioning.identifier,
+                    conditioning.destination,
                     repr(conditioning.value),
                 )
             )
