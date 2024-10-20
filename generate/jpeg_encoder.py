@@ -423,23 +423,24 @@ class HuffmanDCTScanEncoder:
         return bytes(data)
 
 
-scan_encoder = HuffmanDCTScanEncoder()
-scan_encoder.write_data_unit([0] * 64, 0, 0)
-huffman_table = huffman.make_huffman_table(scan_encoder.symbol_frequencies)
+if __name__ == "__main__":
+    scan_encoder = HuffmanDCTScanEncoder()
+    scan_encoder.write_data_unit([0] * 64, 0, 0)
+    huffman_table = huffman.make_huffman_table(scan_encoder.symbol_frequencies)
 
-encoder = Encoder(
-    [
-        StartOfImage(),
-        DefineQuantizationTables([QuantizationTable(0, 0, [1] * 64)]),
-        DefineHuffmanTables(
-            [HuffmanTable(0, 0, huffman_table), HuffmanTable(1, 0, huffman_table)]
-        ),
-        StartOfFrame(0, 8, 8, 8, [FrameComponent(1, (1, 1), 0)]),
-        StartOfScan([StreamComponent(1, 0, 0)], 0, 63, 0, 0),
-        HuffmanDCTScan([[0] * 64]),
-        EndOfImage(),
-    ]
-)
-encoder.encode()
-print(encoder.data)
-open("test.jpg", "wb").write(encoder.data)
+    encoder = Encoder(
+        [
+            StartOfImage(),
+            DefineQuantizationTables([QuantizationTable(0, 0, [1] * 64)]),
+            DefineHuffmanTables(
+                [HuffmanTable(0, 0, huffman_table), HuffmanTable(1, 0, huffman_table)]
+            ),
+            StartOfFrame(0, 8, 8, 8, [FrameComponent(1, (1, 1), 0)]),
+            StartOfScan([StreamComponent(1, 0, 0)], 0, 63, 0, 0),
+            HuffmanDCTScan([[0] * 64]),
+            EndOfImage(),
+        ]
+    )
+    encoder.encode()
+    print(encoder.data)
+    open("test.jpg", "wb").write(encoder.data)
