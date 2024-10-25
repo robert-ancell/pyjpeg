@@ -24,6 +24,8 @@ class Encoder:
             huffman.HuffmanCodec([]),
             huffman.HuffmanCodec([]),
         ]
+        self.conditioning_bounds = [(0, 1), (0, 1), (0, 1), (0, 1)]
+        self.kx = [5, 5, 5, 5]
         self.spectral_selection = (0, 63)
 
     def encode_marker(self, value):
@@ -79,6 +81,13 @@ class Encoder:
             data += struct.pack(
                 "BB", table.table_class << 4 | table.destination, table.value
             )
+            if table.table_class == 0:
+                self.conditioning_bounds[table.destination] = (
+                    table.value >> 4,
+                    table.value & 0xF,
+                )
+            else:
+                self.kx[table.destination] = table.value
         self.encode_segment(data)
 
     def encode_dri(self, dri):
@@ -125,7 +134,9 @@ class Encoder:
     def encode_dct_scan(self, scan):
         if self.arithmetic:
             encoder = ArithmeticDCTScanEncoder(
-                spectral_selection=self.spectral_selection
+                spectral_selection=self.spectral_selection,
+                conditioning_bounds=self.conditioning_bounds,
+                kx=self.kx,
             )
         else:
             encoder = HuffmanDCTScanEncoder(
@@ -182,6 +193,15 @@ class Encoder:
                 raise Exception("Unknown segment")
 
 
+ARITHMETIC_CLASSIFICATION_ZERO = 0
+ARITHMETIC_CLASSIFICATION_SMALL_POSITIVE = 1
+ARITHMETIC_CLASSIFICATION_SMALL_NEGATIVE = 2
+ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE = 3
+ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE = 4
+
+N_ARITHMETIC_CLASSIFICATIONS = 5
+
+
 class ArithmeticDCTScanEncoder:
     def __init__(
         self,
@@ -202,10 +222,10 @@ class ArithmeticDCTScanEncoder:
         self.encoder = arithmetic.Encoder()
         self.prev_dc = 0
         self.prev_dc_diff = 0
-        self.dc_non_zero = make_states(5)
-        self.dc_sign = make_states(5)
-        self.dc_sp = make_states(5)
-        self.dc_sn = make_states(5)
+        self.dc_non_zero = make_states(N_ARITHMETIC_CLASSIFICATIONS)
+        self.dc_sign = make_states(N_ARITHMETIC_CLASSIFICATIONS)
+        self.dc_sp = make_states(N_ARITHMETIC_CLASSIFICATIONS)
+        self.dc_sn = make_states(N_ARITHMETIC_CLASSIFICATIONS)
         self.dc_xstates = make_states(15)
         self.dc_mstates = make_states(14)
         self.ac_end_of_block = make_states(63)
@@ -225,7 +245,9 @@ class ArithmeticDCTScanEncoder:
                 dc = zz_data_unit[k]
                 dc_diff = dc - self.prev_dc
                 self.prev_dc = dc
-                self.write_dc(dc_diff, self.prev_dc_diff)
+                self.write_dc(
+                    dc_diff, self.prev_dc_diff, self.conditioning_bounds[dc_table]
+                )
                 self.prev_dc_diff = dc_diff
                 k += 1
             else:
@@ -247,9 +269,8 @@ class ArithmeticDCTScanEncoder:
                     self.write_ac(zz_data_unit[k], k, self.kx[ac_table])
                     k += 1
 
-    def write_dc(self, dc_diff, prev_dc_diff):
-        # FIXME: Classify prev_dc_diff
-        c = 0
+    def write_dc(self, dc_diff, prev_dc_diff, conditioning_bounds):
+        c = self.classify_value(conditioning_bounds, prev_dc_diff)
 
         if dc_diff == 0:
             self.encoder.write_bit(self.dc_non_zero[c], 0)
@@ -260,27 +281,52 @@ class ArithmeticDCTScanEncoder:
             sign = 1
             magnitude = dc_diff
             self.encoder.write_bit(self.dc_sign[c], 0)
-            if magnitude == 1:
-                self.encoder.write_bit(self.dc_sp[c], 0)
-                return
+            mag_state = self.dc_sp[c]
         else:
             sign = -1
             magnitude = -dc_diff
             self.encoder.write_bit(self.dc_sign[c], 1)
-            if magnitude == 1:
-                self.encoder.write_bit(self.dc_sn[c], 0)
-                return
+            mag_state = self.dc_sn[c]
 
+        if magnitude == 1:
+            self.encoder.write_bit(mag_state, 0)
+            return
+        self.encoder.write_bit(mag_state, 1)
+
+        # Encode width of (magnitude - 1) (must be 2+ if above not encoded)
+        v = magnitude - 1
         width = 0
-        while (magnitude >> width) != 0:
+        while (v >> width) != 0:
             width += 1
 
-        for _ in range(width):
-            self.encoder.write_bit(self.dc_xstates[width - 2], 1)
-        self.encoder.write_bit(self.dc_xstates[width - 2], 0)
+        for i in range(width - 1):
+            self.encoder.write_bit(self.dc_xstates[i], 1)
+        self.encoder.write_bit(self.dc_xstates[width - 1], 0)
 
-        for i in range(width - 1, -1, -1):
-            self.encoder.write_bit(self.dc_mstates[width - 2], (magnitude >> i) & 0x1)
+        # Encode lowest bits of magnitude (first bit is implied 1)
+        for i in range(width - 2, -1, -1):
+            bit = (v >> i) & 0x1
+            self.encoder.write_bit(self.dc_mstates[width - 2], bit)
+
+    def classify_value(self, conditioning_bounds, value):
+        (lower, upper) = conditioning_bounds
+        if lower > 0:
+            lower = 1 << (lower - 1)
+        upper = 1 << upper
+        if value >= 0:
+            if value <= lower:
+                return ARITHMETIC_CLASSIFICATION_ZERO
+            elif value <= upper:
+                return ARITHMETIC_CLASSIFICATION_SMALL_POSITIVE
+            else:
+                return ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE
+        else:
+            if value >= -lower:
+                return ARITHMETIC_CLASSIFICATION_ZERO
+            elif value >= -upper:
+                return ARITHMETIC_CLASSIFICATION_SMALL_NEGATIVE
+            else:
+                return ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE
 
     def write_ac(self, ac, k, kx):
         assert ac != 0
@@ -304,24 +350,27 @@ class ArithmeticDCTScanEncoder:
         else:
             xstates = self.ac_high_xstates
 
+        # Encode width of (magnitude - 1) (must be 2+ if above not encoded)
+        v = magnitude - 1
         width = 0
-        while (magnitude >> width) != 0:
+        while (v >> width) != 0:
             width += 1
 
-        if width == 0:
+        if width == 1:
             self.encoder.write_bit(self.ac_sn_sp_x1[k - 1], 0)
         else:
             self.encoder.write_bit(self.ac_sn_sp_x1[k - 1], 1)
-            for _ in range(2, width + 1):
-                self.encoder.write_bit(xstates[width - 2], 1)
+            for i in range(1, width - 1):
+                self.encoder.write_bit(xstates[i - 1], 1)
             self.encoder.write_bit(xstates[width - 2], 0)
 
         if k <= kx:
             mstates = self.ac_low_mstates
         else:
             mstates = self.ac_high_mstates
-        for i in range(width - 1, -1, -1):
-            self.encoder.write_bit(mstates[width - 2], (magnitude >> i) & 0x1)
+        for i in range(width - 2, -1, -1):
+            bit = (v >> i) & 0x1
+            self.encoder.write_bit(mstates[width - 2], bit)
 
     def get_data(self):
         self.encoder.flush()
