@@ -84,6 +84,15 @@ class Decoder:
         (restart_interval,) = struct.unpack(">H", dri)
         self.segments.append(DefineRestartInterval(resart_interval))
 
+    def parse_exp(self):
+        exp = self.parse_segment()
+        assert len(exp) == 1
+        expand_horizontal = exp >> 4
+        expand_vertical = exp & 0xF
+        self.segments.append(
+            ExpandReferenceComponents(expand_horizontal, expand_vertical)
+        )
+
     def parse_sof(self, n):
         sof = self.parse_segment()
         assert len(sof) >= 6
@@ -190,7 +199,7 @@ class Decoder:
             ac_table = tables & 0xF
             sos = sos[2:]
             scan_components.append(
-                StreamComponent(component_selector, dc_table, ac_table)
+                ScanComponent(component_selector, dc_table, ac_table)
             )
         assert len(sos) == 3
         (ss, se, a) = struct.unpack("BBB", sos)
@@ -269,7 +278,7 @@ class Decoder:
                         prev_dc[component.component_selector] = data_unit[0]
                         data_units.append(data_unit)
 
-        self.segments.append(HuffmanDCTScan(data_units))
+        self.segments.append(DCTScan(data_units))
 
     def parse_app(self, n):
         data = self.parse_segment()
@@ -323,6 +332,8 @@ class Decoder:
                 self.parse_dnl()
             elif marker == jpeg.MARKER_DRI:
                 self.parse_dri()
+            elif marker == jpeg.MARKER_EXP:
+                self.parse_exp()
             elif marker == jpeg.MARKER_SOS:
                 self.parse_sos()
             elif marker in (
@@ -495,7 +506,7 @@ class HuffmanDCTScanDecoder:
                     elif run_length == 15:
                         k += 16
                     else:
-                        raise Exception("Invalid run length")
+                        raise Exception("Invalid run length %d" % run_length)
                 else:
                     k += run_length
                     data_unit[k] = ac

@@ -78,6 +78,16 @@ for segment in decoder.segments:
     elif isinstance(segment, DefineRestartInterval):
         print("DRI Define Restart Interval")
         print(" Restart interval: %d" % segment.restart_interval)
+    elif isinstance(segment, ExpandReferenceComponents):
+        print("EXP Expand Reference Components")
+        print(
+            " Expand Horizontal: %s"
+            % {False: "No", True: "Yes"}[segment.expand_horizontal != 0]
+        )
+        print(
+            " Expand Vertical: %s"
+            % {False: "No", True: "Yes"}[segment.expand_vertical != 0]
+        )
     elif isinstance(segment, StartOfFrame):
         print(
             "SOF%d Start of Frame, %s"
@@ -121,9 +131,9 @@ for segment in decoder.segments:
         print(" Spectral Selection: %d-%d" % (segment.ss, segment.se))
         print(" Previous Point Transform: %d" % segment.ah)
         print(" Point Transform: %d" % segment.al)
-    elif isinstance(segment, HuffmanDCTScan) or isinstance(segment, ArithmeticDCTScan):
+    elif isinstance(segment, DCTScan):
         for data_unit in segment.data_units:
-            print(" Data Unit:")
+            print(" DCT Data Unit:")
             print_data_unit(data_unit)
     elif isinstance(segment, Restart):
         print("RST%d Restart" % segment.n)
