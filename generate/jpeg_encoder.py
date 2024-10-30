@@ -87,8 +87,8 @@ class Encoder:
             )
             if table.table_class == 0:
                 self.conditioning_bounds[table.destination] = (
-                    table.value >> 4,
                     table.value & 0xF,
+                    table.value >> 4,
                 )
             else:
                 self.kx[table.destination] = table.value
