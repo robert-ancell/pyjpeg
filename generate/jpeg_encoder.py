@@ -443,7 +443,7 @@ class HuffmanDCTScanEncoder:
                     self.write_eob(ac_table)
                     k = self.spectral_selection[1] + 1
                 elif run_length >= 16:
-                    self.write_ac(15, 0, ac_table)
+                    self.write_zrl(ac_table)
                     k += 16
                 else:
                     k += run_length
@@ -457,9 +457,19 @@ class HuffmanDCTScanEncoder:
         self.write_symbol(symbol, self.dc_codecs[table])
         self.write_magnitude(dc_diff, length)
 
-    def write_eob(self, table):
-        self.write_ac(0, 0, table)
+    # Zero AC coefficients until end of block.
+    def write_eob(self, table, block_count=1):
+        assert 1 <= block_count <= 32767
+        length = self.get_magnitude_length(block_count)
+        self.write_ac(length - 1, 0, table)
+        if block_count > 1:
+            self.write_magnitude(block_count, length - 1)
 
+    # Run of 16 zero AC coefficients.
+    def write_zrl(self, table):
+        self.write_ac(15, 0, table)
+
+    # AC Coefficient after [run_length] zero coefficients.
     def write_ac(self, run_length, ac, table):
         length = self.get_magnitude_length(ac)
         symbol = run_length << 4 | length
