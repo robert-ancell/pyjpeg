@@ -3,8 +3,12 @@ import struct
 import arithmetic
 import huffman
 import jpeg
-from jpeg_segments import *
+import jpeg_dct
 from jpeg_marker import *
+from jpeg_segments import *
+
+# https://www.w3.org/Graphics/JPEG/itu-t81.pdf
+# https://www.w3.org/Graphics/JPEG/jfif3.pdf
 
 
 class Encoder:
@@ -51,7 +55,7 @@ class Encoder:
         data = b""
         for table in dqt.tables:
             data += struct.pack("B", table.precision << 4 | table.destination) + bytes(
-                jpeg.zig_zag(table.values)
+                jpeg_dct.zig_zag(table.values)
             )
         self.encode_segment(data)
 
@@ -264,7 +268,7 @@ class ArithmeticDCTScanEncoder:
         self.ac_high_mstates = make_states(14)
 
     def write_data_unit(self, component_index, data_unit, dc_table, ac_table):
-        zz_data_unit = jpeg.zig_zag(data_unit)
+        zz_data_unit = jpeg_dct.zig_zag(data_unit)
 
         k = self.spectral_selection[0]
         while k <= self.spectral_selection[1]:
@@ -419,7 +423,7 @@ class HuffmanDCTScanEncoder:
         self.ac_symbol_frequencies = [0] * 256
 
     def write_data_unit(self, component_index, data_unit, dc_table, ac_table):
-        zz_data_unit = jpeg.zig_zag(data_unit)
+        zz_data_unit = jpeg_dct.zig_zag(data_unit)
 
         k = self.spectral_selection[0]
         while k <= self.spectral_selection[1]:

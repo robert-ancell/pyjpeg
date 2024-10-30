@@ -2,7 +2,12 @@ import struct
 
 import arithmetic
 import jpeg
+import jpeg_dct
+from jpeg_marker import *
 from jpeg_segments import *
+
+# https://www.w3.org/Graphics/JPEG/itu-t81.pdf
+# https://www.w3.org/Graphics/JPEG/jfif3.pdf
 
 
 class Decoder:
@@ -66,7 +71,7 @@ class Decoder:
                     (q,) = struct.unpack(">H", dqt[:2])
                     values.append(q)
                     dqt = dqt[2:]
-            values = jpeg.unzig_zag(values)
+            values = jpeg_dct.unzig_zag(values)
             tables.append((precision, destination, values))
             self.quantization_tables[destination] = values
 
@@ -292,70 +297,70 @@ class Decoder:
         while len(self.data) > 0:
             marker = self.parse_marker()
             if marker in (
-                jpeg.MARKER_SOF0,
-                jpeg.MARKER_SOF1,
-                jpeg.MARKER_SOF2,
-                jpeg.MARKER_SOF3,
-                jpeg.MARKER_SOF5,
-                jpeg.MARKER_SOF6,
-                jpeg.MARKER_SOF7,
-                jpeg.MARKER_SOF9,
-                jpeg.MARKER_SOF10,
-                jpeg.MARKER_SOF11,
-                jpeg.MARKER_SOF13,
-                jpeg.MARKER_SOF14,
-                jpeg.MARKER_SOF15,
+                MARKER_SOF0,
+                MARKER_SOF1,
+                MARKER_SOF2,
+                MARKER_SOF3,
+                MARKER_SOF5,
+                MARKER_SOF6,
+                MARKER_SOF7,
+                MARKER_SOF9,
+                MARKER_SOF10,
+                MARKER_SOF11,
+                MARKER_SOF13,
+                MARKER_SOF14,
+                MARKER_SOF15,
             ):
-                self.parse_sof(marker - jpeg.MARKER_SOF0)
-            elif marker == jpeg.MARKER_DHT:
+                self.parse_sof(marker - MARKER_SOF0)
+            elif marker == MARKER_DHT:
                 self.parse_dht()
-            elif marker == jpeg.MARKER_DAC:
+            elif marker == MARKER_DAC:
                 self.parse_dac()
             elif marker in (
-                jpeg.MARKER_RST0,
-                jpeg.MARKER_RST1,
-                jpeg.MARKER_RST2,
-                jpeg.MARKER_RST3,
-                jpeg.MARKER_RST4,
-                jpeg.MARKER_RST5,
-                jpeg.MARKER_RST6,
-                jpeg.MARKER_RST7,
+                MARKER_RST0,
+                MARKER_RST1,
+                MARKER_RST2,
+                MARKER_RST3,
+                MARKER_RST4,
+                MARKER_RST5,
+                MARKER_RST6,
+                MARKER_RST7,
             ):
-                self.parse_rst(marker - jpeg.MARKER_RST0)
-            elif marker == jpeg.MARKER_SOI:
+                self.parse_rst(marker - MARKER_RST0)
+            elif marker == MARKER_SOI:
                 self.parse_soi()
-            elif marker == jpeg.MARKER_EOI:
+            elif marker == MARKER_EOI:
                 self.parse_eoi()
-            elif marker == jpeg.MARKER_DQT:
+            elif marker == MARKER_DQT:
                 self.parse_dqt()
-            elif marker == jpeg.MARKER_DNL:
+            elif marker == MARKER_DNL:
                 self.parse_dnl()
-            elif marker == jpeg.MARKER_DRI:
+            elif marker == MARKER_DRI:
                 self.parse_dri()
-            elif marker == jpeg.MARKER_EXP:
+            elif marker == MARKER_EXP:
                 self.parse_exp()
-            elif marker == jpeg.MARKER_SOS:
+            elif marker == MARKER_SOS:
                 self.parse_sos()
             elif marker in (
-                jpeg.MARKER_APP0,
-                jpeg.MARKER_APP1,
-                jpeg.MARKER_APP2,
-                jpeg.MARKER_APP3,
-                jpeg.MARKER_APP4,
-                jpeg.MARKER_APP5,
-                jpeg.MARKER_APP6,
-                jpeg.MARKER_APP7,
-                jpeg.MARKER_APP8,
-                jpeg.MARKER_APP9,
-                jpeg.MARKER_APP10,
-                jpeg.MARKER_APP11,
-                jpeg.MARKER_APP12,
-                jpeg.MARKER_APP13,
-                jpeg.MARKER_APP14,
-                jpeg.MARKER_APP15,
+                MARKER_APP0,
+                MARKER_APP1,
+                MARKER_APP2,
+                MARKER_APP3,
+                MARKER_APP4,
+                MARKER_APP5,
+                MARKER_APP6,
+                MARKER_APP7,
+                MARKER_APP8,
+                MARKER_APP9,
+                MARKER_APP10,
+                MARKER_APP11,
+                MARKER_APP12,
+                MARKER_APP13,
+                MARKER_APP14,
+                MARKER_APP15,
             ):
-                self.parse_app(marker - jpeg.MARKER_APP0)
-            elif marker == jpeg.MARKER_COM:
+                self.parse_app(marker - MARKER_APP0)
+            elif marker == MARKER_COM:
                 self.parse_comment()
             else:
                 raise Exception("Unknown marker %02x" % marker)
@@ -410,7 +415,7 @@ class ArithmeticDCTScanDecoder:
                         k += 1
                     data_unit[k] = self.read_ac(k, self.kx[ac_table])
                     k += 1
-        return jpeg.unzig_zag(data_unit)
+        return jpeg_dct.unzig_zag(data_unit)
 
     def read_dc(self, prev_dc_diff):
         # FIXME: Classify prev_dc_diff
@@ -511,7 +516,7 @@ class HuffmanDCTScanDecoder:
                     k += run_length
                     data_unit[k] = ac
                     k += 1
-        return jpeg.unzig_zag(data_unit)
+        return jpeg_dct.unzig_zag(data_unit)
 
     def read_huffman(self, table):
         for i in range(len(self.bits)):
