@@ -3,7 +3,6 @@
 import struct
 import sys
 
-import jpeg
 from jpeg_segments import *
 from jpeg_decoder import *
 

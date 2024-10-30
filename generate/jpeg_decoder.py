@@ -1,7 +1,6 @@
 import struct
 
 import arithmetic
-import jpeg
 import jpeg_dct
 from jpeg_marker import *
 from jpeg_segments import *
