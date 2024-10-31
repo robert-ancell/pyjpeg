@@ -2,6 +2,7 @@
 
 import math
 import jpeg
+import jpeg_lossless
 from pgm import *
 from quantization_tables import *
 
@@ -455,7 +456,7 @@ def make_lossless(
     components = []
     jpeg_scans = []
     for i, samples in enumerate(component_samples):
-        values = jpeg.make_lossless_values(
+        values = jpeg_lossless.make_lossless_values(
             predictor, width, precision, samples, restart_interval=restart_interval
         )
         if arithmetic:
