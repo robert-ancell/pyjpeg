@@ -2,6 +2,7 @@
 
 import math
 import jpeg
+import jpeg_dct
 import jpeg_lossless
 from pgm import *
 from quantization_tables import *
@@ -303,7 +304,7 @@ def make_dct_sequential(
                         sampling_factor = (1, 1)
                     else:
                         _, sampling_factor = components[i]
-                    mcu_coefficients = jpeg.order_mcu_dct_coefficients(
+                    mcu_coefficients = jpeg_dct.order_mcu_dct_coefficients(
                         component_sizes[i][0],
                         component_sizes[i][1],
                         coefficients[i],
@@ -331,7 +332,7 @@ def make_dct_sequential(
                     sampling_factor = (1, 1)
                 else:
                     _, sampling_factor = components[i]
-                mcu_coefficients = jpeg.order_mcu_dct_coefficients(
+                mcu_coefficients = jpeg_dct.order_mcu_dct_coefficients(
                     component_sizes[i][0],
                     component_sizes[i][1],
                     coefficients[i],
