@@ -577,8 +577,12 @@ if __name__ == "__main__":
     encoder.encode()
     open("test.jpg", "wb").write(encoder.data)
 
+    import jpeg_lossless
+
+    samples = [0] * 64
+    values = jpeg_lossless.make_lossless_values(1, 8, 8, samples)
     scan_encoder = HuffmanScanEncoder()
-    scan_encoder.write_lossless_data([0] * 64, 0)
+    scan_encoder.write_lossless_data(values, 0)
     huffman_table = huffman.make_huffman_table(scan_encoder.dc_symbol_frequencies)
 
     encoder = Encoder(
@@ -591,7 +595,7 @@ if __name__ == "__main__":
             ),
             StartOfFrame.lossless(8, 8, 8, [FrameComponent.lossless(1)]),
             StartOfScan.lossless([ScanComponent.lossless(1, 0)]),
-            LosslessScan([0] * 64),
+            LosslessScan(values),
             EndOfImage(),
         ]
     )
