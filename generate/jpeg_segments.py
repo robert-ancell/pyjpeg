@@ -239,8 +239,8 @@ class DCTScan:
 
 
 class LosslessScan:
-    def __init__(self, values):
-        self.values = values
+    def __init__(self, data_units):
+        self.data_units = data_units
 
 
 class Restart:

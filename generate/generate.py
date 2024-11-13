@@ -457,7 +457,7 @@ def make_lossless(
     components = []
     jpeg_scans = []
     for i, samples in enumerate(component_samples):
-        values = jpeg_lossless.make_lossless_values(
+        data_units = jpeg_lossless.make_lossless_data_units(
             predictor, width, precision, samples, restart_interval=restart_interval
         )
         if arithmetic:
@@ -465,14 +465,14 @@ def make_lossless(
             scan_data = jpeg.arithmetic_lossless_scan(
                 conditioning_bounds,
                 width,
-                values,
+                data_units,
                 restart_interval=restart_interval,
             )
         else:
             table = i
             scan_data = jpeg.huffman_lossless_scan_data(
                 table,
-                values,
+                data_units,
                 restart_interval=restart_interval,
             )
         components.append(jpeg.Component(id=i + 1))

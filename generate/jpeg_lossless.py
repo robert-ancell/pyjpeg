@@ -26,7 +26,7 @@ def predictor7(a, b, c):
     return (a + b) // 2
 
 
-def get_lossless_value(samples, width, precision, x, y, predictor_func, x0=0, y0=0):
+def get_lossless_data_unit(samples, width, precision, x, y, predictor_func, x0=0, y0=0):
     # FIXME: point transform changes this
     default_value = 1 << (precision - 1)
 
@@ -58,7 +58,7 @@ def get_lossless_value(samples, width, precision, x, y, predictor_func, x0=0, y0
     return d
 
 
-def make_lossless_values(predictor, width, precision, samples, restart_interval=0):
+def make_lossless_data_units(predictor, width, precision, samples, restart_interval=0):
     predictor_func = {
         1: predictor1,
         2: predictor2,
@@ -70,17 +70,17 @@ def make_lossless_values(predictor, width, precision, samples, restart_interval=
     }[predictor]
     bits = []
     height = len(samples) // width
-    values = []
+    data_units = []
     x0 = 0
     y0 = 0
     for y in range(height):
         for x in range(width):
-            if restart_interval != 0 and len(values) % restart_interval == 0:
+            if restart_interval != 0 and len(data_units) % restart_interval == 0:
                 x0 = x
                 y0 = y
-            values.append(
-                get_lossless_value(
+            data_units.append(
+                get_lossless_data_unit(
                     samples, width, precision, x, y, predictor_func, x0=x0, y0=y0
                 )
             )
-    return values
+    return data_units

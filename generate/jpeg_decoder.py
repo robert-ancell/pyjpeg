@@ -21,6 +21,7 @@ class Decoder:
         self.ac_huffman_tables = [{}, {}, {}, {}]
         self.scan_components = []
         self.arithmetic = False
+        self.lossless = False
         self.spectral_selection = (0, 63)
         self.segments = []
 
@@ -121,6 +122,7 @@ class Decoder:
         assert len(sof) == 0
 
         self.arithmetic = n >= 8
+        self.lossless = n in (SOF_LOSSLESS_HUFFMAN, SOF_LOSSLESS_ARITHMETIC)
 
         self.segments.append(
             StartOfFrame(
@@ -231,20 +233,26 @@ class Decoder:
             offset += 1
 
         if self.arithmetic:
-            scan_decoder = ArithmeticDCTScanDecoder(
+            scan_decoder = ArithmeticScanDecoder(
                 scan_data,
                 spectral_selection=self.spectral_selection,
                 conditioning_bounds=self.dc_arithmetic_conditioning_bounds,
                 kx=self.ac_arithmetic_kx,
             )
         else:
-            scan_decoder = HuffmanDCTScanDecoder(
+            scan_decoder = HuffmanScanDecoder(
                 scan_data,
                 spectral_selection=self.spectral_selection,
                 dc_tables=self.dc_huffman_tables,
                 ac_tables=self.ac_huffman_tables,
             )
 
+        if self.lossless:
+            self.parse_lossless_scan(scan_decoder)
+        else:
+            self.parse_dct_scan(scan_decoder)
+
+    def parse_dct_scan(self, scan_decoder):
         def find_component(id):
             for component in self.components:
                 if component.id == id:
@@ -253,8 +261,6 @@ class Decoder:
                         component.quantization_table_index,
                     )
             raise Exception("Unknown scan component %d" % id)
-
-        # FIXME: Lossless
 
         # FIXME: Handle sampling factor
         def round_size(size):
@@ -275,7 +281,7 @@ class Decoder:
                 quantization_table = self.quantization_tables[quantization_table_index]
                 for y in range(sampling_factor[1]):
                     for x in range(sampling_factor[0]):
-                        data_unit = scan_decoder.read_data_unit(
+                        data_unit = scan_decoder.read_dct_data_unit(
                             component.dc_table, component.ac_table
                         )
                         dc = prev_dc.get(component.component_selector)
@@ -285,6 +291,16 @@ class Decoder:
                         data_units.append(data_unit)
 
         self.segments.append(DCTScan(data_units))
+
+    def parse_lossless_scan(self, scan_decoder):
+        data_units = []
+        for y in range(self.samples_per_line):
+            for x in range(self.number_of_lines):
+                for component in self.scan_components:
+                    data_units.append(
+                        scan_decoder.read_lossless_data_unit(component.dc_table)
+                    )
+        self.segments.append(LosslessScan(data_units))
 
     def parse_app(self, n):
         data = self.parse_segment()
@@ -367,7 +383,16 @@ class Decoder:
                 raise Exception("Unknown marker %02x" % marker)
 
 
-class ArithmeticDCTScanDecoder:
+ARITHMETIC_CLASSIFICATION_ZERO = 0
+ARITHMETIC_CLASSIFICATION_SMALL_POSITIVE = 1
+ARITHMETIC_CLASSIFICATION_SMALL_NEGATIVE = 2
+ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE = 3
+ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE = 4
+
+N_ARITHMETIC_CLASSIFICATIONS = 5
+
+
+class ArithmeticScanDecoder:
     def __init__(
         self,
         scan_data,
@@ -386,10 +411,11 @@ class ArithmeticDCTScanDecoder:
             return states
 
         self.decoder = arithmetic.Decoder(scan_data)
-        self.dc_non_zero = make_states(5)
-        self.dc_sign = make_states(5)
-        self.dc_sp = make_states(5)
-        self.dc_sn = make_states(5)
+        self.prev_dc_diff = 0
+        self.dc_non_zero = make_states(N_ARITHMETIC_CLASSIFICATIONS)
+        self.dc_sign = make_states(N_ARITHMETIC_CLASSIFICATIONS)
+        self.dc_sp = make_states(N_ARITHMETIC_CLASSIFICATIONS)
+        self.dc_sn = make_states(N_ARITHMETIC_CLASSIFICATIONS)
         self.dc_xstates = make_states(15)
         self.dc_mstates = make_states(14)
         self.ac_end_of_block = make_states(63)
@@ -400,13 +426,17 @@ class ArithmeticDCTScanDecoder:
         self.ac_low_mstates = make_states(14)
         self.ac_high_mstates = make_states(14)
 
-    def read_data_unit(self, dc_table, ac_table):
+    def read_dct_data_unit(self, dc_table, ac_table):
+        # FIXME: Support multiple tables
         data_unit = [0] * 64
         k = self.spectral_selection[0]
         while k <= self.spectral_selection[1]:
             if k == 0:
-                # FIXME: prev_dc_diff
-                data_unit[0] = self.read_dc(0)
+                dc_diff = self.read_dc(
+                    self.prev_dc_diff, self.conditioning_bounds[dc_table]
+                )
+                self.prev_dc_diff = dc_diff
+                data_unit[0] = dc_diff  # FIXME: prev_dc
                 k += 1
             else:
                 if self.decoder.read_bit(self.ac_end_of_block[k - 1]) == 1:
@@ -418,9 +448,14 @@ class ArithmeticDCTScanDecoder:
                     k += 1
         return jpeg_dct.unzig_zag(data_unit)
 
-    def read_dc(self, prev_dc_diff):
-        # FIXME: Classify prev_dc_diff
-        c = 0
+    def read_lossless_data_unit(self, table):
+        # FIXME: Support multiple tables
+        data_unit = self.read_dc(self.prev_dc_diff, self.conditioning_bounds[table])
+        self.prev_dc_diff = data_unit
+        return data_unit
+
+    def read_dc(self, prev_dc_diff, conditioning_bounds):
+        c = self.classify_value(conditioning_bounds, prev_dc_diff)
 
         if self.decoder.read_bit(self.dc_non_zero[c]) == 0:
             return 0
@@ -446,6 +481,26 @@ class ArithmeticDCTScanDecoder:
         magnitude += 1
 
         return sign * magnitude
+
+    def classify_value(self, conditioning_bounds, value):
+        (lower, upper) = conditioning_bounds
+        if lower > 0:
+            lower = 1 << (lower - 1)
+        upper = 1 << upper
+        if value >= 0:
+            if value <= lower:
+                return ARITHMETIC_CLASSIFICATION_ZERO
+            elif value <= upper:
+                return ARITHMETIC_CLASSIFICATION_SMALL_POSITIVE
+            else:
+                return ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE
+        else:
+            if value >= -lower:
+                return ARITHMETIC_CLASSIFICATION_ZERO
+            elif value >= -upper:
+                return ARITHMETIC_CLASSIFICATION_SMALL_NEGATIVE
+            else:
+                return ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE
 
     def read_ac(self, k, kx):
         if self.decoder.read_fixed_bit() == 0:
@@ -478,7 +533,7 @@ class ArithmeticDCTScanDecoder:
         return sign * magnitude
 
 
-class HuffmanDCTScanDecoder:
+class HuffmanScanDecoder:
     def __init__(
         self,
         scan_data,
@@ -495,7 +550,7 @@ class HuffmanDCTScanDecoder:
             for i in range(8):
                 self.bits.append((b >> (7 - i)) & 0x1)
 
-    def read_data_unit(self, dc_table, ac_table):
+    def read_dct_data_unit(self, dc_table, ac_table):
         data_unit = [0] * 64
         k = self.spectral_selection[0]
         while k <= self.spectral_selection[1]:
@@ -518,6 +573,9 @@ class HuffmanDCTScanDecoder:
                     data_unit[k] = ac
                     k += 1
         return jpeg_dct.unzig_zag(data_unit)
+
+    def read_lossless_data_unit(self, table):
+        return self.read_dc(self.dc_tables[table])
 
     def read_huffman(self, table):
         for i in range(len(self.bits)):

@@ -134,6 +134,12 @@ for segment in decoder.segments:
         for data_unit in segment.data_units:
             print(" DCT Data Unit:")
             print_data_unit(data_unit)
+    elif isinstance(segment, LosslessScan):
+        print(" Lossless Values:")
+        s = ""
+        for data_unit in segment.data_units:
+            s += " %d" % data_unit
+        print(s)
     elif isinstance(segment, Restart):
         print("RST%d Restart" % segment.n)
     elif isinstance(segment, DefineNumberOfLines):
