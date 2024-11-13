@@ -144,6 +144,12 @@ class FrameComponent:
         self.sampling_factor = sampling_factor
         self.quantization_table_index = quantization_table_index
 
+    def dct(id, sampling_factor=(1, 1), quantization_table_index=0):
+        return FrameComponent(id, sampling_factor, quantization_table_index)
+
+    def lossless(id, sampling_factor=(1, 1)):
+        return FrameComponent(id, sampling_factor, 0)
+
 
 class StartOfFrame:
     def __init__(self, n, precision, number_of_lines, samples_per_line, components):
@@ -174,12 +180,27 @@ class StartOfFrame:
             n = 2
         return StartOfFrame(n, precision, number_of_lines, samples_per_line, components)
 
+    def lossless(
+        number_of_lines, samples_per_line, precision, components, arithmetic=False
+    ):
+        if arithmetic:
+            n = 11
+        else:
+            n = 3
+        return StartOfFrame(n, precision, number_of_lines, samples_per_line, components)
+
 
 class ScanComponent:
     def __init__(self, component_selector, dc_table, ac_table):
         self.component_selector = component_selector
         self.dc_table = dc_table
         self.ac_table = ac_table
+
+    def dct(component_selector, dc_table, ac_table):
+        return ScanComponent(component_selector, dc_table, ac_table)
+
+    def lossless(component_selector, table):
+        return ScanComponent(component_selector, table, 0)
 
 
 class StartOfScan:
@@ -215,6 +236,11 @@ class StartOfScan:
 class DCTScan:
     def __init__(self, data_units):
         self.data_units = data_units
+
+
+class LosslessScan:
+    def __init__(self, values):
+        self.values = values
 
 
 class Restart:

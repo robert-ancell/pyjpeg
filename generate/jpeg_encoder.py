@@ -141,13 +141,13 @@ class Encoder:
         assert self.sos is not None
         spectral_selection = (self.sos.ss, self.sos.se)
         if self.arithmetic:
-            encoder = ArithmeticDCTScanEncoder(
+            encoder = ArithmeticScanEncoder(
                 spectral_selection=spectral_selection,
                 conditioning_bounds=self.conditioning_bounds,
                 kx=self.kx,
             )
         else:
-            encoder = HuffmanDCTScanEncoder(
+            encoder = HuffmanScanEncoder(
                 spectral_selection=spectral_selection,
                 dc_codecs=self.dc_huffman_codecs,
                 ac_codecs=self.ac_huffman_codecs,
@@ -169,13 +169,24 @@ class Encoder:
                 )
                 for _ in range(n_data_units):
                     assert i < len(scan.data_units)
-                    encoder.write_data_unit(
+                    encoder.write_dct_data_unit(
                         component_index,
                         scan.data_units[i],
                         scan_component.dc_table,
                         scan_component.ac_table,
                     )
                     i += 1
+        self.data += encoder.get_data()
+
+    def encode_lossless_scan(self, scan):
+        assert self.sos is not None
+        if self.arithmetic:
+            encoder = ArithmeticScanEncoder()
+        else:
+            encoder = HuffmanScanEncoder(dc_codecs=self.dc_huffman_codecs)
+        for component_index, scan_component in enumerate(self.sos.components):
+            # FIXME: Interleave
+            encoder.write_lossless_data(scan.values, scan_component.dc_table)
         self.data += encoder.get_data()
 
     def encode_rst(self, rst):
@@ -213,6 +224,8 @@ class Encoder:
                 self.encode_sos(segment)
             elif isinstance(segment, DCTScan):
                 self.encode_dct_scan(segment)
+            elif isinstance(segment, LosslessScan):
+                self.encode_lossless_scan(segment)
             elif isinstance(segment, Restart):
                 self.encode_rst(segment)
             elif isinstance(segment, DefineNumberOfLines):
@@ -232,7 +245,7 @@ ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE = 4
 N_ARITHMETIC_CLASSIFICATIONS = 5
 
 
-class ArithmeticDCTScanEncoder:
+class ArithmeticScanEncoder:
     def __init__(
         self,
         spectral_selection=(0, 63),
@@ -266,7 +279,7 @@ class ArithmeticDCTScanEncoder:
         self.ac_low_mstates = make_states(14)
         self.ac_high_mstates = make_states(14)
 
-    def write_data_unit(self, component_index, data_unit, dc_table, ac_table):
+    def write_dct_data_unit(self, component_index, data_unit, dc_table, ac_table):
         zz_data_unit = jpeg_dct.zig_zag(data_unit)
 
         k = self.spectral_selection[0]
@@ -297,6 +310,13 @@ class ArithmeticDCTScanEncoder:
                     self.encoder.write_bit(self.ac_non_zero[k - 1], 1)
                     self.write_ac(zz_data_unit[k], k, self.kx[ac_table])
                     k += 1
+
+    def write_lossless_data(self, values, table):
+        print(values)
+        self.prev_value = 0
+        for value in values:
+            self.write_dc(value, self.prev_value, self.conditioning_bounds[table])
+            self.prev_value = value
 
     def write_dc(self, dc_diff, prev_dc_diff, conditioning_bounds):
         c = self.classify_value(conditioning_bounds, prev_dc_diff)
@@ -406,7 +426,7 @@ class ArithmeticDCTScanEncoder:
         return bytes(self.encoder.data)
 
 
-class HuffmanDCTScanEncoder:
+class HuffmanScanEncoder:
     def __init__(
         self,
         spectral_selection=(0, 63),
@@ -421,7 +441,7 @@ class HuffmanDCTScanEncoder:
         self.dc_symbol_frequencies = [0] * 256
         self.ac_symbol_frequencies = [0] * 256
 
-    def write_data_unit(self, component_index, data_unit, dc_table, ac_table):
+    def write_dct_data_unit(self, component_index, data_unit, dc_table, ac_table):
         zz_data_unit = jpeg_dct.zig_zag(data_unit)
 
         k = self.spectral_selection[0]
@@ -450,6 +470,11 @@ class HuffmanDCTScanEncoder:
                     self.write_ac(run_length, zz_data_unit[k], ac_table)
                     k += 1
 
+    def write_lossless_data(self, values, table):
+        for value in values:
+            self.write_dc(value, table)
+
+    # DC coefficient, written as a change from previous DC coefficient.
     def write_dc(self, dc_diff, table):
         length = self.get_magnitude_length(dc_diff)
         symbol = length
@@ -528,8 +553,8 @@ class HuffmanDCTScanEncoder:
 
 
 if __name__ == "__main__":
-    scan_encoder = HuffmanDCTScanEncoder()
-    scan_encoder.write_data_unit(0, [0] * 64, 0, 0)
+    scan_encoder = HuffmanScanEncoder()
+    scan_encoder.write_dct_data_unit(0, [0] * 64, 0, 0)
     dc_huffman_table = huffman.make_huffman_table(scan_encoder.dc_symbol_frequencies)
     ac_huffman_table = huffman.make_huffman_table(scan_encoder.ac_symbol_frequencies)
 
@@ -539,15 +564,36 @@ if __name__ == "__main__":
             DefineQuantizationTables([QuantizationTable(0, [1] * 64)]),
             DefineHuffmanTables(
                 [
-                    HuffmanTable(0, 0, dc_huffman_table),
-                    HuffmanTable(1, 0, ac_huffman_table),
+                    HuffmanTable.dc(0, dc_huffman_table),
+                    HuffmanTable.ac(0, ac_huffman_table),
                 ]
             ),
-            StartOfFrame(0, 8, 8, 8, [FrameComponent(1, (1, 1), 0)]),
-            StartOfScan([ScanComponent(1, 0, 0)], 0, 63, 0, 0),
+            StartOfFrame.baseline(8, 8, [FrameComponent.dct(1)]),
+            StartOfScan.dct([ScanComponent.dct(1, 0, 0)]),
             DCTScan([[0] * 64]),
             EndOfImage(),
         ]
     )
     encoder.encode()
     open("test.jpg", "wb").write(encoder.data)
+
+    scan_encoder = HuffmanScanEncoder()
+    scan_encoder.write_lossless_data([0] * 64, 0)
+    huffman_table = huffman.make_huffman_table(scan_encoder.dc_symbol_frequencies)
+
+    encoder = Encoder(
+        [
+            StartOfImage(),
+            DefineHuffmanTables(
+                [
+                    HuffmanTable.dc(0, huffman_table),
+                ]
+            ),
+            StartOfFrame.lossless(8, 8, 8, [FrameComponent.lossless(1)]),
+            StartOfScan.lossless([ScanComponent.lossless(1, 0)]),
+            LosslessScan([0] * 64),
+            EndOfImage(),
+        ]
+    )
+    encoder.encode()
+    open("test-lossless.jpg", "wb").write(encoder.data)

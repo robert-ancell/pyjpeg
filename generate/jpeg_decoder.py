@@ -254,6 +254,8 @@ class Decoder:
                     )
             raise Exception("Unknown scan component %d" % id)
 
+        # FIXME: Lossless
+
         # FIXME: Handle sampling factor
         def round_size(size):
             return (size + 7) // 8
