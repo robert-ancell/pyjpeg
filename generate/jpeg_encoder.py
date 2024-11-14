@@ -238,6 +238,9 @@ class Encoder:
                 self.encode_dnl(segment)
             elif isinstance(segment, EndOfImage):
                 self.encode_eoi()
+            elif isinstance(segment, bytes):
+                # FIXME: Remove when all encoding working
+                self.data += segment
             else:
                 raise Exception("Unknown segment")
 

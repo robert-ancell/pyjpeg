@@ -3,9 +3,11 @@
 import math
 import jpeg
 import jpeg_dct
+import jpeg_encoder
 import jpeg_lossless
 from pgm import *
 from quantization_tables import *
+from jpeg_segments import *
 
 
 WIDTH = 32
@@ -191,27 +193,25 @@ def make_dct_sequential(
 
     if color_space is None:
         assert n_components in (1, 3)
-    elif color_space == jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK:
+    elif color_space == ADOBE_COLOR_SPACE_RGB_OR_CMYK:
         assert n_components in (3, 4)
-    elif color_space == jpeg.ADOBE_COLOR_SPACE_Y_CB_CR:
+    elif color_space == ADOBE_COLOR_SPACE_Y_CB_CR:
         assert n_components == 3
-    elif color_space == jpeg.ADOBE_COLOR_SPACE_Y_CB_CR_K:
+    elif color_space == ADOBE_COLOR_SPACE_Y_CB_CR_K:
         assert n_components == 4
 
     if (
         color_space is None and n_components == 3
-    ) or color_space == jpeg.ADOBE_COLOR_SPACE_Y_CB_CR:
+    ) or color_space == ADOBE_COLOR_SPACE_Y_CB_CR:
         use_chrominance = True
     else:
         use_chrominance = False
 
     quantization_tables = [
-        jpeg.QuantizationTable(destination=0, data=luminance_quantization_table),
+        QuantizationTable(0, luminance_quantization_table),
     ]
     if use_chrominance:
-        quantization_tables.append(
-            jpeg.QuantizationTable(destination=1, data=chrominance_quantization_table)
-        )
+        quantization_tables.append(QuantizationTable(1, chrominance_quantization_table))
     component_quantization_tables = []
     for i in range(n_components):
         if i == 0 or not use_chrominance:
@@ -239,10 +239,10 @@ def make_dct_sequential(
     sof_components = []
     for i, (_, sampling_factor) in enumerate(components):
         sof_components.append(
-            jpeg.Component(
-                id=i + 1,
+            FrameComponent.dct(
+                i + 1,
                 sampling_factor=sampling_factor,
-                quantization_table=component_quantization_tables[i],
+                quantization_table_index=component_quantization_tables[i],
             )
         )
 
@@ -257,7 +257,7 @@ def make_dct_sequential(
             dc_table_index = 1
             ac_table_index = 1
         scan_components.append(
-            jpeg.ScanComponent(i + 1, dc_table=dc_table_index, ac_table=ac_table_index)
+            ScanComponent.dct(i + 1, dc_table=dc_table_index, ac_table=ac_table_index)
         )
     for scan_index, (component_indexes, start, end, point_transform) in enumerate(
         scans
@@ -276,9 +276,9 @@ def make_dct_sequential(
         if successive:
             if start == 0:
                 assert end == 0
-        sos = jpeg.start_of_scan_dct(
-            components=sos_components,
-            selection=selection,
+        sos = StartOfScan.dct(
+            sos_components,
+            spectral_selection=selection,
             point_transform=point_transform,
             previous_point_transform=previous_point_transform,
         )
@@ -373,25 +373,17 @@ def make_dct_sequential(
         all_huffman_bits = []
         for _, scan_data in jpeg_scans:
             all_huffman_bits.extend(scan_data)
+        dc_table = jpeg.make_dct_huffman_dc_table(all_huffman_bits, 0)
+        ac_table = jpeg.make_dct_huffman_ac_table(all_huffman_bits, 0)
         huffman_tables = [
-            jpeg.HuffmanTable.dc(
-                0, jpeg.make_dct_huffman_dc_table(all_huffman_bits, 0)
-            ),
-            jpeg.HuffmanTable.ac(
-                0, jpeg.make_dct_huffman_ac_table(all_huffman_bits, 0)
-            ),
+            HuffmanTable.dc(0, dc_table),
+            HuffmanTable.ac(0, ac_table),
         ]
         if use_chrominance:
-            huffman_tables.append(
-                jpeg.HuffmanTable.dc(
-                    1, jpeg.make_dct_huffman_dc_table(all_huffman_bits, 1)
-                )
-            )
-            huffman_tables.append(
-                jpeg.HuffmanTable.ac(
-                    1, jpeg.make_dct_huffman_ac_table(all_huffman_bits, 1)
-                )
-            )
+            dc_table = jpeg.make_dct_huffman_dc_table(all_huffman_bits, 1)
+            huffman_tables.append(HuffmanTable.dc(1, dc_table))
+            ac_table = jpeg.make_dct_huffman_ac_table(all_huffman_bits, 1)
+            huffman_tables.append(HuffmanTable.ac(1, ac_table))
 
         for i, (sos, scan_data) in enumerate(jpeg_scans):
             jpeg_scans[i] = (
@@ -399,48 +391,55 @@ def make_dct_sequential(
                 jpeg.huffman_dct_scan(huffman_tables, scan_data),
             )
 
-    data = jpeg.start_of_image()
+    segments = [StartOfImage()]
     for comment in comments:
-        data += jpeg.comment(comment)
+        segments.append(Comment(comment))
     if color_space is None:
-        data += jpeg.jfif()
+        segments.append(ApplicationSpecificData.jfif())
     else:
-        data += jpeg.adobe(color_space=color_space)
-    data += jpeg.define_quantization_tables(tables=quantization_tables)
+        segments.append(ApplicationSpecificData.adobe(color_space=color_space))
+    segments.append(DefineQuantizationTables(quantization_tables))
     if use_dnl:
         number_of_lines = 0
     else:
         number_of_lines = height
     if extended:
-        data += jpeg.start_of_frame_extended(
-            width, number_of_lines, precision, sof_components, arithmetic=arithmetic
+        segments.append(
+            StartOfFrame.extended(
+                number_of_lines, width, precision, sof_components, arithmetic=arithmetic
+            )
         )
     elif progressive:
-        data += jpeg.start_of_frame_progressive(
-            width, number_of_lines, precision, sof_components, arithmetic=arithmetic
+        segments.append(
+            StartOfFrame.progressive(
+                number_of_lines, width, precision, sof_components, arithmetic=arithmetic
+            )
         )
     else:
-        data += jpeg.start_of_frame_baseline(width, number_of_lines, sof_components)
+        segments.append(StartOfFrame.baseline(number_of_lines, width, sof_components))
     if arithmetic:
         conditioning = []
         for i, bounds in enumerate(arithmetic_conditioning_bounds):
             if bounds != (0, 1):
-                conditioning.append(jpeg.ArithmeticConditioning.dc(i, bounds))
+                conditioning.append(ArithmeticConditioning.dc(i, bounds))
         for i, kx in enumerate(arithmetic_conditioning_kx):
             if kx != 5:
-                conditioning.append(jpeg.ArithmeticConditioning.ac(i, kx))
+                conditioning.append(ArithmeticConditioning.ac(i, kx))
         if len(conditioning) > 0:
-            data += jpeg.define_arithmetic_conditioning(conditioning)
+            segments.append(DefineArithmeticConditioning(conditioning))
     else:
-        data += jpeg.define_huffman_tables(tables=huffman_tables)
+        segments.append(DefineHuffmanTables(huffman_tables))
     if restart_interval != 0:
-        data += jpeg.define_restart_interval(restart_interval)
+        segments.append(DefineRestartInterval(restart_interval))
     for i, (sos, scan_data) in enumerate(jpeg_scans):
-        data += sos + scan_data
+        segments.append(sos)
+        segments.append(scan_data)
         if i == 0 and use_dnl:
-            data += jpeg.define_number_of_lines(height)
-    data += jpeg.end_of_image()
-    return data
+            segments.append(DefineNumberOfLines(height))
+    segments.append(EndOfImage())
+    encoder = jpeg_encoder.Encoder(segments)
+    encoder.encode()
+    return encoder.data
 
 
 def make_lossless(
@@ -454,7 +453,7 @@ def make_lossless(
     arithmetic=False,
 ):
     conditioning_bounds = (0, 1)
-    components = []
+    sof_components = []
     jpeg_scans = []
     for i, samples in enumerate(component_samples):
         data_units = jpeg_lossless.make_lossless_data_units(
@@ -475,9 +474,9 @@ def make_lossless(
                 data_units,
                 restart_interval=restart_interval,
             )
-        components.append(jpeg.Component(id=i + 1))
-        sos = jpeg.start_of_scan_lossless(
-            components=[jpeg.ScanComponent.lossless(i + 1, table=table)],
+        sof_components.append(FrameComponent.lossless(i + 1))
+        sos = StartOfScan.lossless(
+            components=[ScanComponent.lossless(i + 1, table)],
             predictor=predictor,
         )
         jpeg_scans.append((sos, scan_data))
@@ -488,36 +487,38 @@ def make_lossless(
         for _, scan_data in jpeg_scans:
             all_huffman_bits.extend(scan_data)
         huffman_tables = []
-        for i in range(len(components)):
-            huffman_tables.append(
-                jpeg.HuffmanTable.dc(
-                    i, jpeg.make_dct_huffman_dc_table(all_huffman_bits, i)
-                )
-            )
+        for i in range(len(sof_components)):
+            table = jpeg.make_dct_huffman_dc_table(all_huffman_bits, i)
+            huffman_tables.append(HuffmanTable.dc(i, table))
         for i, (sos, scan_data) in enumerate(jpeg_scans):
             jpeg_scans[i] = (
                 sos,
                 jpeg.huffman_lossless_scan(huffman_tables, scan_data),
             )
 
-    data = jpeg.start_of_image()
+    segments = [StartOfImage()]
     if use_dnl:
         number_of_lines = 0
     else:
         number_of_lines = height
-    data += jpeg.start_of_frame_lossless(
-        width, number_of_lines, precision, components, arithmetic=arithmetic
+    segments.append(
+        StartOfFrame.lossless(
+            number_of_lines, width, precision, sof_components, arithmetic=arithmetic
+        )
     )
     if not arithmetic:
-        data += jpeg.define_huffman_tables(tables=huffman_tables)
+        segments.append(DefineHuffmanTables(huffman_tables))
     if restart_interval != 0:
-        data += jpeg.define_restart_interval(restart_interval)
+        segments.append(DefineRestartInterval(restart_interval))
     for i, (sos, scan_data) in enumerate(jpeg_scans):
-        data += sos + scan_data
+        segments.append(sos)
+        segments.append(scan_data)
         if i == 0 and use_dnl:
-            data += jpeg.define_number_of_lines(height)
-    data += jpeg.end_of_image()
-    return data
+            segments.append(DefineNumberOfLines(height))
+    segments.append(EndOfImage())
+    encoder = jpeg_encoder.Encoder(segments)
+    encoder.encode()
+    return encoder.data
 
 
 def generate_dct(
@@ -805,7 +806,7 @@ for mode, encoding in [
         HEIGHT,
         rgb_components8,
         scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0)],
-        color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
+        color_space=ADOBE_COLOR_SPACE_RGB_OR_CMYK,
         extended=extended,
         progressive=progressive,
         arithmetic=arithmetic,
@@ -817,7 +818,7 @@ for mode, encoding in [
         HEIGHT,
         rgb_components8,
         scans=[([0, 1, 2], 0, 63, 0)],
-        color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
+        color_space=ADOBE_COLOR_SPACE_RGB_OR_CMYK,
         extended=extended,
         progressive=progressive,
         arithmetic=arithmetic,
@@ -829,7 +830,7 @@ for mode, encoding in [
         HEIGHT,
         cmyk_components8,
         scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0), ([3], 0, 63, 0)],
-        color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
+        color_space=ADOBE_COLOR_SPACE_RGB_OR_CMYK,
         extended=extended,
         progressive=progressive,
         arithmetic=arithmetic,
@@ -841,7 +842,7 @@ for mode, encoding in [
         HEIGHT,
         cmyk_components8,
         scans=[([0, 1, 2, 3], 0, 63, 0)],
-        color_space=jpeg.ADOBE_COLOR_SPACE_RGB_OR_CMYK,
+        color_space=ADOBE_COLOR_SPACE_RGB_OR_CMYK,
         extended=extended,
         progressive=progressive,
         arithmetic=arithmetic,

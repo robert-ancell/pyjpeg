@@ -16,305 +16,9 @@ def marker(value):
     return struct.pack("BB", 0xFF, value)
 
 
-def start_of_image():
-    return marker(MARKER_SOI)
-
-
-class Density:
-    def __init__(self, unit=0, x=0, y=0):
-        self.unit = unit
-        self.x = x
-        self.y = y
-
-    def aspect_ratio(x, y):
-        return Density(0, x, y)
-
-    def dpi(x, y):
-        return Density(1, x, y)
-
-    def dpcm(x, y):
-        return Density(1, x, y)
-
-
-def comment(value):
-    return marker(MARKER_COM) + struct.pack(">H", 2 + len(value)) + value
-
-
-def jfif(
-    version=(1, 2),
-    density=Density.aspect_ratio(1, 1),
-    thumbnail_size=(0, 0),
-    thumbnail_data=b"",
-):
-    assert len(thumbnail_data) == thumbnail_size[0] * thumbnail_size[1]
-    data = (
-        struct.pack(
-            ">4sxBBBHHBB",
-            bytes("JFIF", "utf-8"),
-            version[0],
-            version[1],
-            density.unit,
-            density.x,
-            density.y,
-            thumbnail_size[0],
-            thumbnail_size[1],
-        )
-        + thumbnail_data
-    )
-    return marker(MARKER_APP0) + struct.pack(">H", 2 + len(data)) + data
-
-
-def jfxx():
-    # FIXME 0x10 - JPEG thumbnail, 0x11 - 1 byte per pixel (palette), 0x12 - 3 bytes per pixel (RGB)
-    extension_code = 0
-    data = struct.pack(
-        ">4sxB",
-        bytes("JFXX", "utf-8"),
-        extension_code,
-    )
-    return marker(MARKER_APP0) + struct.pack(">H", 2 + len(data)) + data
-
-
-ADOBE_COLOR_SPACE_RGB_OR_CMYK = 0
-ADOBE_COLOR_SPACE_Y_CB_CR = 1
-ADOBE_COLOR_SPACE_Y_CB_CR_K = 2
-
-
-def adobe(version=101, flags0=0, flags1=0, color_space=ADOBE_COLOR_SPACE_Y_CB_CR):
-    data = struct.pack(
-        ">5sHHHB",
-        bytes("Adobe", "utf-8"),
-        version,
-        flags0,
-        flags1,
-        color_space,
-    )
-    return marker(MARKER_APP14) + struct.pack(">H", 2 + len(data)) + data
-
-
-class QuantizationTable:
-    def __init__(self, precision=0, destination=0, data=b"x\00" * 64):
-        assert len(data) == 64
-        self.precision = precision  # FIXME: 0=8bit, 1=16bit
-        self.destination = destination
-        self.data = data
-
-
-def define_quantization_tables(tables=[]):
-    data = b""
-    for table in tables:
-        data += struct.pack("B", table.precision << 4 | table.destination) + bytes(
-            jpeg_dct.zig_zag(table.data)
-        )
-    return marker(MARKER_DQT) + struct.pack(">H", 2 + len(data)) + data
-
-
 def restart(index):
     assert index >= 0 and index <= 7
     return marker(MARKER_RST0 + index)
-
-
-def define_number_of_lines(number_of_lines):
-    assert number_of_lines >= 1 and number_of_lines <= 65535
-    data = struct.pack(">H", number_of_lines)
-    return marker(MARKER_DNL) + struct.pack(">H", 2 + len(data)) + data
-
-
-def define_restart_interval(restart_interval):
-    assert restart_interval >= 0 and restart_interval <= 65535
-    data = struct.pack(">H", restart_interval)
-    return marker(MARKER_DRI) + struct.pack(">H", 2 + len(data)) + data
-
-
-def expand_segment(expand_horizontal, expand_vertical):
-    assert expand_horizontal == 0 or expand_horizontal == 1
-    assert expand_vertical == 0 or expand_vertical == 1
-    data = struct.pack("B", expand_horizontal << 4 | expand_vertical)
-    return marker(MARKER_EXP) + struct.pack(">H", 2 + len(data)) + data
-
-
-class Component:
-    def __init__(self, id=0, sampling_factor=(1, 1), quantization_table=0):
-        self.id = id
-        self.sampling_factor = sampling_factor
-        self.quantization_table = quantization_table
-
-
-def start_of_frame(frame_type, precision=8, width=0, height=0, components=[]):
-    assert width >= 1 and width <= 65535
-    assert height >= 0 and height <= 65535
-    data = struct.pack(">BHHB", precision, height, width, len(components))
-    for component in components:
-        data += struct.pack(
-            "BBB",
-            component.id,
-            component.sampling_factor[0] << 4 | component.sampling_factor[1],
-            component.quantization_table,
-        )
-    return marker(MARKER_SOF0 + frame_type) + struct.pack(">H", 2 + len(data)) + data
-
-
-def start_of_frame_baseline(width, height, components):
-    return start_of_frame(
-        SOF_BASELINE, precision=8, width=width, height=height, components=components
-    )
-
-
-def start_of_frame_extended(width, height, precision, components, arithmetic=False):
-    if arithmetic:
-        frame_type = SOF_EXTENDED_ARITHMETIC
-    else:
-        frame_type = SOF_EXTENDED_HUFFMAN
-    return start_of_frame(
-        frame_type,
-        precision=precision,
-        width=width,
-        height=height,
-        components=components,
-    )
-
-
-def start_of_frame_progressive(width, height, precision, components, arithmetic=False):
-    if arithmetic:
-        frame_type = SOF_PROGRESSIVE_ARITHMETIC
-    else:
-        frame_type = SOF_PROGRESSIVE_HUFFMAN
-    return start_of_frame(
-        frame_type,
-        precision=precision,
-        width=width,
-        height=height,
-        components=components,
-    )
-
-
-def start_of_frame_lossless(width, height, precision, components, arithmetic=False):
-    if arithmetic:
-        frame_type = SOF_LOSSLESS_ARITHMETIC
-    else:
-        frame_type = SOF_LOSSLESS_HUFFMAN
-    return start_of_frame(
-        frame_type,
-        precision=precision,
-        width=width,
-        height=height,
-        components=components,
-    )
-
-
-class HuffmanTable:
-    def __init__(self, table_class=0, destination=0, symbols_by_length=[[]] * 16):
-        assert table_class >= 0 and table_class <= 15
-        assert destination >= 0 and destination <= 15
-        assert len(symbols_by_length) == 16
-        self.table_class = table_class
-        self.destination = destination
-        self.symbols_by_length = symbols_by_length
-
-    def dc(destination, symbols_by_length):
-        return HuffmanTable(
-            table_class=0, destination=destination, symbols_by_length=symbols_by_length
-        )
-
-    def ac(destination, symbols_by_length):
-        return HuffmanTable(
-            table_class=1, destination=destination, symbols_by_length=symbols_by_length
-        )
-
-
-def define_huffman_tables(tables=[]):
-    data = b""
-    for table in tables:
-        data += struct.pack("B", table.table_class << 4 | table.destination)
-        assert len(table.symbols_by_length) == 16
-        for symbols in table.symbols_by_length:
-            data += struct.pack("B", len(symbols))
-        for symbols in table.symbols_by_length:
-            data += bytes(symbols)
-    return marker(MARKER_DHT) + struct.pack(">H", 2 + len(data)) + data
-
-
-class ArithmeticConditioning:
-    def __init__(self, table_class=0, destination=0, conditioning_value=0):
-        assert table_class >= 0 and table_class <= 15
-        assert destination >= 0 and destination <= 15
-        assert conditioning_value >= 0 and conditioning_value <= 255
-        self.table_class = table_class
-        self.destination = destination
-        self.conditioning_value = conditioning_value
-
-    def dc(destination, bounds):
-        (lower, upper) = bounds
-        assert lower >= 0 and lower <= upper and upper <= 15
-        return ArithmeticConditioning(
-            table_class=0,
-            destination=destination,
-            conditioning_value=upper << 4 | lower,
-        )
-
-    def ac(destination, kx):
-        assert kx >= 1 and kx <= 63
-        return ArithmeticConditioning(
-            table_class=1, destination=destination, conditioning_value=kx
-        )
-
-
-def define_arithmetic_conditioning(conditioning):
-    data = b""
-    for c in conditioning:
-        data += struct.pack(
-            "BB", c.table_class << 4 | c.destination, c.conditioning_value
-        )
-    return marker(MARKER_DAC) + struct.pack(">H", 2 + len(data)) + data
-
-
-class ScanComponent:
-    def __init__(
-        self,
-        component_selector,
-        dc_table=0,
-        ac_table=0,
-    ):
-        self.component_selector = component_selector
-        self.dc_table = dc_table
-        self.ac_table = ac_table
-
-    def lossless(component_selector, table=0):
-        return ScanComponent(component_selector, dc_table=table, ac_table=0)
-
-
-def start_of_scan(components=[], ss=0, se=0, ah=0, al=0):
-    assert ss >= 0 and ss <= 255
-    assert se >= 0 and se <= 255
-    assert ah >= 0 and ah <= 15
-    assert al >= 0 and al <= 15
-    data = struct.pack("B", len(components))
-    for component in components:
-        data += struct.pack(
-            "BB",
-            component.component_selector,
-            component.dc_table << 4 | component.ac_table,
-        )
-    data += struct.pack("BBB", ss, se, ah << 4 | al)
-    return marker(MARKER_SOS) + struct.pack(">H", 2 + len(data)) + data
-
-
-def start_of_scan_dct(
-    components=[], selection=(0, 63), point_transform=0, previous_point_transform=0
-):
-    return start_of_scan(
-        components=components,
-        ss=selection[0],
-        se=selection[1],
-        ah=previous_point_transform,
-        al=point_transform,
-    )
-
-
-def start_of_scan_lossless(components=[], predictor=1, point_transform=0):
-    return start_of_scan(
-        components=components, ss=predictor, se=0, ah=0, al=point_transform
-    )
 
 
 def get_bits(value, length):
@@ -632,9 +336,9 @@ def huffman_dct_scan(huffman_tables, scan_data):
     ]
     for table in huffman_tables:
         if table.table_class == 0:
-            huffman_dc_codecs[table.destination] = HuffmanCodec(table.symbols_by_length)
+            huffman_dc_codecs[table.destination] = HuffmanCodec(table.table)
         else:
-            huffman_ac_codecs[table.destination] = HuffmanCodec(table.symbols_by_length)
+            huffman_ac_codecs[table.destination] = HuffmanCodec(table.table)
     for d in scan_data:
         if isinstance(d, HuffmanCode):
             if d.table_class == 0:
@@ -837,9 +541,9 @@ def huffman_lossless_scan(huffman_tables, scan_data):
     ]
     for table in huffman_tables:
         if table.table_class == 0:
-            huffman_dc_codecs[table.destination] = HuffmanCodec(table.symbols_by_length)
+            huffman_dc_codecs[table.destination] = HuffmanCodec(table.table)
         else:
-            huffman_ac_codecs[table.destination] = HuffmanCodec(table.symbols_by_length)
+            huffman_ac_codecs[table.destination] = HuffmanCodec(table.table)
     for d in scan_data:
         if isinstance(d, HuffmanCode):
             if d.table_class == 0:
@@ -884,10 +588,6 @@ def arithmetic_lossless_scan(
         encoder.encode_dc(a, b, value)
 
     return data + encoder.get_data()
-
-
-def end_of_image():
-    return marker(MARKER_EOI)
 
 
 def make_dct_coefficients(width, height, depth, samples, quantization_table):
