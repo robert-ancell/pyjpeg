@@ -186,9 +186,12 @@ class Encoder:
             encoder = HuffmanScanEncoder(dc_codecs=self.dc_huffman_codecs)
         for component_index, scan_component in enumerate(self.sos.components):
             # FIXME: Interleave
+            # FIXME: a and b
+            a = 0
+            b = 0
             for data_unit in scan.data_units:
                 encoder.write_lossless_data_unit(
-                    component_index, data_unit, scan_component.dc_table
+                    component_index, a, b, data_unit, scan_component.dc_table
                 )
         self.data += encoder.get_data()
 
@@ -314,7 +317,7 @@ class ArithmeticScanEncoder:
                     self.write_ac(zz_data_unit[k], k, self.kx[ac_table])
                     k += 1
 
-    def write_lossless_data_unit(self, component_index, data_unit, table):
+    def write_lossless_data_unit(self, component_index, a, b, data_unit, table):
         prev_dc = self.prev_dc.get(component_index, 0)
         self.write_dc(data_unit, prev_dc, self.conditioning_bounds[table])
         self.prev_dc[component_index] = data_unit
@@ -471,7 +474,7 @@ class HuffmanScanEncoder:
                     self.write_ac(run_length, zz_data_unit[k], ac_table)
                     k += 1
 
-    def write_lossless_data_unit(self, component_index, data_unit, table):
+    def write_lossless_data_unit(self, component_index, a, b, data_unit, table):
         self.write_dc(data_unit, table)
 
     # DC coefficient, written as a change from previous DC coefficient.
@@ -583,7 +586,10 @@ if __name__ == "__main__":
     data_units = jpeg_lossless.make_lossless_data_units(1, 8, 8, samples)
     scan_encoder = HuffmanScanEncoder()
     for data_unit in data_units:
-        scan_encoder.write_lossless_data_unit(0, data_unit, 0)
+        # FIXME: Need a and b
+        a = 0
+        b = 0
+        scan_encoder.write_lossless_data_unit(0, a, b, data_unit, 0)
     huffman_table = huffman.make_huffman_table(scan_encoder.dc_symbol_frequencies)
 
     encoder = Encoder(

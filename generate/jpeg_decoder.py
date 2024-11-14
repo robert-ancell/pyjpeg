@@ -449,6 +449,7 @@ class ArithmeticScanDecoder:
         return jpeg_dct.unzig_zag(data_unit)
 
     def read_lossless_data_unit(self, table):
+        # FIXME: Needs to be based on a and b
         # FIXME: Support multiple tables
         data_unit = self.read_dc(self.prev_dc_diff, self.conditioning_bounds[table])
         self.prev_dc_diff = data_unit
@@ -556,6 +557,7 @@ class HuffmanScanDecoder:
         while k <= self.spectral_selection[1]:
             if k == 0:
                 dc_diff = self.read_dc(self.dc_tables[dc_table])
+                # FIXME: Offset from last DC value
                 data_unit[k] = dc_diff
                 k += 1
             else:
