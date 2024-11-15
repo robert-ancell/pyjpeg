@@ -141,13 +141,13 @@ class Encoder:
         assert self.sos is not None
         spectral_selection = (self.sos.ss, self.sos.se)
         if self.arithmetic:
-            encoder = ArithmeticScanEncoder(
+            encoder = ArithmeticDCTScanEncoder(
                 spectral_selection=spectral_selection,
                 conditioning_bounds=self.conditioning_bounds,
                 kx=self.kx,
             )
         else:
-            encoder = HuffmanScanEncoder(
+            encoder = HuffmanDCTScanEncoder(
                 spectral_selection=spectral_selection,
                 dc_codecs=self.dc_huffman_codecs,
                 ac_codecs=self.ac_huffman_codecs,
@@ -169,7 +169,7 @@ class Encoder:
                 )
                 for _ in range(n_data_units):
                     assert i < len(scan.data_units)
-                    encoder.write_dct_data_unit(
+                    encoder.write_data_unit(
                         component_index,
                         scan.data_units[i],
                         scan_component.dc_table,
@@ -181,16 +181,16 @@ class Encoder:
     def encode_lossless_scan(self, scan):
         assert self.sos is not None
         if self.arithmetic:
-            encoder = ArithmeticScanEncoder()
+            encoder = ArithmeticLosslessScanEncoder()
         else:
-            encoder = HuffmanScanEncoder(dc_codecs=self.dc_huffman_codecs)
+            encoder = HuffmanLosslessScanEncoder(dc_codecs=self.dc_huffman_codecs)
         for component_index, scan_component in enumerate(self.sos.components):
             # FIXME: Interleave
             # FIXME: a and b
             a = 0
             b = 0
             for data_unit in scan.data_units:
-                encoder.write_lossless_data_unit(
+                encoder.write_data_unit(
                     component_index, a, b, data_unit, scan_component.dc_table
                 )
         self.data += encoder.get_data()
@@ -272,8 +272,6 @@ class ArithmeticScanEncoder:
             return states
 
         self.encoder = arithmetic.Encoder()
-        self.prev_dc = {}
-        self.prev_dc_diff = {}
         self.dc_non_zero = make_states(N_ARITHMETIC_CLASSIFICATIONS)
         self.dc_sign = make_states(N_ARITHMETIC_CLASSIFICATIONS)
         self.dc_sp = make_states(N_ARITHMETIC_CLASSIFICATIONS)
@@ -287,43 +285,6 @@ class ArithmeticScanEncoder:
         self.ac_high_xstates = make_states(14)
         self.ac_low_mstates = make_states(14)
         self.ac_high_mstates = make_states(14)
-
-    def write_dct_data_unit(self, component_index, data_unit, dc_table, ac_table):
-        zz_data_unit = jpeg_dct.zig_zag(data_unit)
-
-        k = self.spectral_selection[0]
-        while k <= self.spectral_selection[1]:
-            if k == 0:
-                dc = zz_data_unit[k]
-                dc_diff = dc - self.prev_dc.get(component_index, 0)
-                prev_dc_diff = self.prev_dc_diff.get(component_index, 0)
-                self.write_dc(dc_diff, prev_dc_diff, self.conditioning_bounds[dc_table])
-                self.prev_dc[component_index] = dc
-                self.prev_dc_diff[component_index] = dc_diff
-                k += 1
-            else:
-                run_length = 0
-                while (
-                    k + run_length <= self.spectral_selection[1]
-                    and zz_data_unit[k + run_length] == 0
-                ):
-                    run_length += 1
-                if k + run_length > self.spectral_selection[1]:
-                    self.encoder.write_bit(self.ac_end_of_block[k - 1], 1)
-                    k += run_length
-                else:
-                    self.encoder.write_bit(self.ac_end_of_block[k - 1], 0)
-                    for _ in range(run_length):
-                        self.encoder.write_bit(self.ac_non_zero[k - 1], 0)
-                        k += 1
-                    self.encoder.write_bit(self.ac_non_zero[k - 1], 1)
-                    self.write_ac(zz_data_unit[k], k, self.kx[ac_table])
-                    k += 1
-
-    def write_lossless_data_unit(self, component_index, a, b, data_unit, table):
-        prev_dc = self.prev_dc.get(component_index, 0)
-        self.write_dc(data_unit, prev_dc, self.conditioning_bounds[table])
-        self.prev_dc[component_index] = data_unit
 
     def write_dc(self, dc_diff, prev_dc_diff, conditioning_bounds):
         c = self.classify_value(conditioning_bounds, prev_dc_diff)
@@ -433,6 +394,65 @@ class ArithmeticScanEncoder:
         return bytes(self.encoder.data)
 
 
+class ArithmeticDCTScanEncoder(ArithmeticScanEncoder):
+    def __init__(
+        self,
+        spectral_selection=(0, 63),
+        conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
+        kx=[5, 5, 5, 5],
+    ):
+        super().__init__(self, spectral_selection=spectral_selection, kx=kx)
+        self.prev_dc = {}
+        self.prev_dc_diff = {}
+
+    def write_data_unit(self, component_index, data_unit, dc_table, ac_table):
+        zz_data_unit = jpeg_dct.zig_zag(data_unit)
+
+        k = self.spectral_selection[0]
+        while k <= self.spectral_selection[1]:
+            if k == 0:
+                dc = zz_data_unit[k]
+                dc_diff = dc - self.prev_dc.get(component_index, 0)
+                prev_dc_diff = self.prev_dc_diff.get(component_index, 0)
+                self.write_dc(dc_diff, prev_dc_diff, self.conditioning_bounds[dc_table])
+                self.prev_dc[component_index] = dc
+                self.prev_dc_diff[component_index] = dc_diff
+                k += 1
+            else:
+                run_length = 0
+                while (
+                    k + run_length <= self.spectral_selection[1]
+                    and zz_data_unit[k + run_length] == 0
+                ):
+                    run_length += 1
+                if k + run_length > self.spectral_selection[1]:
+                    self.encoder.write_bit(self.ac_end_of_block[k - 1], 1)
+                    k += run_length
+                else:
+                    self.encoder.write_bit(self.ac_end_of_block[k - 1], 0)
+                    for _ in range(run_length):
+                        self.encoder.write_bit(self.ac_non_zero[k - 1], 0)
+                        k += 1
+                    self.encoder.write_bit(self.ac_non_zero[k - 1], 1)
+                    self.write_ac(zz_data_unit[k], k, self.kx[ac_table])
+                    k += 1
+
+
+class ArithmeticLosslessScanEncoder(ArithmeticScanEncoder):
+    def __init__(
+        self,
+        spectral_selection=(0, 63),
+        conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
+        kx=[5, 5, 5, 5],
+    ):
+        super().__init__(self, spectral_selection=spectral_selection, kx=kx)
+
+    def write_data_unit(self, component_index, a, b, data_unit, table):
+        prev_dc = self.prev_dc.get(component_index, 0)
+        self.write_dc(data_unit, prev_dc, self.conditioning_bounds[table])
+        self.prev_dc[component_index] = data_unit
+
+
 class HuffmanScanEncoder:
     def __init__(
         self,
@@ -443,42 +463,9 @@ class HuffmanScanEncoder:
         self.spectral_selection = spectral_selection
         self.dc_codecs = dc_codecs
         self.ac_codecs = ac_codecs
-        self.prev_dc = {}
         self.bits = []
         self.dc_symbol_frequencies = [0] * 256
         self.ac_symbol_frequencies = [0] * 256
-
-    def write_dct_data_unit(self, component_index, data_unit, dc_table, ac_table):
-        zz_data_unit = jpeg_dct.zig_zag(data_unit)
-
-        k = self.spectral_selection[0]
-        while k <= self.spectral_selection[1]:
-            if k == 0:
-                dc = zz_data_unit[k]
-                dc_diff = dc - self.prev_dc.get(component_index, 0)
-                self.prev_dc[component_index] = dc
-                self.write_dc(dc_diff, dc_table)
-                k += 1
-            else:
-                run_length = 0
-                while (
-                    k + run_length <= self.spectral_selection[1]
-                    and zz_data_unit[k + run_length] == 0
-                ):
-                    run_length += 1
-                if k + run_length > self.spectral_selection[1]:
-                    self.write_eob(ac_table)
-                    k = self.spectral_selection[1] + 1
-                elif run_length >= 16:
-                    self.write_zrl(ac_table)
-                    k += 16
-                else:
-                    k += run_length
-                    self.write_ac(run_length, zz_data_unit[k], ac_table)
-                    k += 1
-
-    def write_lossless_data_unit(self, component_index, a, b, data_unit, table):
-        self.write_dc(data_unit, table)
 
     # DC coefficient, written as a change from previous DC coefficient.
     def write_dc(self, dc_diff, table):
@@ -558,9 +545,70 @@ class HuffmanScanEncoder:
         return bytes(data)
 
 
+class HuffmanDCTScanEncoder(HuffmanScanEncoder):
+    def __init__(
+        self,
+        spectral_selection=(0, 63),
+        dc_codecs=[None, None, None, None],
+        ac_codecs=[None, None, None, None],
+    ):
+        super().__init__(
+            spectral_selection=spectral_selection,
+            dc_codecs=dc_codecs,
+            ac_codecs=ac_codecs,
+        )
+        self.prev_dc = {}
+
+    def write_data_unit(self, component_index, data_unit, dc_table, ac_table):
+        zz_data_unit = jpeg_dct.zig_zag(data_unit)
+
+        k = self.spectral_selection[0]
+        while k <= self.spectral_selection[1]:
+            if k == 0:
+                dc = zz_data_unit[k]
+                dc_diff = dc - self.prev_dc.get(component_index, 0)
+                self.prev_dc[component_index] = dc
+                self.write_dc(dc_diff, dc_table)
+                k += 1
+            else:
+                run_length = 0
+                while (
+                    k + run_length <= self.spectral_selection[1]
+                    and zz_data_unit[k + run_length] == 0
+                ):
+                    run_length += 1
+                if k + run_length > self.spectral_selection[1]:
+                    self.write_eob(ac_table)
+                    k = self.spectral_selection[1] + 1
+                elif run_length >= 16:
+                    self.write_zrl(ac_table)
+                    k += 16
+                else:
+                    k += run_length
+                    self.write_ac(run_length, zz_data_unit[k], ac_table)
+                    k += 1
+
+
+class HuffmanLosslessScanEncoder(HuffmanScanEncoder):
+    def __init__(
+        self,
+        spectral_selection=(0, 63),
+        dc_codecs=[None, None, None, None],
+        ac_codecs=[None, None, None, None],
+    ):
+        super().__init__(
+            spectral_selection=spectral_selection,
+            dc_codecs=dc_codecs,
+            ac_codecs=ac_codecs,
+        )
+
+    def write_data_unit(self, component_index, a, b, data_unit, table):
+        self.write_dc(data_unit, table)
+
+
 if __name__ == "__main__":
-    scan_encoder = HuffmanScanEncoder()
-    scan_encoder.write_dct_data_unit(0, [0] * 64, 0, 0)
+    scan_encoder = HuffmanDCTScanEncoder()
+    scan_encoder.write_data_unit(0, [0] * 64, 0, 0)
     dc_huffman_table = huffman.make_huffman_table(scan_encoder.dc_symbol_frequencies)
     ac_huffman_table = huffman.make_huffman_table(scan_encoder.ac_symbol_frequencies)
 
@@ -587,12 +635,12 @@ if __name__ == "__main__":
 
     samples = [0] * 64
     data_units = jpeg_lossless.make_lossless_data_units(1, 8, 8, samples)
-    scan_encoder = HuffmanScanEncoder()
+    scan_encoder = HuffmanLosslessScanEncoder()
     for data_unit in data_units:
         # FIXME: Need a and b
         a = 0
         b = 0
-        scan_encoder.write_lossless_data_unit(0, a, b, data_unit, 0)
+        scan_encoder.write_data_unit(0, a, b, data_unit, 0)
     huffman_table = huffman.make_huffman_table(scan_encoder.dc_symbol_frequencies)
 
     encoder = Encoder(
