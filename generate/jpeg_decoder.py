@@ -19,10 +19,8 @@ class Decoder:
         self.ac_arithmetic_kx = [5, 5, 5, 5]
         self.dc_huffman_tables = [{}, {}, {}, {}]
         self.ac_huffman_tables = [{}, {}, {}, {}]
-        self.scan_components = []
         self.arithmetic = False
         self.lossless = False
-        self.spectral_selection = (0, 63)
         self.segments = []
 
     def parse_marker(self):
@@ -211,10 +209,10 @@ class Decoder:
         (ss, se, a) = struct.unpack("BBB", sos)
         ah = a >> 4
         al = a & 0xF
-        self.segments.append(StartOfScan(scan_components, ss, se, ah, al))
+        segment = StartOfScan(scan_components, ss, se, ah, al)
+        self.segments.append(segment)
 
-        self.scan_components = scan_components
-        self.spectral_selection = (ss, se)
+        self.sos = segment
 
         self.parse_scan()
 
@@ -238,17 +236,18 @@ class Decoder:
             self.parse_dct_scan(scan_data)
 
     def parse_dct_scan(self, scan_data):
+        spectral_selection = (self.sos.ss, self.sos.se)
         if self.arithmetic:
             scan_decoder = ArithmeticDCTScanDecoder(
                 scan_data,
-                spectral_selection=self.spectral_selection,
+                spectral_selection=spectral_selection,
                 conditioning_bounds=self.dc_arithmetic_conditioning_bounds,
                 kx=self.ac_arithmetic_kx,
             )
         else:
             scan_decoder = HuffmanDCTScanDecoder(
                 scan_data,
-                spectral_selection=self.spectral_selection,
+                spectral_selection=spectral_selection,
                 dc_tables=self.dc_huffman_tables,
                 ac_tables=self.ac_huffman_tables,
             )
@@ -274,7 +273,7 @@ class Decoder:
         data_units = []
 
         for _ in range(n_mcus):
-            for component in self.scan_components:
+            for component in self.sos.components:
                 (sampling_factor, quantization_table_index) = find_component(
                     component.component_selector
                 )
@@ -293,21 +292,25 @@ class Decoder:
         self.segments.append(DCTScan(data_units))
 
     def parse_lossless_scan(self, scan_data):
+        predictor = self.sos.ss
+
         if self.arithmetic:
             scan_decoder = ArithmeticLosslessScanDecoder(
                 scan_data,
-                conditioning_bounds=self.dc_arithmetic_conditioning_bounds,
+                predictor,
+                self.dc_arithmetic_conditioning_bounds,
             )
         else:
             scan_decoder = HuffmanLosslessScanDecoder(
                 scan_data,
-                dc_tables=self.dc_huffman_tables,
+                predictor,
+                self.dc_huffman_tables,
             )
 
         data_units = []
         for y in range(self.samples_per_line):
             for x in range(self.number_of_lines):
-                for component in self.scan_components:
+                for component in self.sos.components:
                     data_units.append(scan_decoder.read_data_unit(component.dc_table))
         self.segments.append(LosslessScan(data_units))
 
@@ -405,7 +408,7 @@ class ArithmeticScanDecoder:
     def __init__(
         self,
         scan_data,
-        conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
+        conditioning_bounds,
     ):
         self.conditioning_bounds = conditioning_bounds
 
@@ -518,7 +521,7 @@ class ArithmeticDCTScanDecoder(ArithmeticScanDecoder):
         conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
         kx=[5, 5, 5, 5],
     ):
-        super().__init__(scan_data, conditioning_bounds=conditioning_bounds)
+        super().__init__(scan_data, conditioning_bounds)
         self.spectral_selection = spectral_selection
         self.kx = kx
 
@@ -549,9 +552,10 @@ class ArithmeticLosslessScanDecoder(ArithmeticScanDecoder):
     def __init__(
         self,
         scan_data,
+        predictor,
         conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
     ):
-        super().__init__(scan_data, conditioning_bounds=conditioning_bounds)
+        super().__init__(scan_data, conditioning_bounds)
 
     def read_data_unit(self, table):
         # FIXME: Needs to be based on a and b
