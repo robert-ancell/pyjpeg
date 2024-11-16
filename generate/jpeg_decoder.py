@@ -22,6 +22,8 @@ class Decoder:
         self.arithmetic = False
         self.lossless = False
         self.segments = []
+        self.sof = None
+        self.sos = None
 
     def parse_marker(self):
         if self.data[0] != 0xFF:
@@ -122,15 +124,15 @@ class Decoder:
         self.arithmetic = n >= 8
         self.lossless = n in (SOF_LOSSLESS_HUFFMAN, SOF_LOSSLESS_ARITHMETIC)
 
-        self.segments.append(
-            StartOfFrame(
-                n,
-                precision,
-                self.number_of_lines,
-                self.samples_per_line,
-                self.components,
-            )
+        segment = StartOfFrame(
+            n,
+            precision,
+            self.number_of_lines,
+            self.samples_per_line,
+            self.components,
         )
+        self.segments.append(segment)
+        self.sof = segment
 
     def parse_dht(self):
         dht = self.parse_segment()
@@ -211,7 +213,6 @@ class Decoder:
         al = a & 0xF
         segment = StartOfScan(scan_components, ss, se, ah, al)
         self.segments.append(segment)
-
         self.sos = segment
 
         self.parse_scan()
@@ -239,6 +240,8 @@ class Decoder:
         spectral_selection = (self.sos.ss, self.sos.se)
         if self.arithmetic:
             scan_decoder = ArithmeticDCTScanDecoder(
+                self.sof.components,
+                self.sos.components,
                 scan_data,
                 spectral_selection=spectral_selection,
                 conditioning_bounds=self.dc_arithmetic_conditioning_bounds,
@@ -246,6 +249,8 @@ class Decoder:
             )
         else:
             scan_decoder = HuffmanDCTScanDecoder(
+                self.sof.components,
+                self.sos.components,
                 scan_data,
                 spectral_selection=spectral_selection,
                 dc_tables=self.dc_huffman_tables,
@@ -296,12 +301,16 @@ class Decoder:
 
         if self.arithmetic:
             scan_decoder = ArithmeticLosslessScanDecoder(
+                self.sof.components,
+                self.sos.components,
                 scan_data,
                 predictor,
                 self.dc_arithmetic_conditioning_bounds,
             )
         else:
             scan_decoder = HuffmanLosslessScanDecoder(
+                self.sof.components,
+                self.sos.components,
                 scan_data,
                 predictor,
                 self.dc_huffman_tables,
@@ -404,12 +413,21 @@ ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE = 4
 N_ARITHMETIC_CLASSIFICATIONS = 5
 
 
-class ArithmeticScanDecoder:
+class ScanDecoder:
+    def __init__(self, frame_components, scan_components):
+        self.frame_components = frame_components
+        self.scan_components = scan_components
+
+
+class ArithmeticScanDecoder(ScanDecoder):
     def __init__(
         self,
+        frame_components,
+        scan_components,
         scan_data,
         conditioning_bounds,
     ):
+        super().__init__(frame_components, scan_components)
         self.conditioning_bounds = conditioning_bounds
 
         def make_states(count):
@@ -419,7 +437,6 @@ class ArithmeticScanDecoder:
             return states
 
         self.decoder = arithmetic.Decoder(scan_data)
-        self.prev_dc_diff = 0
         self.dc_non_zero = make_states(N_ARITHMETIC_CLASSIFICATIONS)
         self.dc_sign = make_states(N_ARITHMETIC_CLASSIFICATIONS)
         self.dc_sp = make_states(N_ARITHMETIC_CLASSIFICATIONS)
@@ -516,14 +533,19 @@ class ArithmeticScanDecoder:
 class ArithmeticDCTScanDecoder(ArithmeticScanDecoder):
     def __init__(
         self,
+        frame_components,
+        scan_components,
         scan_data,
         spectral_selection=(0, 63),
         conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
         kx=[5, 5, 5, 5],
     ):
-        super().__init__(scan_data, conditioning_bounds)
+        super().__init__(
+            frame_components, scan_components, scan_data, conditioning_bounds
+        )
         self.spectral_selection = spectral_selection
         self.kx = kx
+        self.prev_dc_diff = 0
 
     def read_data_unit(self, dc_table, ac_table):
         # FIXME: Support multiple tables
@@ -551,11 +573,16 @@ class ArithmeticDCTScanDecoder(ArithmeticScanDecoder):
 class ArithmeticLosslessScanDecoder(ArithmeticScanDecoder):
     def __init__(
         self,
+        frame_components,
+        scan_components,
         scan_data,
         predictor,
         conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
     ):
-        super().__init__(scan_data, conditioning_bounds)
+        super().__init__(
+            frame_components, scan_components, scan_data, conditioning_bounds
+        )
+        self.prev_dc_diff = 0
 
     def read_data_unit(self, table):
         # FIXME: Needs to be based on a and b
@@ -565,11 +592,14 @@ class ArithmeticLosslessScanDecoder(ArithmeticScanDecoder):
         return data_unit
 
 
-class HuffmanScanDecoder:
+class HuffmanScanDecoder(ScanDecoder):
     def __init__(
         self,
+        frame_components,
+        scan_components,
         scan_data,
     ):
+        super().__init__(frame_components, scan_components)
         self.bits = []
         for b in scan_data:
             for i in range(8):
@@ -605,12 +635,14 @@ class HuffmanScanDecoder:
 class HuffmanDCTScanDecoder(HuffmanScanDecoder):
     def __init__(
         self,
+        frame_components,
+        scan_components,
         scan_data,
         spectral_selection=(0, 63),
         dc_tables=[{}, {}, {}, {}],
         ac_tables=[{}, {}, {}, {}],
     ):
-        super().__init__(scan_data)
+        super().__init__(frame_components, scan_components, scan_data)
         self.spectral_selection = spectral_selection
         self.dc_tables = dc_tables
         self.ac_tables = ac_tables
@@ -642,8 +674,16 @@ class HuffmanDCTScanDecoder(HuffmanScanDecoder):
 
 
 class HuffmanLosslessScanDecoder(HuffmanScanDecoder):
-    def __init__(self, scan_data, dc_tables=[{}, {}, {}, {}]):
-        super().__init__(scan_data)
+    def __init__(
+        self,
+        frame_components,
+        scan_components,
+        scan_data,
+        predictor,
+        dc_tables=[{}, {}, {}, {}],
+    ):
+        super().__init__(frame_components, scan_components, scan_data)
+
         self.dc_tables = dc_tables
 
     def read_data_unit(self, table):
