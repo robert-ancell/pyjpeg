@@ -232,27 +232,27 @@ class Decoder:
             scan_data.append(b)
             offset += 1
 
+        if self.lossless:
+            self.parse_lossless_scan(scan_data)
+        else:
+            self.parse_dct_scan(scan_data)
+
+    def parse_dct_scan(self, scan_data):
         if self.arithmetic:
-            scan_decoder = ArithmeticScanDecoder(
+            scan_decoder = ArithmeticDCTScanDecoder(
                 scan_data,
                 spectral_selection=self.spectral_selection,
                 conditioning_bounds=self.dc_arithmetic_conditioning_bounds,
                 kx=self.ac_arithmetic_kx,
             )
         else:
-            scan_decoder = HuffmanScanDecoder(
+            scan_decoder = HuffmanDCTScanDecoder(
                 scan_data,
                 spectral_selection=self.spectral_selection,
                 dc_tables=self.dc_huffman_tables,
                 ac_tables=self.ac_huffman_tables,
             )
 
-        if self.lossless:
-            self.parse_lossless_scan(scan_decoder)
-        else:
-            self.parse_dct_scan(scan_decoder)
-
-    def parse_dct_scan(self, scan_decoder):
         def find_component(id):
             for component in self.components:
                 if component.id == id:
@@ -281,7 +281,7 @@ class Decoder:
                 quantization_table = self.quantization_tables[quantization_table_index]
                 for y in range(sampling_factor[1]):
                     for x in range(sampling_factor[0]):
-                        data_unit = scan_decoder.read_dct_data_unit(
+                        data_unit = scan_decoder.read_data_unit(
                             component.dc_table, component.ac_table
                         )
                         dc = prev_dc.get(component.component_selector)
@@ -292,14 +292,23 @@ class Decoder:
 
         self.segments.append(DCTScan(data_units))
 
-    def parse_lossless_scan(self, scan_decoder):
+    def parse_lossless_scan(self, scan_data):
+        if self.arithmetic:
+            scan_decoder = ArithmeticLosslessScanDecoder(
+                scan_data,
+                conditioning_bounds=self.dc_arithmetic_conditioning_bounds,
+            )
+        else:
+            scan_decoder = HuffmanLosslessScanDecoder(
+                scan_data,
+                dc_tables=self.dc_huffman_tables,
+            )
+
         data_units = []
         for y in range(self.samples_per_line):
             for x in range(self.number_of_lines):
                 for component in self.scan_components:
-                    data_units.append(
-                        scan_decoder.read_lossless_data_unit(component.dc_table)
-                    )
+                    data_units.append(scan_decoder.read_data_unit(component.dc_table))
         self.segments.append(LosslessScan(data_units))
 
     def parse_app(self, n):
@@ -396,13 +405,9 @@ class ArithmeticScanDecoder:
     def __init__(
         self,
         scan_data,
-        spectral_selection=(0, 63),
         conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
-        kx=[5, 5, 5, 5],
     ):
-        self.spectral_selection = spectral_selection
         self.conditioning_bounds = conditioning_bounds
-        self.kx = kx
 
         def make_states(count):
             states = []
@@ -425,35 +430,6 @@ class ArithmeticScanDecoder:
         self.ac_high_xstates = make_states(14)
         self.ac_low_mstates = make_states(14)
         self.ac_high_mstates = make_states(14)
-
-    def read_dct_data_unit(self, dc_table, ac_table):
-        # FIXME: Support multiple tables
-        data_unit = [0] * 64
-        k = self.spectral_selection[0]
-        while k <= self.spectral_selection[1]:
-            if k == 0:
-                dc_diff = self.read_dc(
-                    self.prev_dc_diff, self.conditioning_bounds[dc_table]
-                )
-                self.prev_dc_diff = dc_diff
-                data_unit[0] = dc_diff  # FIXME: prev_dc
-                k += 1
-            else:
-                if self.decoder.read_bit(self.ac_end_of_block[k - 1]) == 1:
-                    k = self.spectral_selection[1] + 1
-                else:
-                    while self.decoder.read_bit(self.ac_non_zero[k - 1]) == 0:
-                        k += 1
-                    data_unit[k] = self.read_ac(k, self.kx[ac_table])
-                    k += 1
-        return jpeg_dct.unzig_zag(data_unit)
-
-    def read_lossless_data_unit(self, table):
-        # FIXME: Needs to be based on a and b
-        # FIXME: Support multiple tables
-        data_unit = self.read_dc(self.prev_dc_diff, self.conditioning_bounds[table])
-        self.prev_dc_diff = data_unit
-        return data_unit
 
     def read_dc(self, prev_dc_diff, conditioning_bounds):
         c = self.classify_value(conditioning_bounds, prev_dc_diff)
@@ -534,50 +510,66 @@ class ArithmeticScanDecoder:
         return sign * magnitude
 
 
-class HuffmanScanDecoder:
+class ArithmeticDCTScanDecoder(ArithmeticScanDecoder):
     def __init__(
         self,
         scan_data,
         spectral_selection=(0, 63),
-        dc_tables=[{}, {}, {}, {}],
-        ac_tables=[{}, {}, {}, {}],
+        conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
+        kx=[5, 5, 5, 5],
     ):
+        super().__init__(scan_data, conditioning_bounds=conditioning_bounds)
         self.spectral_selection = spectral_selection
-        self.dc_tables = dc_tables
-        self.ac_tables = ac_tables
+        self.kx = kx
 
-        self.bits = []
-        for b in scan_data:
-            for i in range(8):
-                self.bits.append((b >> (7 - i)) & 0x1)
-
-    def read_dct_data_unit(self, dc_table, ac_table):
+    def read_data_unit(self, dc_table, ac_table):
+        # FIXME: Support multiple tables
         data_unit = [0] * 64
         k = self.spectral_selection[0]
         while k <= self.spectral_selection[1]:
             if k == 0:
-                dc_diff = self.read_dc(self.dc_tables[dc_table])
-                # FIXME: Offset from last DC value
-                data_unit[k] = dc_diff
+                dc_diff = self.read_dc(
+                    self.prev_dc_diff, self.conditioning_bounds[dc_table]
+                )
+                self.prev_dc_diff = dc_diff
+                data_unit[0] = dc_diff  # FIXME: prev_dc
                 k += 1
             else:
-                (run_length, ac) = self.read_ac(self.ac_tables[ac_table])
-                if ac == 0:
-                    # EOB
-                    if run_length == 0:
-                        k = self.spectral_selection[1] + 1
-                    elif run_length == 15:
-                        k += 16
-                    else:
-                        raise Exception("Invalid run length %d" % run_length)
+                if self.decoder.read_bit(self.ac_end_of_block[k - 1]) == 1:
+                    k = self.spectral_selection[1] + 1
                 else:
-                    k += run_length
-                    data_unit[k] = ac
+                    while self.decoder.read_bit(self.ac_non_zero[k - 1]) == 0:
+                        k += 1
+                    data_unit[k] = self.read_ac(k, self.kx[ac_table])
                     k += 1
         return jpeg_dct.unzig_zag(data_unit)
 
-    def read_lossless_data_unit(self, table):
-        return self.read_dc(self.dc_tables[table])
+
+class ArithmeticLosslessScanDecoder(ArithmeticScanDecoder):
+    def __init__(
+        self,
+        scan_data,
+        conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
+    ):
+        super().__init__(scan_data, conditioning_bounds=conditioning_bounds)
+
+    def read_data_unit(self, table):
+        # FIXME: Needs to be based on a and b
+        # FIXME: Support multiple tables
+        data_unit = self.read_dc(self.prev_dc_diff, self.conditioning_bounds[table])
+        self.prev_dc_diff = data_unit
+        return data_unit
+
+
+class HuffmanScanDecoder:
+    def __init__(
+        self,
+        scan_data,
+    ):
+        self.bits = []
+        for b in scan_data:
+            for i in range(8):
+                self.bits.append((b >> (7 - i)) & 0x1)
 
     def read_huffman(self, table):
         for i in range(len(self.bits)):
@@ -604,3 +596,51 @@ class HuffmanScanDecoder:
             if ac < (1 << (s - 1)):
                 ac -= (1 << s) - 1
         return (run_length, ac)
+
+
+class HuffmanDCTScanDecoder(HuffmanScanDecoder):
+    def __init__(
+        self,
+        scan_data,
+        spectral_selection=(0, 63),
+        dc_tables=[{}, {}, {}, {}],
+        ac_tables=[{}, {}, {}, {}],
+    ):
+        super().__init__(scan_data)
+        self.spectral_selection = spectral_selection
+        self.dc_tables = dc_tables
+        self.ac_tables = ac_tables
+
+    def read_data_unit(self, dc_table, ac_table):
+        data_unit = [0] * 64
+        k = self.spectral_selection[0]
+        while k <= self.spectral_selection[1]:
+            if k == 0:
+                dc_diff = self.read_dc(self.dc_tables[dc_table])
+                # FIXME: Offset from last DC value
+                data_unit[k] = dc_diff
+                k += 1
+            else:
+                (run_length, ac) = self.read_ac(self.ac_tables[ac_table])
+                if ac == 0:
+                    # EOB
+                    if run_length == 0:
+                        k = self.spectral_selection[1] + 1
+                    elif run_length == 15:
+                        k += 16
+                    else:
+                        raise Exception("Invalid run length %d" % run_length)
+                else:
+                    k += run_length
+                    data_unit[k] = ac
+                    k += 1
+        return jpeg_dct.unzig_zag(data_unit)
+
+
+class HuffmanLosslessScanDecoder(HuffmanScanDecoder):
+    def __init__(self, scan_data, dc_tables=[{}, {}, {}, {}]):
+        super().__init__(scan_data)
+        self.dc_tables = dc_tables
+
+    def read_data_unit(self, table):
+        return self.read_dc(self.dc_tables[table])
