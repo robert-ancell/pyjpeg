@@ -184,15 +184,25 @@ class Encoder:
             encoder = ArithmeticLosslessScanEncoder()
         else:
             encoder = HuffmanLosslessScanEncoder(dc_codecs=self.dc_huffman_codecs)
-        for component_index, scan_component in enumerate(self.sos.components):
+        for scan_component in self.sos.components:
+            # FIXME: component dimensions
+            # component = self.sof.components[scan_component.component_selector]
+
             # FIXME: Interleave
-            # FIXME: a and b
-            a = 0
-            b = 0
-            for data_unit in scan.data_units:
-                encoder.write_data_unit(
-                    component_index, a, b, data_unit, scan_component.dc_table
-                )
+            for i in range(len(scan.data_units)):
+                x = i % self.sof.samples_per_line
+                y = i // self.sof.samples_per_line
+
+                if x == 0:
+                    a = 0
+                else:
+                    a = scan.data_units[i - 1]
+                if y == 0:
+                    b = 0
+                else:
+                    b = scan.data_units[i - self.sof.samples_per_line]
+                data_unit = scan.data_units[i]
+                encoder.write_data_unit(a, b, data_unit, scan_component.dc_table)
         self.data += encoder.get_data()
 
     def encode_rst(self, rst):
@@ -260,6 +270,7 @@ class ArithmeticScanEncoder:
         spectral_selection=(0, 63),
         conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
         kx=[5, 5, 5, 5],
+        n_conditioning_states=5,
     ):
         self.spectral_selection = spectral_selection
         self.conditioning_bounds = conditioning_bounds
@@ -272,10 +283,10 @@ class ArithmeticScanEncoder:
             return states
 
         self.encoder = arithmetic.Encoder()
-        self.dc_non_zero = make_states(N_ARITHMETIC_CLASSIFICATIONS)
-        self.dc_sign = make_states(N_ARITHMETIC_CLASSIFICATIONS)
-        self.dc_sp = make_states(N_ARITHMETIC_CLASSIFICATIONS)
-        self.dc_sn = make_states(N_ARITHMETIC_CLASSIFICATIONS)
+        self.dc_non_zero = make_states(n_conditioning_states)
+        self.dc_sign = make_states(n_conditioning_states)
+        self.dc_sp = make_states(n_conditioning_states)
+        self.dc_sn = make_states(n_conditioning_states)
         self.dc_xstates = make_states(15)
         self.dc_mstates = make_states(14)
         self.ac_end_of_block = make_states(63)
@@ -286,22 +297,20 @@ class ArithmeticScanEncoder:
         self.ac_low_mstates = make_states(14)
         self.ac_high_mstates = make_states(14)
 
-    def write_dc(self, dc_diff, prev_dc_diff, conditioning_bounds):
-        c = self.classify_value(conditioning_bounds, prev_dc_diff)
-
-        if dc_diff == 0:
+    def write_dc(self, c, value):
+        if value == 0:
             self.encoder.write_bit(self.dc_non_zero[c], 0)
             return
         self.encoder.write_bit(self.dc_non_zero[c], 1)
 
-        if dc_diff > 0:
+        if value > 0:
             sign = 1
-            magnitude = dc_diff
+            magnitude = value
             self.encoder.write_bit(self.dc_sign[c], 0)
             mag_state = self.dc_sp[c]
         else:
             sign = -1
-            magnitude = -dc_diff
+            magnitude = -value
             self.encoder.write_bit(self.dc_sign[c], 1)
             mag_state = self.dc_sn[c]
 
@@ -344,6 +353,11 @@ class ArithmeticScanEncoder:
                 return ARITHMETIC_CLASSIFICATION_SMALL_NEGATIVE
             else:
                 return ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE
+
+    def classify_value_2d(self, conditioning_bounds, a, b):
+        ca = self.classify_value(conditioning_bounds, a)
+        cb = self.classify_value(conditioning_bounds, b)
+        return ca * 5 + cb
 
     def write_ac(self, ac, k, kx):
         assert ac != 0
@@ -401,7 +415,12 @@ class ArithmeticDCTScanEncoder(ArithmeticScanEncoder):
         conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
         kx=[5, 5, 5, 5],
     ):
-        super().__init__(self, spectral_selection=spectral_selection, kx=kx)
+        super().__init__(
+            spectral_selection=spectral_selection,
+            n_conditioning_states=5,
+            conditioning_bounds=conditioning_bounds,
+            kx=kx,
+        )
         self.prev_dc = {}
         self.prev_dc_diff = {}
 
@@ -414,7 +433,10 @@ class ArithmeticDCTScanEncoder(ArithmeticScanEncoder):
                 dc = zz_data_unit[k]
                 dc_diff = dc - self.prev_dc.get(component_index, 0)
                 prev_dc_diff = self.prev_dc_diff.get(component_index, 0)
-                self.write_dc(dc_diff, prev_dc_diff, self.conditioning_bounds[dc_table])
+                c = self.classify_value(
+                    prev_dc_diff, self.conditioning_bounds[dc_table]
+                )
+                self.write_dc(c, dc_diff)
                 self.prev_dc[component_index] = dc
                 self.prev_dc_diff[component_index] = dc_diff
                 k += 1
@@ -445,12 +467,16 @@ class ArithmeticLosslessScanEncoder(ArithmeticScanEncoder):
         conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
         kx=[5, 5, 5, 5],
     ):
-        super().__init__(self, spectral_selection=spectral_selection, kx=kx)
+        super().__init__(
+            spectral_selection=spectral_selection,
+            n_conditioning_states=25,
+            conditioning_bounds=conditioning_bounds,
+            kx=kx,
+        )
 
-    def write_data_unit(self, component_index, a, b, data_unit, table):
-        prev_dc = self.prev_dc.get(component_index, 0)
-        self.write_dc(data_unit, prev_dc, self.conditioning_bounds[table])
-        self.prev_dc[component_index] = data_unit
+    def write_data_unit(self, a, b, data_unit, table):
+        c = self.classify_value_2d(self.conditioning_bounds[table], a, b)
+        self.write_dc(c, data_unit)
 
 
 class HuffmanScanEncoder:
@@ -602,7 +628,7 @@ class HuffmanLosslessScanEncoder(HuffmanScanEncoder):
             ac_codecs=ac_codecs,
         )
 
-    def write_data_unit(self, component_index, a, b, data_unit, table):
+    def write_data_unit(self, a, b, data_unit, table):
         self.write_dc(data_unit, table)
 
 
@@ -640,7 +666,7 @@ if __name__ == "__main__":
         # FIXME: Need a and b
         a = 0
         b = 0
-        scan_encoder.write_data_unit(0, a, b, data_unit, 0)
+        scan_encoder.write_data_unit(a, b, data_unit, 0)
     huffman_table = huffman.make_huffman_table(scan_encoder.dc_symbol_frequencies)
 
     encoder = Encoder(
@@ -658,4 +684,18 @@ if __name__ == "__main__":
         ]
     )
     encoder.encode()
-    open("test-lossless.jpg", "wb").write(encoder.data)
+    open("test-lossless-huffman.jpg", "wb").write(encoder.data)
+
+    encoder = Encoder(
+        [
+            StartOfImage(),
+            StartOfFrame.lossless(
+                8, 8, 8, [FrameComponent.lossless(1)], arithmetic=True
+            ),
+            StartOfScan.lossless([ScanComponent.lossless(1, 0)]),
+            LosslessScan(data_units),
+            EndOfImage(),
+        ]
+    )
+    encoder.encode()
+    open("test-lossless-arithmetic.jpg", "wb").write(encoder.data)
