@@ -3,6 +3,7 @@ import struct
 import arithmetic
 import huffman
 import jpeg_dct
+import jpeg_lossless
 from jpeg_marker import *
 from jpeg_segments import *
 
@@ -179,30 +180,45 @@ class Encoder:
         self.data += encoder.get_data()
 
     def encode_lossless_scan(self, scan):
+        assert self.sof is not None
         assert self.sos is not None
         if self.arithmetic:
             encoder = ArithmeticLosslessScanEncoder()
         else:
             encoder = HuffmanLosslessScanEncoder(dc_codecs=self.dc_huffman_codecs)
+
         for scan_component in self.sos.components:
             # FIXME: component dimensions
             # component = self.sof.components[scan_component.component_selector]
 
             # FIXME: Interleave
-            for i in range(len(scan.data_units)):
+            for i in range(len(scan.samples)):
                 x = i % self.sof.samples_per_line
                 y = i // self.sof.samples_per_line
 
+                a = b = c = 0
+                if y > 0:
+                    b = scan.samples[i - self.sof.samples_per_line]
+                    if x > 0:
+                        c = scan.samples[i - self.sof.samples_per_line - 1]
                 if x == 0:
-                    a = 0
+                    # Use above sample if on start of line
+                    a = b
                 else:
-                    a = scan.data_units[i - 1]
+                    a = scan.samples[i - 1]
+
+                # First line always uses predictor 1
                 if y == 0:
-                    b = 0
+                    predictor = 1
                 else:
-                    b = scan.data_units[i - self.sof.samples_per_line]
-                data_unit = scan.data_units[i]
-                encoder.write_data_unit(a, b, data_unit, scan_component.dc_table)
+                    predictor = self.sos.ss
+
+                if (x, y) == (0, 0):
+                    p = 1 << (self.sof.precision - 1)
+                else:
+                    p = jpeg_lossless.predictor(predictor, a, b, c)
+                sample = scan.samples[i]
+                encoder.write_data_unit(a, b, sample - p, scan_component.dc_table)
         self.data += encoder.get_data()
 
     def encode_rst(self, rst):
@@ -635,10 +651,86 @@ class HuffmanLosslessScanEncoder(HuffmanScanEncoder):
 if __name__ == "__main__":
     from huffman_tables import *
 
+    # Test image
+    samples = [
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        255,
+        255,
+        0,
+        255,
+        255,
+        255,
+        255,
+        0,
+        255,
+        255,
+        0,
+        255,
+        255,
+        255,
+        255,
+        0,
+        255,
+        255,
+        0,
+        255,
+        0,
+        0,
+        255,
+        0,
+        255,
+        255,
+        0,
+        255,
+        255,
+        255,
+        255,
+        0,
+        255,
+        255,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+        255,
+    ]
+
+    from jpeg_dct import *
+
+    quantization_table = [1] * 64
+    offset_samples = []
+    for s in samples:
+        offset_samples.append(s - 128)
+    dct_coefficients = quantize(dct2d(offset_samples), quantization_table)
+
     encoder = Encoder(
         [
             StartOfImage(),
-            DefineQuantizationTables([QuantizationTable(0, [1] * 64)]),
+            DefineQuantizationTables([QuantizationTable(0, quantization_table)]),
             DefineHuffmanTables(
                 [
                     HuffmanTable.dc(0, standard_luminance_dc_huffman_table),
@@ -647,7 +739,7 @@ if __name__ == "__main__":
             ),
             StartOfFrame.baseline(8, 8, [FrameComponent.dct(1)]),
             StartOfScan.dct([ScanComponent.dct(1, 0, 0)]),
-            DCTScan([[0] * 64]),
+            DCTScan([dct_coefficients]),
             EndOfImage(),
         ]
     )
@@ -657,19 +749,16 @@ if __name__ == "__main__":
     encoder = Encoder(
         [
             StartOfImage(),
+            DefineQuantizationTables([QuantizationTable(0, quantization_table)]),
             StartOfFrame.extended(8, 8, 8, [FrameComponent.dct(1)], arithmetic=True),
             StartOfScan.dct([ScanComponent.dct(1, 0, 0)]),
-            DCTScan([[0] * 64]),
+            DCTScan([dct_coefficients]),
             EndOfImage(),
         ]
     )
     encoder.encode()
     open("test-arithmetic.jpg", "wb").write(encoder.data)
 
-    import jpeg_lossless
-
-    samples = [0] * 64
-    data_units = jpeg_lossless.make_lossless_data_units(1, 8, 8, samples)
     encoder = Encoder(
         [
             StartOfImage(),
@@ -680,7 +769,7 @@ if __name__ == "__main__":
             ),
             StartOfFrame.lossless(8, 8, 8, [FrameComponent.lossless(1)]),
             StartOfScan.lossless([ScanComponent.lossless(1, 0)]),
-            LosslessScan(data_units),
+            LosslessScan(samples),
             EndOfImage(),
         ]
     )
@@ -694,7 +783,7 @@ if __name__ == "__main__":
                 8, 8, 8, [FrameComponent.lossless(1)], arithmetic=True
             ),
             StartOfScan.lossless([ScanComponent.lossless(1, 0)]),
-            LosslessScan(data_units),
+            LosslessScan(samples),
             EndOfImage(),
         ]
     )

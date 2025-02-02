@@ -100,12 +100,12 @@ for segment in decoder.segments:
                     5: "Differential sequential DCT, Huffman coding",
                     6: "Differential progressive DCT, Huffman coding",
                     7: "Differential lossless (sequential), Huffman coding",
-                    9: "Extended sequential DCT, arithmetic coding",
-                    10: "Progressive DCT, arithmetic coding",
-                    11: "Lossless (sequential), arithmetic coding",
-                    13: "Differential sequential DCT, arithmetic coding",
-                    14: "Differential progressive DCT, arithmetic coding",
-                    15: "Differential lossless (sequential), arithmetic coding",
+                    9: "Extended sequential DCT, Arithmetic coding",
+                    10: "Progressive DCT, Arithmetic coding",
+                    11: "Lossless (sequential), Arithmetic coding",
+                    13: "Differential sequential DCT, Arithmetic coding",
+                    14: "Differential progressive DCT, Arithmetic coding",
+                    15: "Differential lossless (sequential), Arithmetic coding",
                 }[segment.n],
             )
         )
@@ -137,8 +137,8 @@ for segment in decoder.segments:
     elif isinstance(segment, LosslessScan):
         print(" Lossless Values:")
         s = ""
-        for data_unit in segment.data_units:
-            s += " %d" % data_unit
+        for sample in segment.samples:
+            s += " %d" % sample
         print(s)
     elif isinstance(segment, Restart):
         print("RST%d Restart" % segment.n)

@@ -2,6 +2,7 @@ import struct
 
 import arithmetic
 import jpeg_dct
+import jpeg_lossless
 from jpeg_marker import *
 from jpeg_segments import *
 
@@ -297,14 +298,14 @@ class Decoder:
         self.segments.append(DCTScan(data_units))
 
     def parse_lossless_scan(self, scan_data):
-        predictor = self.sos.ss
+        assert self.sof is not None
+        assert self.sos is not None
 
         if self.arithmetic:
             scan_decoder = ArithmeticLosslessScanDecoder(
                 self.sof.components,
                 self.sos.components,
                 scan_data,
-                predictor,
                 self.dc_arithmetic_conditioning_bounds,
             )
         else:
@@ -312,16 +313,37 @@ class Decoder:
                 self.sof.components,
                 self.sos.components,
                 scan_data,
-                predictor,
                 self.dc_huffman_tables,
             )
 
-        data_units = []
+        samples = []
         for y in range(self.samples_per_line):
             for x in range(self.number_of_lines):
                 for component in self.sos.components:
-                    data_units.append(scan_decoder.read_data_unit(component.dc_table))
-        self.segments.append(LosslessScan(data_units))
+                    a = b = c = 0
+                    if y > 0:
+                        b = samples[-self.sof.samples_per_line]
+                        if x > 0:
+                            c = samples[-self.sof.samples_per_line - 1]
+                    if x == 0:
+                        # Use above sample if on start of line
+                        a = b
+                    else:
+                        a = samples[-1]
+
+                    # First line always uses predictor 1
+                    if y == 0:
+                        predictor = 1
+                    else:
+                        predictor = self.sos.ss
+
+                    if (x, y) == (0, 0):
+                        p = 1 << (self.sof.precision - 1)
+                    else:
+                        p = jpeg_lossless.predictor(predictor, a, b, c)
+                    sample = p + scan_decoder.read_data_unit(a, b, component.dc_table)
+                    samples.append(sample)
+        self.segments.append(LosslessScan(samples))
 
     def parse_app(self, n):
         data = self.parse_segment()
@@ -426,6 +448,7 @@ class ArithmeticScanDecoder(ScanDecoder):
         scan_components,
         scan_data,
         conditioning_bounds,
+        n_conditioning_states=5,
     ):
         super().__init__(frame_components, scan_components)
         self.conditioning_bounds = conditioning_bounds
@@ -437,10 +460,10 @@ class ArithmeticScanDecoder(ScanDecoder):
             return states
 
         self.decoder = arithmetic.Decoder(scan_data)
-        self.dc_non_zero = make_states(N_ARITHMETIC_CLASSIFICATIONS)
-        self.dc_sign = make_states(N_ARITHMETIC_CLASSIFICATIONS)
-        self.dc_sp = make_states(N_ARITHMETIC_CLASSIFICATIONS)
-        self.dc_sn = make_states(N_ARITHMETIC_CLASSIFICATIONS)
+        self.dc_non_zero = make_states(n_conditioning_states)
+        self.dc_sign = make_states(n_conditioning_states)
+        self.dc_sp = make_states(n_conditioning_states)
+        self.dc_sn = make_states(n_conditioning_states)
         self.dc_xstates = make_states(15)
         self.dc_mstates = make_states(14)
         self.ac_end_of_block = make_states(63)
@@ -451,9 +474,7 @@ class ArithmeticScanDecoder(ScanDecoder):
         self.ac_low_mstates = make_states(14)
         self.ac_high_mstates = make_states(14)
 
-    def read_dc(self, prev_dc_diff, conditioning_bounds):
-        c = self.classify_value(conditioning_bounds, prev_dc_diff)
-
+    def read_dc(self, c):
         if self.decoder.read_bit(self.dc_non_zero[c]) == 0:
             return 0
 
@@ -499,6 +520,11 @@ class ArithmeticScanDecoder(ScanDecoder):
             else:
                 return ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE
 
+    def classify_value_2d(self, conditioning_bounds, a, b):
+        ca = self.classify_value(conditioning_bounds, a)
+        cb = self.classify_value(conditioning_bounds, b)
+        return ca * 5 + cb
+
     def read_ac(self, k, kx):
         if self.decoder.read_fixed_bit() == 0:
             sign = 1
@@ -541,7 +567,11 @@ class ArithmeticDCTScanDecoder(ArithmeticScanDecoder):
         kx=[5, 5, 5, 5],
     ):
         super().__init__(
-            frame_components, scan_components, scan_data, conditioning_bounds
+            frame_components,
+            scan_components,
+            scan_data,
+            conditioning_bounds,
+            n_conditioning_states=5,
         )
         self.spectral_selection = spectral_selection
         self.kx = kx
@@ -553,9 +583,10 @@ class ArithmeticDCTScanDecoder(ArithmeticScanDecoder):
         k = self.spectral_selection[0]
         while k <= self.spectral_selection[1]:
             if k == 0:
-                dc_diff = self.read_dc(
-                    self.prev_dc_diff, self.conditioning_bounds[dc_table]
+                c = self.classify_value(
+                    self.conditioning_bounds[dc_table], self.prev_dc_diff
                 )
+                dc_diff = self.read_dc(c)
                 self.prev_dc_diff = dc_diff
                 data_unit[0] = dc_diff  # FIXME: prev_dc
                 k += 1
@@ -576,19 +607,19 @@ class ArithmeticLosslessScanDecoder(ArithmeticScanDecoder):
         frame_components,
         scan_components,
         scan_data,
-        predictor,
         conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
     ):
         super().__init__(
-            frame_components, scan_components, scan_data, conditioning_bounds
+            frame_components,
+            scan_components,
+            scan_data,
+            conditioning_bounds,
+            n_conditioning_states=25,
         )
-        self.prev_dc_diff = 0
 
-    def read_data_unit(self, table):
-        # FIXME: Needs to be based on a and b
-        # FIXME: Support multiple tables
-        data_unit = self.read_dc(self.prev_dc_diff, self.conditioning_bounds[table])
-        self.prev_dc_diff = data_unit
+    def read_data_unit(self, a, b, table):
+        c = self.classify_value_2d(self.conditioning_bounds[table], a, b)
+        data_unit = self.read_dc(c)
         return data_unit
 
 
@@ -679,12 +710,10 @@ class HuffmanLosslessScanDecoder(HuffmanScanDecoder):
         frame_components,
         scan_components,
         scan_data,
-        predictor,
         dc_tables=[{}, {}, {}, {}],
     ):
         super().__init__(frame_components, scan_components, scan_data)
-
         self.dc_tables = dc_tables
 
-    def read_data_unit(self, table):
+    def read_data_unit(self, a, b, table):
         return self.read_dc(self.dc_tables[table])
