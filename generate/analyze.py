@@ -127,6 +127,7 @@ for segment in decoder.segments:
             print(" Component %d:" % component.component_selector)
             print("  DC Table: %d" % component.dc_table)
             print("  AC Table: %d" % component.ac_table)
+        # FIXME: Print out prediciton if lossless
         print(" Spectral Selection: %d-%d" % (segment.ss, segment.se))
         print(" Previous Point Transform: %d" % segment.ah)
         print(" Point Transform: %d" % segment.al)
