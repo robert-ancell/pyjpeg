@@ -442,8 +442,6 @@ ARITHMETIC_CLASSIFICATION_SMALL_NEGATIVE = 2
 ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE = 3
 ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE = 4
 
-N_ARITHMETIC_CLASSIFICATIONS = 5
-
 
 class ScanDecoder:
     def __init__(self, frame_components, scan_components):
@@ -467,10 +465,10 @@ class ArithmeticScanDecoder(ScanDecoder):
 
         if self.decoder.read_bit(sign) == 0:
             mag_state = sp
-            sign = 1
+            dc_sign = 1
         else:
             mag_state = sn
-            sign = -1
+            dc_sign = -1
         if self.decoder.read_bit(mag_state) == 0:
             return sign
 
@@ -484,7 +482,7 @@ class ArithmeticScanDecoder(ScanDecoder):
             magnitude = magnitude << 1 | self.decoder.read_bit(mstates[width - 2])
         magnitude += 1
 
-        return sign * magnitude
+        return dc_sign * magnitude
 
     def classify_value(self, lower, upper, value):
         if lower > 0:
@@ -544,6 +542,11 @@ class ArithmeticDCTScanDecoder(ArithmeticScanDecoder):
             scan_data,
         )
 
+        self.spectral_selection = spectral_selection
+        self.conditioning_bounds = conditioning_bounds
+        self.kx = kx
+        self.prev_dc_diff = 0
+
         def make_states(count):
             states = []
             for _ in range(count):
@@ -563,10 +566,6 @@ class ArithmeticDCTScanDecoder(ArithmeticScanDecoder):
         self.ac_high_xstates = make_states(14)
         self.ac_low_mstates = make_states(14)
         self.ac_high_mstates = make_states(14)
-        self.spectral_selection = spectral_selection
-        self.conditioning_bounds = conditioning_bounds
-        self.kx = kx
-        self.prev_dc_diff = 0
 
     def read_data_unit(self, dc_table, ac_table):
         # FIXME: Support multiple tables
@@ -621,6 +620,8 @@ class ArithmeticLosslessScanDecoder(ArithmeticScanDecoder):
             scan_data,
         )
 
+        self.conditioning_bounds = conditioning_bounds
+
         def make_states(count):
             states = []
             for _ in range(count):
@@ -635,7 +636,6 @@ class ArithmeticLosslessScanDecoder(ArithmeticScanDecoder):
         self.large_xstates = make_states(15)
         self.small_mstates = make_states(14)
         self.large_mstates = make_states(14)
-        self.conditioning_bounds = conditioning_bounds
 
     def read_data_unit(self, table, left_diff, above_diff):
         lower, upper = self.conditioning_bounds[table]
