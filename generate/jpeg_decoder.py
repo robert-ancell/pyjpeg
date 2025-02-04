@@ -317,32 +317,42 @@ class Decoder:
             )
 
         samples = []
+        diffs = [0] * self.samples_per_line
+        above_diffs = [0] * self.samples_per_line
         for y in range(self.samples_per_line):
             for x in range(self.number_of_lines):
                 for component in self.sos.components:
-                    a = b = c = 0
-                    if y > 0:
-                        b = samples[-self.sof.samples_per_line]
-                        if x > 0:
-                            c = samples[-self.sof.samples_per_line - 1]
-                    if x == 0:
-                        # Use above sample if on start of line
-                        a = b
-                    else:
-                        a = samples[-1]
-
-                    # First line always uses predictor 1
+                    # First line uses fixed predictor since no samples above
                     if y == 0:
-                        predictor = 1
+                        if x == 0:
+                            p = 1 << (self.sof.precision - 1)
+                        else:
+                            p = samples[-1]
                     else:
                         predictor = self.sos.ss
-
-                    if (x, y) == (0, 0):
-                        p = 1 << (self.sof.precision - 1)
-                    else:
+                        a = b = c = 0
+                        b = samples[-self.samples_per_line]
+                        if x == 0:
+                            # If on left edge, use the above value for prediction
+                            # FIXME: Only for predictor 1?
+                            a = b
+                        else:
+                            a = samples[-1]
+                            c = samples[-self.samples_per_line - 1]
                         p = jpeg_lossless.predictor(predictor, a, b, c)
-                    sample = p + scan_decoder.read_data_unit(a, b, component.dc_table)
-                    samples.append(sample)
+
+                    if x == 0:
+                        left_diff = 0
+                    else:
+                        left_diff = diffs[x - 1]
+                    diff = scan_decoder.read_data_unit(
+                        component.dc_table, left_diff, above_diffs[x]
+                    )
+                    # FIXME: Clamp diff to 16 bit
+                    diffs[x] = diff
+                    samples.append(p + diff)
+            above_diffs = diffs
+            diffs = [0] * self.samples_per_line
         self.segments.append(LosslessScan(samples))
 
     def parse_app(self, n):
@@ -447,61 +457,36 @@ class ArithmeticScanDecoder(ScanDecoder):
         frame_components,
         scan_components,
         scan_data,
-        conditioning_bounds,
-        n_conditioning_states=5,
     ):
         super().__init__(frame_components, scan_components)
-        self.conditioning_bounds = conditioning_bounds
-
-        def make_states(count):
-            states = []
-            for _ in range(count):
-                states.append(arithmetic.State())
-            return states
-
         self.decoder = arithmetic.Decoder(scan_data)
-        self.dc_non_zero = make_states(n_conditioning_states)
-        self.dc_sign = make_states(n_conditioning_states)
-        self.dc_sp = make_states(n_conditioning_states)
-        self.dc_sn = make_states(n_conditioning_states)
-        self.dc_xstates = make_states(15)
-        self.dc_mstates = make_states(14)
-        self.ac_end_of_block = make_states(63)
-        self.ac_non_zero = make_states(63)
-        self.ac_sn_sp_x1 = make_states(63)
-        self.ac_low_xstates = make_states(14)
-        self.ac_high_xstates = make_states(14)
-        self.ac_low_mstates = make_states(14)
-        self.ac_high_mstates = make_states(14)
 
-    def read_dc(self, c):
-        if self.decoder.read_bit(self.dc_non_zero[c]) == 0:
+    def read_dc(self, non_zero, sign, sp, sn, xstates, mstates):
+        if self.decoder.read_bit(non_zero) == 0:
             return 0
 
-        if self.decoder.read_bit(self.dc_sign[c]) == 0:
-            if self.decoder.read_bit(self.dc_sp[c]) == 0:
-                return 1
+        if self.decoder.read_bit(sign) == 0:
+            mag_state = sp
             sign = 1
         else:
-            if self.decoder.read_bit(self.dc_sn[c]) == 0:
-                return -1
+            mag_state = sn
             sign = -1
+        if self.decoder.read_bit(mag_state) == 0:
+            return sign
 
-        width = 0
-        while self.decoder.read_bit(self.dc_xstates[width]) == 1:
+        # FIXME: Set max width to not run off end of array
+        width = 1
+        while self.decoder.read_bit(xstates[width]) == 1:
             width += 1
 
         magnitude = 1
-        for _ in range(width):
-            magnitude = magnitude << 1 | self.decoder.read_bit(
-                self.dc_mstates[width - 2]
-            )
+        for _ in range(width - 1):
+            magnitude = magnitude << 1 | self.decoder.read_bit(mstates[width - 2])
         magnitude += 1
 
         return sign * magnitude
 
-    def classify_value(self, conditioning_bounds, value):
-        (lower, upper) = conditioning_bounds
+    def classify_value(self, lower, upper, value):
         if lower > 0:
             lower = 1 << (lower - 1)
         upper = 1 << upper
@@ -520,34 +505,21 @@ class ArithmeticScanDecoder(ScanDecoder):
             else:
                 return ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE
 
-    def classify_value_2d(self, conditioning_bounds, a, b):
-        ca = self.classify_value(conditioning_bounds, a)
-        cb = self.classify_value(conditioning_bounds, b)
-        return ca * 5 + cb
-
-    def read_ac(self, k, kx):
+    def read_ac(self, sn_sp_x1, xstates, mstates):
         if self.decoder.read_fixed_bit() == 0:
             sign = 1
         else:
             sign = -1
 
-        if self.decoder.read_bit(self.ac_sn_sp_x1[k - 1]) == 0:
+        if self.decoder.read_bit(sn_sp_x1) == 0:
             return sign
 
-        if k <= kx:
-            xstates = self.ac_low_xstates
-        else:
-            xstates = self.ac_high_xstates
         width = 1
-        if self.decoder.read_bit(self.ac_sn_sp_x1[k - 1]) == 1:
+        if self.decoder.read_bit(sn_sp_x1) == 1:
             width += 1
             while self.decoder.read_bit(xstates[width - 2]) == 1:
                 width += 1
 
-        if k <= kx:
-            mstates = self.ac_low_mstates
-        else:
-            mstates = self.ac_high_mstates
         magnitude = 1
         for _ in range(width - 1):
             magnitude = magnitude << 1 | self.decoder.read_bit(mstates[width - 2])
@@ -570,10 +542,29 @@ class ArithmeticDCTScanDecoder(ArithmeticScanDecoder):
             frame_components,
             scan_components,
             scan_data,
-            conditioning_bounds,
-            n_conditioning_states=5,
         )
+
+        def make_states(count):
+            states = []
+            for _ in range(count):
+                states.append(arithmetic.State())
+            return states
+
+        self.dc_non_zero = make_states(5)
+        self.dc_sign = make_states(5)
+        self.dc_sp = make_states(5)
+        self.dc_sn = make_states(5)
+        self.dc_xstates = make_states(15)
+        self.dc_mstates = make_states(14)
+        self.ac_end_of_block = make_states(63)
+        self.ac_non_zero = make_states(63)
+        self.ac_sn_sp_x1 = make_states(63)
+        self.ac_low_xstates = make_states(14)
+        self.ac_high_xstates = make_states(14)
+        self.ac_low_mstates = make_states(14)
+        self.ac_high_mstates = make_states(14)
         self.spectral_selection = spectral_selection
+        self.conditioning_bounds = conditioning_bounds
         self.kx = kx
         self.prev_dc_diff = 0
 
@@ -583,10 +574,16 @@ class ArithmeticDCTScanDecoder(ArithmeticScanDecoder):
         k = self.spectral_selection[0]
         while k <= self.spectral_selection[1]:
             if k == 0:
-                c = self.classify_value(
-                    self.conditioning_bounds[dc_table], self.prev_dc_diff
+                lower, upper = self.conditioning_bounds[dc_table]
+                c = self.classify_value(lower, upper, self.prev_dc_diff)
+                dc_diff = self.read_dc(
+                    self.dc_non_zero[c],
+                    self.dc_sign[c],
+                    self.dc_sp[c],
+                    self.dc_sn[c],
+                    self.dc_xstates,
+                    self.dc_mstates,
                 )
-                dc_diff = self.read_dc(c)
                 self.prev_dc_diff = dc_diff
                 data_unit[0] = dc_diff  # FIXME: prev_dc
                 k += 1
@@ -596,7 +593,16 @@ class ArithmeticDCTScanDecoder(ArithmeticScanDecoder):
                 else:
                     while self.decoder.read_bit(self.ac_non_zero[k - 1]) == 0:
                         k += 1
-                    data_unit[k] = self.read_ac(k, self.kx[ac_table])
+                    kx = self.kx[ac_table]
+                    if k <= kx:
+                        xstates = self.ac_low_xstates
+                        mstates = self.ac_low_mstates
+                    else:
+                        xstates = self.ac_high_xstates
+                        mstates = self.ac_high_mstates
+                    data_unit[k] = self.read_ac(
+                        self.ac_sn_sp_x1[k - 1], xstates, mstates
+                    )
                     k += 1
         return jpeg_dct.unzig_zag(data_unit)
 
@@ -613,14 +619,41 @@ class ArithmeticLosslessScanDecoder(ArithmeticScanDecoder):
             frame_components,
             scan_components,
             scan_data,
-            conditioning_bounds,
-            n_conditioning_states=25,
         )
 
-    def read_data_unit(self, a, b, table):
-        c = self.classify_value_2d(self.conditioning_bounds[table], a, b)
-        data_unit = self.read_dc(c)
-        return data_unit
+        def make_states(count):
+            states = []
+            for _ in range(count):
+                states.append(arithmetic.State())
+            return states
+
+        self.non_zero = make_states(25)
+        self.sign = make_states(25)
+        self.sp = make_states(25)
+        self.sn = make_states(25)
+        self.small_xstates = make_states(15)
+        self.large_xstates = make_states(15)
+        self.small_mstates = make_states(14)
+        self.large_mstates = make_states(14)
+        self.conditioning_bounds = conditioning_bounds
+
+    def read_data_unit(self, table, left_diff, above_diff):
+        lower, upper = self.conditioning_bounds[table]
+        ca = self.classify_value(lower, upper, left_diff)
+        cb = self.classify_value(lower, upper, above_diff)
+        c = ca * 5 + cb
+        if (
+            cb == ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE
+            or cb == ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE
+        ):
+            xstates = self.large_xstates
+            mstates = self.large_mstates
+        else:
+            xstates = self.small_xstates
+            mstates = self.small_mstates
+        return self.read_dc(
+            self.non_zero[c], self.sign[c], self.sp[c], self.sn[c], xstates, mstates
+        )
 
 
 class HuffmanScanDecoder(ScanDecoder):
@@ -715,5 +748,5 @@ class HuffmanLosslessScanDecoder(HuffmanScanDecoder):
         super().__init__(frame_components, scan_components, scan_data)
         self.dc_tables = dc_tables
 
-    def read_data_unit(self, a, b, table):
+    def read_data_unit(self, table, left_diff, above_diff):
         return self.read_dc(self.dc_tables[table])
