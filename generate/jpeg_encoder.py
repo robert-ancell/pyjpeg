@@ -493,12 +493,10 @@ class ArithmeticLosslessScanEncoder(ArithmeticScanEncoder):
         self,
         spectral_selection=(0, 63),
         conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
-        kx=[5, 5, 5, 5],
     ):
         super().__init__()
         self.spectral_selection = (spectral_selection,)
         self.conditioning_bounds = conditioning_bounds
-        self.kx = kx
 
         def make_states(count):
             states = []
