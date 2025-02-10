@@ -493,11 +493,9 @@ class ArithmeticDCTScanEncoder(ArithmeticScanEncoder):
 class ArithmeticLosslessScanEncoder(ArithmeticScanEncoder):
     def __init__(
         self,
-        spectral_selection=(0, 63),
         conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
     ):
         super().__init__()
-        self.spectral_selection = (spectral_selection,)
         self.conditioning_bounds = conditioning_bounds
 
         def make_states(count):
@@ -543,11 +541,9 @@ class ArithmeticLosslessScanEncoder(ArithmeticScanEncoder):
 class HuffmanScanEncoder:
     def __init__(
         self,
-        spectral_selection=(0, 63),
         dc_codecs=[None, None, None, None],
         ac_codecs=[None, None, None, None],
     ):
-        self.spectral_selection = spectral_selection
         self.dc_codecs = dc_codecs
         self.ac_codecs = ac_codecs
         self.bits = []
@@ -640,10 +636,10 @@ class HuffmanDCTScanEncoder(HuffmanScanEncoder):
         ac_codecs=[None, None, None, None],
     ):
         super().__init__(
-            spectral_selection=spectral_selection,
             dc_codecs=dc_codecs,
             ac_codecs=ac_codecs,
         )
+        self.spectral_selection = spectral_selection
         self.prev_dc = {}
 
     def write_data_unit(self, component_index, data_unit, dc_table, ac_table):
@@ -679,11 +675,9 @@ class HuffmanDCTScanEncoder(HuffmanScanEncoder):
 class HuffmanLosslessScanEncoder(HuffmanScanEncoder):
     def __init__(
         self,
-        spectral_selection=(0, 63),
         dc_codecs=[None, None, None, None],
     ):
         super().__init__(
-            spectral_selection=spectral_selection,
             dc_codecs=dc_codecs,
         )
 
