@@ -183,7 +183,9 @@ class Encoder:
         assert self.sof is not None
         assert self.sos is not None
         if self.arithmetic:
-            encoder = ArithmeticLosslessScanEncoder()
+            encoder = ArithmeticLosslessScanEncoder(
+                conditioning_bounds=self.conditioning_bounds
+            )
         else:
             encoder = HuffmanLosslessScanEncoder(dc_codecs=self.dc_huffman_codecs)
 
@@ -679,12 +681,10 @@ class HuffmanLosslessScanEncoder(HuffmanScanEncoder):
         self,
         spectral_selection=(0, 63),
         dc_codecs=[None, None, None, None],
-        ac_codecs=[None, None, None, None],
     ):
         super().__init__(
             spectral_selection=spectral_selection,
             dc_codecs=dc_codecs,
-            ac_codecs=ac_codecs,
         )
 
     def write_data_unit(self, table, left_diff, above_diff, data_unit):
