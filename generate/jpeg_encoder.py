@@ -189,62 +189,66 @@ class Encoder:
         else:
             encoder = HuffmanLosslessScanEncoder(dc_codecs=self.dc_huffman_codecs)
 
-        diffs = [0] * self.sof.samples_per_line
-        above_diffs = [0] * self.sof.samples_per_line
-        for scan_component in self.sos.components:
-            # FIXME: component dimensions
-            # component = self.sof.components[scan_component.component_selector]
+        samples_per_line = self.sof.samples_per_line
+        n_components = len(self.sos.components)
+        diffs = []
+        above_diffs = []
+        for i in range(n_components):
+            diffs.append([0] * samples_per_line)
+            above_diffs.append([0] * samples_per_line)
+        i = 0
+        x = y = 0
 
-            # FIXME: Interleave
-            for i in range(len(scan.samples)):
-                x = i % self.sof.samples_per_line
-                y = i // self.sof.samples_per_line
+        def get_sample(x, y, component):
+            return scan.samples[(y * samples_per_line + x) * n_components + component]
 
-                a = b = c = 0
-                if y > 0:
-                    b = scan.samples[i - self.sof.samples_per_line]
-                    if x > 0:
-                        c = scan.samples[i - self.sof.samples_per_line - 1]
-                if x == 0:
-                    # Use above sample if on start of line
-                    a = b
-                else:
-                    a = scan.samples[i - 1]
+        while i < len(scan.samples):
+            for component_index, scan_component in enumerate(self.sos.components):
+                # FIXME: component dimensions?
+                # component = self.sof.components[scan_component.component_selector]
+
+                sample = scan.samples[i]
+                i += 1
 
                 # First line uses fixed predictor since no samples above
                 if y == 0:
                     if x == 0:
                         p = 1 << (self.sof.precision - 1)
                     else:
-                        p = scan.samples[i - 1]
+                        p = get_sample(x - 1, y, component_index)
                 else:
                     a = b = c = 0
-                    b = samples[i - self.sof.samples_per_line]
+                    b = get_sample(x, y - 1, component_index)
                     if x == 0:
                         # If on left edge, use the above value for prediction
                         # FIXME: Only for predictor 1?
                         a = b
                     else:
-                        a = samples[i - 1]
-                        c = samples[i - self.sof.samples_per_line - 1]
+                        a = get_sample(x - 1, y, component_index)
+                        c = get_sample(x - 1, y - 1, component_index)
                     predictor = self.sos.ss
                     p = jpeg_lossless.predictor(predictor, a, b, c)
 
                 if x == 0:
                     left_diff = 0
                 else:
-                    left_diff = diffs[x - 1]
+                    left_diff = diffs[component_index][x - 1]
 
-                sample = scan.samples[i]
                 diff = sample - p
                 encoder.write_data_unit(
-                    scan_component.dc_table, left_diff, above_diffs[x], diff
+                    scan_component.dc_table,
+                    left_diff,
+                    above_diffs[component_index][x],
+                    diff,
                 )
-                diffs[x] = diff
-
-                if i % self.sof.samples_per_line == self.sof.samples_per_line - 1:
-                    above_diffs = diffs
-                    diffs = [0] * self.sof.samples_per_line
+                diffs[component_index][x] = diff
+            x += 1
+            if x >= self.sof.samples_per_line:
+                x = 0
+                y += 1
+                for j in range(n_components):
+                    above_diffs[j] = diffs[j]
+                    diffs[j] = [0] * samples_per_line
         self.data += encoder.get_data()
 
     def encode_rst(self, rst):
@@ -826,3 +830,241 @@ if __name__ == "__main__":
     )
     encoder.encode()
     open("test-lossless-arithmetic.jpg", "wb").write(encoder.data)
+
+    rgb_samples = [
+        0,
+        0,
+        0,
+        255,
+        0,
+        0,
+        255,
+        255,
+        0,
+        0,
+        255,
+        0,
+        0,
+        255,
+        255,
+        0,
+        0,
+        255,
+        255,
+        0,
+        255,
+        255,
+        255,
+        255,
+        0,
+        0,
+        0,
+        255,
+        0,
+        0,
+        255,
+        255,
+        0,
+        0,
+        255,
+        0,
+        0,
+        255,
+        255,
+        0,
+        0,
+        255,
+        255,
+        0,
+        255,
+        255,
+        255,
+        255,
+        0,
+        0,
+        0,
+        255,
+        0,
+        0,
+        255,
+        255,
+        0,
+        0,
+        255,
+        0,
+        0,
+        255,
+        255,
+        0,
+        0,
+        255,
+        255,
+        0,
+        255,
+        255,
+        255,
+        255,
+        0,
+        0,
+        0,
+        255,
+        0,
+        0,
+        255,
+        255,
+        0,
+        0,
+        255,
+        0,
+        0,
+        255,
+        255,
+        0,
+        0,
+        255,
+        255,
+        0,
+        255,
+        255,
+        255,
+        255,
+        0,
+        0,
+        0,
+        255,
+        0,
+        0,
+        255,
+        255,
+        0,
+        0,
+        255,
+        0,
+        0,
+        255,
+        255,
+        0,
+        0,
+        255,
+        255,
+        0,
+        255,
+        255,
+        255,
+        255,
+        0,
+        0,
+        0,
+        255,
+        0,
+        0,
+        255,
+        255,
+        0,
+        0,
+        255,
+        0,
+        0,
+        255,
+        255,
+        0,
+        0,
+        255,
+        255,
+        0,
+        255,
+        255,
+        255,
+        255,
+        0,
+        0,
+        0,
+        255,
+        0,
+        0,
+        255,
+        255,
+        0,
+        0,
+        255,
+        0,
+        0,
+        255,
+        255,
+        0,
+        0,
+        255,
+        255,
+        0,
+        255,
+        255,
+        255,
+        255,
+        0,
+        0,
+        0,
+        255,
+        0,
+        0,
+        255,
+        255,
+        0,
+        0,
+        255,
+        0,
+        0,
+        255,
+        255,
+        0,
+        0,
+        255,
+        255,
+        0,
+        255,
+        255,
+        255,
+        255,
+    ]
+
+    def rgb_to_ycbcr(r, g, b, precision):
+        offset = 1 << (precision - 1)
+        y = round(0.299 * r + 0.587 * g + 0.114 * b)
+        cb = round(-0.1687 * r - 0.3313 * g + 0.5 * b + offset)
+        cr = round(0.5 * r - 0.4187 * g - 0.0813 * b + offset)
+        return (y, cb, cr)
+
+    ycbcr_samples = []
+    for i in range(0, len(rgb_samples), 3):
+        y, cb, cr = rgb_to_ycbcr(
+            rgb_samples[i], rgb_samples[i + 1], rgb_samples[i + 2], 8
+        )
+        ycbcr_samples.append(y)
+        ycbcr_samples.append(cb)
+        ycbcr_samples.append(cr)
+    encoder = Encoder(
+        [
+            StartOfImage(),
+            StartOfFrame.lossless(
+                8,
+                8,
+                8,
+                [
+                    FrameComponent.lossless(1),
+                    FrameComponent.lossless(2),
+                    FrameComponent.lossless(3),
+                ],
+                arithmetic=True,
+            ),
+            StartOfScan.lossless(
+                [
+                    ScanComponent.lossless(1, 0),
+                    ScanComponent.lossless(2, 0),
+                    ScanComponent.lossless(3, 0),
+                ]
+            ),
+            LosslessScan(ycbcr_samples),
+            EndOfImage(),
+        ]
+    )
+    encoder.encode()
+    open("test-lossless-arithmetic-color.jpg", "wb").write(encoder.data)
