@@ -14,6 +14,7 @@ from jpeg_segments import *
 class Encoder:
     def __init__(self, segments):
         self.segments = segments
+        self.optimized_segments = []
         self.data = b""
         self.arithmetic = False
         self.dc_huffman_codecs = [
@@ -28,6 +29,8 @@ class Encoder:
             huffman.HuffmanCodec([]),
             huffman.HuffmanCodec([]),
         ]
+        self._huffman_symbol_frequencies = {}
+        self._dht_to_codecs = {}
         self.conditioning_bounds = [(0, 1), (0, 1), (0, 1), (0, 1)]
         self.kx = [5, 5, 5, 5]
         self.sof = None
@@ -62,6 +65,7 @@ class Encoder:
     def encode_dht(self, dht):
         self.encode_marker(MARKER_DHT)
         data = b""
+        self._dht_to_codecs[dht] = []
         for table in dht.tables:
             data += struct.pack("B", table.table_class << 4 | table.destination)
             assert len(table.table) == 16
@@ -69,14 +73,13 @@ class Encoder:
                 data += struct.pack("B", len(symbols))
             for symbols in table.table:
                 data += bytes(symbols)
+            codec = huffman.HuffmanCodec(table.table)
+            self._huffman_symbol_frequencies[codec] = [0] * 256
+            self._dht_to_codecs[dht].append(codec)
             if table.table_class == 0:
-                self.dc_huffman_codecs[table.destination] = huffman.HuffmanCodec(
-                    table.table
-                )
+                self.dc_huffman_codecs[table.destination] = codec
             else:
-                self.ac_huffman_codecs[table.destination] = huffman.HuffmanCodec(
-                    table.table
-                )
+                self.ac_huffman_codecs[table.destination] = codec
         self.encode_segment(data)
 
     def encode_dac(self, dac):
@@ -152,6 +155,7 @@ class Encoder:
                 spectral_selection=spectral_selection,
                 dc_codecs=self.dc_huffman_codecs,
                 ac_codecs=self.ac_huffman_codecs,
+                symbol_frequencies=self._huffman_symbol_frequencies,
             )
 
         def find_component(id):
@@ -187,7 +191,10 @@ class Encoder:
                 conditioning_bounds=self.conditioning_bounds
             )
         else:
-            encoder = HuffmanLosslessScanEncoder(dc_codecs=self.dc_huffman_codecs)
+            encoder = HuffmanLosslessScanEncoder(
+                dc_codecs=self.dc_huffman_codecs,
+                symbol_frequencies=self._huffman_symbol_frequencies,
+            )
 
         samples_per_line = self.sof.samples_per_line
         n_components = len(self.sos.components)
@@ -262,8 +269,16 @@ class Encoder:
     def encode_eoi(self):
         self.encode_marker(MARKER_EOI)
 
-    def encode(self):
-        for segment in self.segments:
+    def encode(self, optimize_huffman=False):
+        if optimize_huffman:
+            encoder = Encoder(self.segments)
+            encoder.encode()
+            self._encode_segments(encoder.optimized_segments)
+        else:
+            self._encode_segments(self.segments)
+
+    def _encode_segments(self, segments):
+        for segment in segments:
             if isinstance(segment, StartOfImage):
                 self.encode_soi()
             elif isinstance(segment, ApplicationSpecificData):
@@ -299,6 +314,25 @@ class Encoder:
                 self.data += segment
             else:
                 raise Exception("Unknown segment")
+
+        # Regenerate Huffman tables
+        for segment in segments:
+            if isinstance(segment, DefineHuffmanTables):
+                dht = segment
+                codecs = self._dht_to_codecs[dht]
+                optimized_tables = []
+                for i, table in enumerate(dht.tables):
+                    symbol_frequencies = self._huffman_symbol_frequencies[codecs[i]]
+                    optimized_tables.append(
+                        HuffmanTable(
+                            table.table_class,
+                            table.destination,
+                            huffman.make_huffman_table(symbol_frequencies),
+                        )
+                    )
+                self.optimized_segments.append(DefineHuffmanTables(optimized_tables))
+            else:
+                self.optimized_segments.append(segment)
 
 
 ARITHMETIC_CLASSIFICATION_ZERO = 0
@@ -547,18 +581,17 @@ class HuffmanScanEncoder:
         self,
         dc_codecs=[None, None, None, None],
         ac_codecs=[None, None, None, None],
+        symbol_frequencies={},
     ):
         self.dc_codecs = dc_codecs
         self.ac_codecs = ac_codecs
+        self.symbol_frequencies = symbol_frequencies
         self.bits = []
-        self.dc_symbol_frequencies = [0] * 256
-        self.ac_symbol_frequencies = [0] * 256
 
     # DC coefficient, written as a change from previous DC coefficient.
     def write_dc(self, dc_diff, table):
         length = self.get_magnitude_length(dc_diff)
         symbol = length
-        self.dc_symbol_frequencies[symbol] += 1
         self.write_symbol(symbol, self.dc_codecs[table])
         self.write_magnitude(dc_diff, length)
 
@@ -578,12 +611,13 @@ class HuffmanScanEncoder:
     def write_ac(self, run_length, ac, table):
         length = self.get_magnitude_length(ac)
         symbol = run_length << 4 | length
-        self.ac_symbol_frequencies[symbol] += 1
         self.write_symbol(symbol, self.ac_codecs[table])
         self.write_magnitude(ac, length)
 
     # Write a Huffman symbol
     def write_symbol(self, symbol, codec):
+        if codec in self.symbol_frequencies:
+            self.symbol_frequencies[codec][symbol] += 1
         if codec is not None:
             self.bits.extend(codec.encode_symbol(symbol))
 
@@ -638,10 +672,12 @@ class HuffmanDCTScanEncoder(HuffmanScanEncoder):
         spectral_selection=(0, 63),
         dc_codecs=[None, None, None, None],
         ac_codecs=[None, None, None, None],
+        symbol_frequencies={},
     ):
         super().__init__(
             dc_codecs=dc_codecs,
             ac_codecs=ac_codecs,
+            symbol_frequencies=symbol_frequencies,
         )
         self.spectral_selection = spectral_selection
         self.prev_dc = {}
@@ -680,9 +716,11 @@ class HuffmanLosslessScanEncoder(HuffmanScanEncoder):
     def __init__(
         self,
         dc_codecs=[None, None, None, None],
+        symbol_frequencies={},
     ):
         super().__init__(
             dc_codecs=dc_codecs,
+            symbol_frequencies=symbol_frequencies,
         )
 
     def write_data_unit(self, table, left_diff, above_diff, data_unit):
@@ -784,7 +822,7 @@ if __name__ == "__main__":
             EndOfImage(),
         ]
     )
-    encoder.encode()
+    encoder.encode(optimize_huffman=True)
     open("test-huffman.jpg", "wb").write(encoder.data)
 
     encoder = Encoder(
@@ -814,7 +852,7 @@ if __name__ == "__main__":
             EndOfImage(),
         ]
     )
-    encoder.encode()
+    encoder.encode(optimize_huffman=True)
     open("test-lossless-huffman.jpg", "wb").write(encoder.data)
 
     encoder = Encoder(
