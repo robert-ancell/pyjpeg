@@ -334,8 +334,8 @@ class Decoder:
                         b = samples[-self.samples_per_line]
                         if x == 0:
                             # If on left edge, use the above value for prediction
-                            # FIXME: Only for predictor 1?
                             a = b
+                            c = b
                         else:
                             a = samples[-1]
                             c = samples[-self.samples_per_line - 1]
@@ -345,6 +345,7 @@ class Decoder:
                         left_diff = 0
                     else:
                         left_diff = diffs[x - 1]
+
                     diff = scan_decoder.read_data_unit(
                         component.dc_table, left_diff, above_diffs[x]
                     )

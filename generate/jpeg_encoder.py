@@ -226,14 +226,14 @@ class Encoder:
                 else:
                     a = b = c = 0
                     b = get_sample(x, y - 1, component_index)
+                    predictor = self.sos.ss
                     if x == 0:
                         # If on left edge, use the above value for prediction
-                        # FIXME: Only for predictor 1?
                         a = b
+                        c = b
                     else:
                         a = get_sample(x - 1, y, component_index)
                         c = get_sample(x - 1, y - 1, component_index)
-                    predictor = self.sos.ss
                     p = jpeg_lossless.predictor(predictor, a, b, c)
 
                 if x == 0:
@@ -242,6 +242,10 @@ class Encoder:
                     left_diff = diffs[component_index][x - 1]
 
                 diff = sample - p
+                if diff > 32768:
+                    diff -= 65536
+                if diff < -32767:
+                    diff += 65536
                 encoder.write_data_unit(
                     scan_component.dc_table,
                     left_diff,
