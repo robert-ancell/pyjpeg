@@ -449,12 +449,17 @@ def make_lossless(
     component_samples,
     precision=8,
     use_dnl=False,
+    color_space=None,
     predictor=1,
     restart_interval=0,
     arithmetic=False,
 ):
     conditioning_bounds = (0, 1)
     segments = [StartOfImage()]
+    if color_space is None:
+        segments.append(ApplicationSpecificData.jfif())
+    else:
+        segments.append(ApplicationSpecificData.adobe(color_space=color_space))
     if use_dnl:
         number_of_lines = 0
     else:
@@ -561,6 +566,7 @@ def generate_lossless(
     height,
     component_samples,
     use_dnl=False,
+    color_space=None,
     precision=8,
     restart_interval=0,
     predictor=1,
@@ -575,6 +581,7 @@ def generate_lossless(
             height,
             component_samples,
             use_dnl=use_dnl,
+            color_space=color_space,
             precision=precision,
             restart_interval=restart_interval,
             predictor=predictor,
@@ -1062,13 +1069,22 @@ for encoding in ["huffman", "arithmetic"]:
             predictor=1,
             arithmetic=arithmetic,
         )
-    # FIXME: cmyk, add colorspace for rgb
+    generate_lossless(
+        section,
+        "ycbcr",
+        WIDTH,
+        HEIGHT,
+        ycbcr_samples8,
+        predictor=1,
+        arithmetic=arithmetic,
+    )
     generate_lossless(
         section,
         "rgb",
         WIDTH,
         HEIGHT,
         rgb_samples8,
+        color_space=ADOBE_COLOR_SPACE_RGB_OR_CMYK,
         predictor=1,
         arithmetic=arithmetic,
     )
