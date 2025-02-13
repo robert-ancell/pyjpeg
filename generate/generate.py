@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import math
+import huffman
 import jpeg
 import jpeg_dct
 import jpeg_encoder
@@ -453,71 +454,58 @@ def make_lossless(
     arithmetic=False,
 ):
     conditioning_bounds = (0, 1)
-    sof_components = []
-    jpeg_scans = []
-    for i, samples in enumerate(component_samples):
-        data_units = jpeg_lossless.make_lossless_data_units(
-            predictor, width, precision, samples, restart_interval=restart_interval
-        )
-        if arithmetic:
-            table = 0
-            scan_data = jpeg.arithmetic_lossless_scan(
-                conditioning_bounds,
-                width,
-                data_units,
-                restart_interval=restart_interval,
-            )
-        else:
-            table = i
-            scan_data = jpeg.huffman_lossless_scan_data(
-                table,
-                data_units,
-                restart_interval=restart_interval,
-            )
-        sof_components.append(FrameComponent.lossless(i + 1))
-        sos = StartOfScan.lossless(
-            components=[ScanComponent.lossless(i + 1, table)],
-            predictor=predictor,
-        )
-        jpeg_scans.append((sos, scan_data))
-
-    # Generate Huffman tables and encode scans.
-    if not arithmetic:
-        all_huffman_bits = []
-        for _, scan_data in jpeg_scans:
-            all_huffman_bits.extend(scan_data)
-        huffman_tables = []
-        for i in range(len(sof_components)):
-            table = jpeg.make_dct_huffman_dc_table(all_huffman_bits, i)
-            huffman_tables.append(HuffmanTable.dc(i, table))
-        for i, (sos, scan_data) in enumerate(jpeg_scans):
-            jpeg_scans[i] = (
-                sos,
-                jpeg.huffman_lossless_scan(huffman_tables, scan_data),
-            )
-
     segments = [StartOfImage()]
     if use_dnl:
         number_of_lines = 0
     else:
         number_of_lines = height
+    sof_components = []
+    for i, samples in enumerate(component_samples):
+        sof_components.append(FrameComponent.lossless(i + 1))
     segments.append(
         StartOfFrame.lossless(
             number_of_lines, width, precision, sof_components, arithmetic=arithmetic
         )
     )
     if not arithmetic:
-        segments.append(DefineHuffmanTables(huffman_tables))
+        # Huffman table able to encode all possible 16 bit values
+        frequencies = [0] * 256
+        for i in range(16):
+            frequencies[i] = 1
+        huffman_table = huffman.make_huffman_table(frequencies)
+        tables = []
+        for i in range(len(component_samples)):
+            tables.append(HuffmanTable.dc(i, huffman_table))
+        segments.append(DefineHuffmanTables(tables))
     if restart_interval != 0:
         segments.append(DefineRestartInterval(restart_interval))
-    for i, (sos, scan_data) in enumerate(jpeg_scans):
-        segments.append(sos)
-        segments.append(scan_data)
+    for i, samples in enumerate(component_samples):
+        if arithmetic:
+            table = 0
+        else:
+            table = i
+        segments.append(
+            StartOfScan.lossless(
+                components=[ScanComponent.lossless(i + 1, table)],
+                predictor=predictor,
+            )
+        )
+        # FIXME: Split into restart intervals
+        if restart_interval == 0:
+            segments.append(LosslessScan(samples))
+        else:
+            for offset in range(0, len(samples), restart_interval):
+                if offset != 0:
+                    index = (offset // restart_interval) - 1
+                    segments.append(Restart(index % 8))
+                segments.append(
+                    LosslessScan(samples[offset : offset + restart_interval])
+                )
         if i == 0 and use_dnl:
             segments.append(DefineNumberOfLines(height))
     segments.append(EndOfImage())
     encoder = jpeg_encoder.Encoder(segments)
-    encoder.encode()
+    encoder.encode(optimize_huffman=True)
     return encoder.data
 
 
@@ -1074,6 +1062,7 @@ for encoding in ["huffman", "arithmetic"]:
             predictor=1,
             arithmetic=arithmetic,
         )
+    # FIXME: cmyk, add colorspace for rgb
     generate_lossless(
         section,
         "rgb",

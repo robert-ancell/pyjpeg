@@ -263,7 +263,7 @@ class Encoder:
         self.data += encoder.get_data()
 
     def encode_rst(self, rst):
-        self.encode_marker(MARKER_RST0 + rst.n)
+        self.encode_marker(MARKER_RST0 + rst.index)
 
     def encode_dnl(self, dnl):
         self.encode_marker(MARKER_DNL)
