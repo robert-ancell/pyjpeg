@@ -447,6 +447,7 @@ def make_lossless(
     width,
     height,
     component_samples,
+    scans=[],
     precision=8,
     use_dnl=False,
     color_space=None,
@@ -465,7 +466,7 @@ def make_lossless(
     else:
         number_of_lines = height
     sof_components = []
-    for i, samples in enumerate(component_samples):
+    for i in range(len(component_samples)):
         sof_components.append(FrameComponent.lossless(i + 1))
     segments.append(
         StartOfFrame.lossless(
@@ -484,30 +485,39 @@ def make_lossless(
         segments.append(DefineHuffmanTables(tables))
     if restart_interval != 0:
         segments.append(DefineRestartInterval(restart_interval))
-    for i, samples in enumerate(component_samples):
+    scan_components = []
+    for i, _ in enumerate(component_samples):
         if arithmetic:
             table = 0
         else:
             table = i
+        scan_components.append(ScanComponent.lossless(i + 1, table=table))
+    for scan_index, component_indexes in enumerate(scans):
+        sos_components = []
+        for c in component_indexes:
+            sos_components.append(scan_components[c])
         segments.append(
             StartOfScan.lossless(
-                components=[ScanComponent.lossless(i + 1, table)],
+                components=sos_components,
                 predictor=predictor,
             )
         )
-        # FIXME: Split into restart intervals
+        n_samples = width * height
         if restart_interval == 0:
-            segments.append(LosslessScan(samples))
+            segment_length = n_samples
         else:
-            for offset in range(0, len(samples), restart_interval):
-                if offset != 0:
-                    index = (offset // restart_interval) - 1
-                    segments.append(Restart(index % 8))
-                segments.append(
-                    LosslessScan(samples[offset : offset + restart_interval])
-                )
-        if i == 0 and use_dnl:
-            segments.append(DefineNumberOfLines(height))
+            segment_length = restart_interval
+        for offset in range(0, n_samples, segment_length):
+            samples = []
+            for i in range(segment_length):
+                for c in component_indexes:
+                    samples.append(component_samples[c][offset + i])
+            if offset != 0:
+                index = (offset // segment_length) - 1
+                segments.append(Restart(index % 8))
+            segments.append(LosslessScan(samples))
+            if offset == 0 and scan_index == 0 and use_dnl:
+                segments.append(DefineNumberOfLines(height))
     segments.append(EndOfImage())
     encoder = jpeg_encoder.Encoder(segments)
     encoder.encode(optimize_huffman=True)
@@ -565,6 +575,7 @@ def generate_lossless(
     width,
     height,
     component_samples,
+    scans=[],
     use_dnl=False,
     color_space=None,
     precision=8,
@@ -580,6 +591,7 @@ def generate_lossless(
             width,
             height,
             component_samples,
+            scans=scans,
             use_dnl=use_dnl,
             color_space=color_space,
             precision=precision,
@@ -1042,6 +1054,7 @@ for encoding in ["huffman", "arithmetic"]:
             WIDTH,
             HEIGHT,
             [grayscale_samples8],
+            scans=[[0]],
             predictor=predictor,
             arithmetic=arithmetic,
         )
@@ -1052,6 +1065,7 @@ for encoding in ["huffman", "arithmetic"]:
             WIDTH,
             HEIGHT,
             [make_grayscale(precision)],
+            scans=[[0]],
             precision=precision,
             predictor=1,
             arithmetic=arithmetic,
@@ -1065,6 +1079,7 @@ for encoding in ["huffman", "arithmetic"]:
             width,
             height,
             [samples],
+            scans=[[0]],
             precision=8,
             predictor=1,
             arithmetic=arithmetic,
@@ -1075,6 +1090,17 @@ for encoding in ["huffman", "arithmetic"]:
         WIDTH,
         HEIGHT,
         ycbcr_samples8,
+        scans=[[0], [1], [2]],
+        predictor=1,
+        arithmetic=arithmetic,
+    )
+    generate_lossless(
+        section,
+        "ycbcr_interleaved",
+        WIDTH,
+        HEIGHT,
+        ycbcr_samples8,
+        scans=[[0, 1, 2]],
         predictor=1,
         arithmetic=arithmetic,
     )
@@ -1084,6 +1110,18 @@ for encoding in ["huffman", "arithmetic"]:
         WIDTH,
         HEIGHT,
         rgb_samples8,
+        scans=[[0], [1], [2]],
+        color_space=ADOBE_COLOR_SPACE_RGB_OR_CMYK,
+        predictor=1,
+        arithmetic=arithmetic,
+    )
+    generate_lossless(
+        section,
+        "rgb_interleaved",
+        WIDTH,
+        HEIGHT,
+        rgb_samples8,
+        scans=[[0, 1, 2]],
         color_space=ADOBE_COLOR_SPACE_RGB_OR_CMYK,
         predictor=1,
         arithmetic=arithmetic,
@@ -1094,6 +1132,7 @@ for encoding in ["huffman", "arithmetic"]:
         WIDTH,
         HEIGHT,
         [grayscale_samples8],
+        scans=[[0]],
         predictor=1,
         restart_interval=32 * 8,
         arithmetic=arithmetic,
@@ -1104,6 +1143,7 @@ for encoding in ["huffman", "arithmetic"]:
         WIDTH,
         HEIGHT,
         [grayscale_samples8],
+        scans=[[0]],
         use_dnl=True,
         predictor=1,
         arithmetic=arithmetic,
@@ -1115,4 +1155,3 @@ for encoding in ["huffman", "arithmetic"]:
 # thumbnail
 # multiple huffman tables
 # arithmetic properties
-# lossless interleaved
