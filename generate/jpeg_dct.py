@@ -63,6 +63,26 @@ def dct2d(values):
     return coefficients
 
 
+def idct2d(coefficients):
+    C = [0.70710678118654752440, 1, 1, 1, 1, 1, 1, 1]
+    values = []
+    for y in range(8):
+        for x in range(8):
+            s = 0.0
+            for v in range(8):
+                for u in range(8):
+                    s += (
+                        C[u]
+                        * C[v]
+                        * coefficients[v * 8 + u]
+                        * math.cos((2 * x + 1) * u * math.pi / 16)
+                        * math.cos((2 * y + 1) * v * math.pi / 16)
+                    )
+            values.append(round(0.25 * s))
+
+    return values
+
+
 def quantize(coefficients, quantization_table):
     assert len(coefficients) == len(quantization_table)
     quantized_coefficients = []
