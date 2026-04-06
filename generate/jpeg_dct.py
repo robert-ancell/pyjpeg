@@ -45,7 +45,7 @@ def unzig_zag(zz):
     return coefficients
 
 
-def dct2d(values):
+def fdct(values):
     C = [0.70710678118654752440, 1, 1, 1, 1, 1, 1, 1]
     coefficients = []
     for v in range(8):
@@ -63,7 +63,7 @@ def dct2d(values):
     return coefficients
 
 
-def idct2d(coefficients):
+def idct(coefficients):
     C = [0.70710678118654752440, 1, 1, 1, 1, 1, 1, 1]
     values = []
     for y in range(8):

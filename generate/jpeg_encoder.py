@@ -808,7 +808,7 @@ if __name__ == "__main__":
     offset_samples = []
     for s in samples:
         offset_samples.append(s - 128)
-    dct_coefficients = quantize(dct2d(offset_samples), quantization_table)
+    dct_coefficients = quantize(fdct(offset_samples), quantization_table)
 
     encoder = Encoder(
         [

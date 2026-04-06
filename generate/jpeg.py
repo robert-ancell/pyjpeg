@@ -1,9 +1,9 @@
 import struct
 
-from huffman import *
 import jpeg_dct
-from jpeg_marker import *
+from huffman import *
 from jpeg_arithmetic_scan import *
+from jpeg_marker import *
 
 # https://www.w3.org/Graphics/JPEG/itu-t81.pdf
 # https://www.w3.org/Graphics/JPEG/jfif3.pdf
@@ -525,7 +525,7 @@ def make_dct_coefficients(width, height, depth, samples, quantization_table):
                     values.append(p - offset)
 
             du_coefficients = jpeg_dct.zig_zag(
-                jpeg_dct.quantize(jpeg_dct.dct2d(values), quantization_table)
+                jpeg_dct.quantize(jpeg_dct.fdct(values), quantization_table)
             )
             coefficients.extend(du_coefficients)
 
