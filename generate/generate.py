@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 
+import json
 import math
+
 import huffman
-import jpeg
 import jpeg_dct
 import jpeg_encoder
 import jpeg_lossless
+from jpeg_segments import *
 from pgm import *
 from quantization_tables import *
-from jpeg_segments import *
 
+import jpeg
 
 WIDTH = 32
 HEIGHT = 32
@@ -142,6 +144,96 @@ def scale_samples(width, height, samples, h_max, h, v_max, v):
         for x in range(0, width, h_max // h):
             out_samples.append(samples[y * height + x])
     return out_samples
+
+
+def segments_to_json(segments):
+    s = []
+    for segment in segments:
+        if isinstance(segment, jpeg_encoder.StartOfImage):
+            s.append({"type": "SOI"})
+        elif isinstance(segment, jpeg_encoder.Comment):
+            s.append({"type": "COM", "data": str(segment.data)})
+        elif isinstance(segment, jpeg_encoder.DefineQuantizationTables):
+            tables = []
+            for table in segment.tables:
+                values = []
+                for y in range(8):
+                    row = []
+                    values.append(row)
+                    for x in range(8):
+                        row.append(table.values[y * 8 + x])
+                tables.append(
+                    {
+                        "destination": table.destination,
+                        "precision": table.precision,
+                        "values": values,
+                    }
+                )
+            s.append({"type": "DQT", "tables": tables})
+        elif isinstance(segment, jpeg_encoder.DefineHuffmanTables):
+            tables = []
+            for table in segment.tables:
+                tables.append(
+                    {
+                        "class": {0: "dc", 1: "ac"}[table.table_class],
+                        "destination": table.destination,
+                        # FIXME
+                    }
+                )
+            s.append({"type": "DHT", "tables": tables})
+        elif isinstance(segment, jpeg_encoder.DefineArithmeticConditioning):
+            tables = []
+            for table in segment.tables:
+                tables.append(
+                    {
+                        "class": {0: "dc", 1: "ac"}[table.table_class],
+                        "destination": table.destination,
+                        # FIXME
+                    }
+                )
+            s.append({"type": "DAC", "tables": tables})
+        elif isinstance(segment, jpeg_encoder.DefineRestartInterval):
+            s.append({"type": "DRI", "restart_interval": segment.restart_interval})
+        elif isinstance(segment, jpeg_encoder.StartOfFrame):
+            components = []
+            for component in segment.components:
+                components.append(
+                    {
+                        "id": component.id,
+                        "sampling_factor": component.sampling_factor,
+                        "quantization_table": component.quantization_table_index,
+                    }
+                )
+            s.append(
+                {
+                    "type": "SOF",
+                    "precision": segment.precision,
+                    "number_of_lines": segment.number_of_lines,
+                    "samples_per_line": segment.samples_per_line,
+                    "components": components,
+                }
+            )
+        elif isinstance(segment, jpeg_encoder.StartOfScan):
+            components = []
+            for component in segment.components:
+                components.append(
+                    {
+                        "component_id": component.component_selector,
+                        "dc_table": component.dc_table,
+                        "ac_table": component.ac_table,
+                    }
+                )
+            s.append(
+                {
+                    "type": "SOS",
+                    "components": components,
+                    "spectral_selection": [segment.ss, segment.se],
+                    "approximation": [segment.ah, segment.al],
+                }
+            )
+        elif isinstance(segment, jpeg_encoder.EndOfImage):
+            s.append({"type": "EOI"})
+    return s
 
 
 def make_dct_sequential(
@@ -438,9 +530,7 @@ def make_dct_sequential(
         if i == 0 and use_dnl:
             segments.append(DefineNumberOfLines(height))
     segments.append(EndOfImage())
-    encoder = jpeg_encoder.Encoder(segments)
-    encoder.encode()
-    return encoder.data
+    return segments
 
 
 def make_lossless(
@@ -519,9 +609,7 @@ def make_lossless(
             if offset == 0 and scan_index == 0 and use_dnl:
                 segments.append(DefineNumberOfLines(height))
     segments.append(EndOfImage())
-    encoder = jpeg_encoder.Encoder(segments)
-    encoder.encode(optimize_huffman=True)
-    return encoder.data
+    return segments
 
 
 def generate_dct(
@@ -544,29 +632,36 @@ def generate_dct(
     arithmetic_conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
     arithmetic_conditioning_kx=[5, 5, 5, 5],
 ):
-    open(
-        "../jpeg/%s/%dx%dx%d_%s.jpg" % (section, width, height, precision, description),
-        "wb",
-    ).write(
-        make_dct_sequential(
-            width,
-            height,
-            components,
-            precision=precision,
-            luminance_quantization_table=luminance_quantization_table,
-            chrominance_quantization_table=chrominance_quantization_table,
-            restart_interval=restart_interval,
-            use_dnl=use_dnl,
-            color_space=color_space,
-            scans=scans,
-            comments=comments,
-            extended=extended,
-            progressive=progressive,
-            arithmetic=arithmetic,
-            arithmetic_conditioning_bounds=arithmetic_conditioning_bounds,
-            arithmetic_conditioning_kx=arithmetic_conditioning_kx,
-        )
+    segments = make_dct_sequential(
+        width,
+        height,
+        components,
+        precision=precision,
+        luminance_quantization_table=luminance_quantization_table,
+        chrominance_quantization_table=chrominance_quantization_table,
+        restart_interval=restart_interval,
+        use_dnl=use_dnl,
+        color_space=color_space,
+        scans=scans,
+        comments=comments,
+        extended=extended,
+        progressive=progressive,
+        arithmetic=arithmetic,
+        arithmetic_conditioning_bounds=arithmetic_conditioning_bounds,
+        arithmetic_conditioning_kx=arithmetic_conditioning_kx,
     )
+    encoder = jpeg_encoder.Encoder(segments)
+    encoder.encode()
+    basename = "../jpeg/%s/%dx%dx%d_%s" % (
+        section,
+        width,
+        height,
+        precision,
+        description,
+    )
+    open(basename + ".jpg", "wb").write(encoder.data)
+    j = {"width": width, "height": height, "segments": segments_to_json(segments)}
+    open(basename + ".json", "w").write(json.dumps(j, indent=2))
 
 
 def generate_lossless(
@@ -583,23 +678,30 @@ def generate_lossless(
     predictor=1,
     arithmetic=False,
 ):
-    open(
-        "../jpeg/%s/%dx%dx%d_%s.jpg" % (section, width, height, precision, description),
-        "wb",
-    ).write(
-        make_lossless(
-            width,
-            height,
-            component_samples,
-            scans=scans,
-            use_dnl=use_dnl,
-            color_space=color_space,
-            precision=precision,
-            restart_interval=restart_interval,
-            predictor=predictor,
-            arithmetic=arithmetic,
-        )
+    segments = make_lossless(
+        width,
+        height,
+        component_samples,
+        scans=scans,
+        use_dnl=use_dnl,
+        color_space=color_space,
+        precision=precision,
+        restart_interval=restart_interval,
+        predictor=predictor,
+        arithmetic=arithmetic,
     )
+    encoder = jpeg_encoder.Encoder(segments)
+    encoder.encode(optimize_huffman=True)
+    basename = "../jpeg/%s/%dx%dx%d_%s" % (
+        section,
+        width,
+        height,
+        precision,
+        description,
+    )
+    open(basename + ".jpg", "wb").write(encoder.data)
+    j = {"width": width, "height": height, "segments": segments_to_json(segments)}
+    open(basename + ".json", "w").write(json.dumps(j, indent=2))
 
 
 for mode, encoding in [

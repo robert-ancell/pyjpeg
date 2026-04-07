@@ -78,10 +78,10 @@ class Comment:
 
 
 class QuantizationTable:
-    def __init__(self, destination, values, precision=0):
+    def __init__(self, destination, values, precision=8):
         self.destination = destination
+        self.precision = precision
         self.values = values
-        self.precision = precision  # FIXME: 0=8bit, 1=16bit
 
 
 class DefineQuantizationTables:

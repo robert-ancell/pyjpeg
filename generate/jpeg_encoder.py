@@ -57,7 +57,8 @@ class Encoder:
         self.encode_marker(MARKER_DQT)
         data = b""
         for table in dqt.tables:
-            data += struct.pack("B", table.precision << 4 | table.destination) + bytes(
+            precision = {8: 0, 16: 1}[table.precision]
+            data += struct.pack("B", precision << 4 | table.destination) + bytes(
                 jpeg_dct.zig_zag(table.values)
             )
         self.encode_segment(data)
