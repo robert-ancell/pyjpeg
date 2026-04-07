@@ -152,7 +152,7 @@ def segments_to_json(segments):
         if isinstance(segment, jpeg_encoder.StartOfImage):
             s.append({"type": "SOI"})
         elif isinstance(segment, jpeg_encoder.Comment):
-            s.append({"type": "COM", "data": str(segment.data)})
+            s.append({"type": "COM", "data": str(segment.data, "ascii")})
         elif isinstance(segment, jpeg_encoder.DefineQuantizationTables):
             tables = []
             for table in segment.tables:
