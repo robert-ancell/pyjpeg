@@ -4,14 +4,13 @@ import json
 import math
 
 import huffman
+import jpeg
 import jpeg_dct
+import jpeg_encoder
 import jpeg_lossless
 from jpeg_segments import *
 from pgm import *
 from quantization_tables import *
-
-import jpeg
-import jpeg_encoder
 
 WIDTH = 32
 HEIGHT = 32
@@ -149,11 +148,13 @@ def scale_samples(width, height, samples, h_max, h, v_max, v):
 def segments_to_json(segments):
     s = []
     for segment in segments:
-        if isinstance(segment, jpeg_encoder.StartOfImage):
+        if isinstance(segment, StartOfImage):
             s.append({"type": "SOI"})
-        elif isinstance(segment, jpeg_encoder.Comment):
+        elif isinstance(segment, ApplicationSpecificData):
+            s.append({"type": "APP%d" % segment.n, "data": list(segment.data)})
+        elif isinstance(segment, Comment):
             s.append({"type": "COM", "data": str(segment.data, "ascii")})
-        elif isinstance(segment, jpeg_encoder.DefineQuantizationTables):
+        elif isinstance(segment, DefineQuantizationTables):
             tables = []
             for table in segment.tables:
                 values = []
@@ -170,7 +171,7 @@ def segments_to_json(segments):
                     }
                 )
             s.append({"type": "DQT", "tables": tables})
-        elif isinstance(segment, jpeg_encoder.DefineHuffmanTables):
+        elif isinstance(segment, DefineHuffmanTables):
             tables = []
             for table in segment.tables:
                 tables.append(
@@ -181,7 +182,7 @@ def segments_to_json(segments):
                     }
                 )
             s.append({"type": "DHT", "tables": tables})
-        elif isinstance(segment, jpeg_encoder.DefineArithmeticConditioning):
+        elif isinstance(segment, DefineArithmeticConditioning):
             tables = []
             for table in segment.tables:
                 tables.append(
@@ -192,9 +193,9 @@ def segments_to_json(segments):
                     }
                 )
             s.append({"type": "DAC", "tables": tables})
-        elif isinstance(segment, jpeg_encoder.DefineRestartInterval):
+        elif isinstance(segment, DefineRestartInterval):
             s.append({"type": "DRI", "restart_interval": segment.restart_interval})
-        elif isinstance(segment, jpeg_encoder.StartOfFrame):
+        elif isinstance(segment, StartOfFrame):
             components = []
             for component in segment.components:
                 components.append(
@@ -206,14 +207,14 @@ def segments_to_json(segments):
                 )
             s.append(
                 {
-                    "type": "SOF",
+                    "type": "SOF%d" % segment.n,
                     "precision": segment.precision,
                     "number_of_lines": segment.number_of_lines,
                     "samples_per_line": segment.samples_per_line,
                     "components": components,
                 }
             )
-        elif isinstance(segment, jpeg_encoder.StartOfScan):
+        elif isinstance(segment, StartOfScan):
             components = []
             for component in segment.components:
                 components.append(
@@ -231,8 +232,20 @@ def segments_to_json(segments):
                     "approximation": [segment.ah, segment.al],
                 }
             )
-        elif isinstance(segment, jpeg_encoder.EndOfImage):
+        elif isinstance(segment, HuffmanDCTScan) or isinstance(
+            segment, ArithmeticDCTScan
+        ):
+            s.append({"type": "DCT"})
+        elif isinstance(segment, LosslessScan):
+            s.append({"type": "Lossless"})
+        elif isinstance(segment, Restart):
+            s.append({"type": "RST%d" % segment.index})
+        elif isinstance(segment, DefineNumberOfLines):
+            s.append({"type": "DNL", "number_of_lines": segment.number_of_lines})
+        elif isinstance(segment, EndOfImage):
             s.append({"type": "EOI"})
+        else:
+            pass  # s.append({"type": "UNKNOWN"})
     return s
 
 
