@@ -168,7 +168,7 @@ class Encoder:
         (qe, _, mps_next_index, _) = states[state.index]
         self.a -= qe
         if self.a >= 0x8000:
-            return state
+            return
 
         if self.a < qe:
             self.c += self.a
