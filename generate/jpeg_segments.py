@@ -243,11 +243,13 @@ class ArithmeticDCTScan:
     def __init__(
         self,
         data_units,
+        components=[((1, 1), 0, 0)],
         spectral_selection=(0, 63),
         conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
         kx=[5, 5, 5, 5],
     ):
         self.data_units = data_units
+        self.components = components
         self.spectral_selection = spectral_selection
         self.conditioning_bounds = conditioning_bounds
         self.kx = kx

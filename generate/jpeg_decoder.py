@@ -277,11 +277,15 @@ class Decoder:
         n_mcus = mcu_width * mcu_height
         prev_dc = {}
         data_units = []
+        components = []
 
         for _ in range(n_mcus):
             for component in self.sos.components:
                 (sampling_factor, quantization_table_index) = find_component(
                     component.component_selector
+                )
+                components.append(
+                    (sampling_factor, component.dc_table, component.ac_table)
                 )
                 quantization_table = self.quantization_tables[quantization_table_index]
                 for y in range(sampling_factor[1]):
@@ -298,6 +302,7 @@ class Decoder:
         if self.arithmetic:
             segment = ArithmeticDCTScan(
                 data_units,
+                components=components,
                 spectral_selection=spectral_selection,
                 conditioning_bounds=self.dc_arithmetic_conditioning_bounds,
                 kx=self.ac_arithmetic_kx,
