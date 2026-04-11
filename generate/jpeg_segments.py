@@ -234,8 +234,11 @@ class StartOfScan:
 
 
 class HuffmanDCTScan:
-    def __init__(self, data_units, spectral_selection=(0, 63)):
+    def __init__(
+        self, data_units, components=[((1, 1), 0, 0)], spectral_selection=(0, 63)
+    ):
         self.data_units = data_units
+        self.components = components
         self.spectral_selection = spectral_selection
 
 

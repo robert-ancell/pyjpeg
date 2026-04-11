@@ -308,7 +308,9 @@ class Decoder:
                 kx=self.ac_arithmetic_kx,
             )
         else:
-            segment = HuffmanDCTScan(data_units, spectral_selection=spectral_selection)
+            segment = HuffmanDCTScan(
+                data_units, components=components, spectral_selection=spectral_selection
+            )
         self.segments.append(segment)
 
     def parse_lossless_scan(self, scan_data):
