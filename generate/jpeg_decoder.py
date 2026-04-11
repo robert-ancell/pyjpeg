@@ -295,7 +295,16 @@ class Decoder:
                         prev_dc[component.component_selector] = data_unit[0]
                         data_units.append(data_unit)
 
-        self.segments.append(DCTScan(data_units))
+        if self.arithmetic:
+            segment = ArithmeticDCTScan(
+                data_units,
+                spectral_selection=spectral_selection,
+                conditioning_bounds=self.dc_arithmetic_conditioning_bounds,
+                kx=self.ac_arithmetic_kx,
+            )
+        else:
+            segment = HuffmanDCTScan(data_units, spectral_selection=spectral_selection)
+        self.segments.append(segment)
 
     def parse_lossless_scan(self, scan_data):
         assert self.sof is not None

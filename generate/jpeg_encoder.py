@@ -141,23 +141,45 @@ class Encoder:
         data += struct.pack("BBB", sos.ss, sos.se, a)
         self.encode_segment(data)
 
-    def encode_dct_scan(self, scan):
-        assert self.sof is not None
-        assert self.sos is not None
-        spectral_selection = (self.sos.ss, self.sos.se)
-        if self.arithmetic:
-            encoder = ArithmeticDCTScanEncoder(
-                spectral_selection=spectral_selection,
-                conditioning_bounds=self.conditioning_bounds,
-                kx=self.kx,
-            )
-        else:
-            encoder = HuffmanDCTScanEncoder(
-                spectral_selection=spectral_selection,
-                dc_codecs=self.dc_huffman_codecs,
-                ac_codecs=self.ac_huffman_codecs,
-                symbol_frequencies=self._huffman_symbol_frequencies,
-            )
+    def encode_huffman_dct_scan(self, scan):
+        encoder = HuffmanDCTScanEncoder(
+            spectral_selection=scan.spectral_selection,
+            dc_codecs=self.dc_huffman_codecs,
+            ac_codecs=self.ac_huffman_codecs,
+            symbol_frequencies=self._huffman_symbol_frequencies,
+        )
+
+        def find_component(id):
+            for frame_component in self.sof.components:
+                if frame_component.id == id:
+                    return frame_component
+            raise Exception("Invalid component %d" % id)
+
+        i = 0
+        while i < len(scan.data_units):
+            for component_index, scan_component in enumerate(self.sos.components):
+                frame_component = find_component(scan_component.component_selector)
+                n_data_units = (
+                    frame_component.sampling_factor[0]
+                    * frame_component.sampling_factor[1]
+                )
+                for _ in range(n_data_units):
+                    assert i < len(scan.data_units)
+                    encoder.write_data_unit(
+                        component_index,
+                        scan.data_units[i],
+                        scan_component.dc_table,
+                        scan_component.ac_table,
+                    )
+                    i += 1
+        self.data += encoder.get_data()
+
+    def encode_arithmetic_dct_scan(self, scan):
+        encoder = ArithmeticDCTScanEncoder(
+            spectral_selection=scan.spectral_selection,
+            conditioning_bounds=scan.conditioning_bounds,
+            kx=scan.kx,
+        )
 
         def find_component(id):
             for frame_component in self.sof.components:
@@ -304,8 +326,10 @@ class Encoder:
                 self.encode_sof(segment)
             elif isinstance(segment, StartOfScan):
                 self.encode_sos(segment)
-            elif isinstance(segment, DCTScan):
-                self.encode_dct_scan(segment)
+            elif isinstance(segment, HuffmanDCTScan):
+                self.encode_huffman_dct_scan(segment)
+            elif isinstance(segment, ArithmeticDCTScan):
+                self.encode_arithmetic_dct_scan(segment)
             elif isinstance(segment, LosslessScan):
                 self.encode_lossless_scan(segment)
             elif isinstance(segment, Restart):
@@ -823,7 +847,7 @@ if __name__ == "__main__":
             ),
             StartOfFrame.baseline(8, 8, [FrameComponent.dct(1)]),
             StartOfScan.dct([ScanComponent.dct(1, 0, 0)]),
-            DCTScan([dct_coefficients]),
+            HuffmanDCTScan([dct_coefficients]),
             EndOfImage(),
         ]
     )
@@ -836,7 +860,7 @@ if __name__ == "__main__":
             DefineQuantizationTables([QuantizationTable(0, quantization_table)]),
             StartOfFrame.extended(8, 8, 8, [FrameComponent.dct(1)], arithmetic=True),
             StartOfScan.dct([ScanComponent.dct(1, 0, 0)]),
-            DCTScan([dct_coefficients]),
+            ArithmeticDCTScan([dct_coefficients]),
             EndOfImage(),
         ]
     )

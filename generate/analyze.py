@@ -3,8 +3,8 @@
 import struct
 import sys
 
-from jpeg_segments import *
 from jpeg_decoder import *
+from jpeg_segments import *
 
 
 def print_data_unit(data_unit):
@@ -131,7 +131,11 @@ for segment in decoder.segments:
         print(" Spectral Selection: %d-%d" % (segment.ss, segment.se))
         print(" Previous Point Transform: %d" % segment.ah)
         print(" Point Transform: %d" % segment.al)
-    elif isinstance(segment, DCTScan):
+    elif isinstance(segment, HuffmanDCTScan):
+        for data_unit in segment.data_units:
+            print(" DCT Data Unit:")
+            print_data_unit(data_unit)
+    elif isinstance(segment, ArithmeticDCTScan):
         for data_unit in segment.data_units:
             print(" DCT Data Unit:")
             print_data_unit(data_unit)
