@@ -408,7 +408,7 @@ def arithmetic_dct_scan(
     return data + encoder.get_data()
 
 
-def arithmetic_dct_dc_scan_successive(coefficients, point_transform):
+def arithmetic_dct_dc_scan_successive_data(coefficients, point_transform):
     encoder = arithmetic.Encoder()
     prev_dc = 0
     for data_unit in coefficients:
@@ -423,7 +423,7 @@ def arithmetic_dct_dc_scan_successive(coefficients, point_transform):
     return bytes(encoder.data)
 
 
-def arithmetic_dct_ac_scan_successive(
+def arithmetic_dct_ac_scan_successive_data(
     coefficients=[], selection=(1, 63), point_transform=0
 ):
     assert selection[0] >= 1

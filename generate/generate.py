@@ -379,12 +379,12 @@ def make_dct_sequential(
             if successive:
                 assert len(component_indexes) == 1
                 if start == 0:
-                    scan_data = jpeg.arithmetic_dct_dc_scan_successive(
+                    scan_data = jpeg.arithmetic_dct_dc_scan_successive_data(
                         coefficients[component_indexes[0]],
                         point_transform,
                     )
                 else:
-                    scan_data = jpeg.arithmetic_dct_ac_scan_successive(
+                    scan_data = jpeg.arithmetic_dct_ac_scan_successive_data(
                         coefficients[component_indexes[0]],
                         selection,
                         point_transform,
