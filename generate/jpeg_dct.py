@@ -100,7 +100,5 @@ def order_mcu_dct_coefficients(width, height, coefficients, sampling_factor):
             for du_y in range(0, sampling_factor[1]):
                 for du_x in range(0, sampling_factor[0]):
                     i = (mcu_y + du_y) * (width // 8) + mcu_x + du_x
-                    offset = i * 64
-                    mcu_coefficients.extend(coefficients[offset : offset + 64])
-    assert len(mcu_coefficients) == len(coefficients)
+                    mcu_coefficients.append(coefficients[i])
     return mcu_coefficients

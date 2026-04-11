@@ -166,32 +166,32 @@ class DCTArithmeticEncoder:
         self,
         scan_data,
         component,
-        data_unit_offset,
+        data_unit_index,
         selection,
         point_transform,
-        block_start_offset,
+        block_start_index,
     ):
         k = selection[0]
         while k <= selection[1]:
             coefficient = _transform_coefficient(
-                component.coefficients[data_unit_offset + k], point_transform
+                component.coefficients[data_unit_index][k], point_transform
             )
 
             if k == 0:
                 dc = coefficient
                 # DC coefficient, encode relative to previous DC value
-                if data_unit_offset == block_start_offset:
+                if data_unit_index == block_start_index:
                     prev_dc = 0
                     prev_prev_dc = 0
                 else:
                     prev_dc = _transform_coefficient(
-                        component.coefficients[data_unit_offset - 64], point_transform
+                        component.coefficients[data_unit_index - 1][0], point_transform
                     )
-                    if data_unit_offset - 64 == block_start_offset:
+                    if data_unit_index - 1 == block_start_index:
                         prev_prev_dc = 0
                     else:
                         prev_prev_dc = _transform_coefficient(
-                            component.coefficients[data_unit_offset - 128],
+                            component.coefficients[data_unit_index - 2][0],
                             point_transform,
                         )
                 dc_diff = dc - prev_dc
@@ -217,7 +217,7 @@ class DCTArithmeticEncoder:
                     for j in range(k, selection[1] + 1):
                         if (
                             _transform_coefficient(
-                                component.coefficients[data_unit_offset + j],
+                                component.coefficients[data_unit_index][j],
                                 point_transform,
                             )
                             != 0
@@ -238,7 +238,7 @@ class DCTArithmeticEncoder:
                         self.encoder.write_bit(self.ac_non_zero[k - 1], 0)
                         k += 1
                         coefficient = _transform_coefficient(
-                            component.coefficients[data_unit_offset + k],
+                            component.coefficients[data_unit_index][k],
                             point_transform,
                         )
                         zero_count += 1

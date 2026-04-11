@@ -5,13 +5,13 @@ import math
 
 import huffman
 import jpeg_dct
-import jpeg_encoder
 import jpeg_lossless
 from jpeg_segments import *
 from pgm import *
 from quantization_tables import *
 
 import jpeg
+import jpeg_encoder
 
 WIDTH = 32
 HEIGHT = 32

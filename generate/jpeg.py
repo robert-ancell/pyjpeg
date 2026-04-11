@@ -120,7 +120,7 @@ class HuffmanCode:
 def _encode_huffman_data_unit(
     scan_data,
     component,
-    data_unit_offset,
+    data_unit_index,
     selection,
     point_transform,
     block_start_offset=0,
@@ -128,15 +128,15 @@ def _encode_huffman_data_unit(
     k = selection[0]
     while k <= selection[1]:
         coefficient = _transform_coefficient(
-            component.coefficients[data_unit_offset + k], point_transform
+            component.coefficients[data_unit_index][k], point_transform
         )
         if k == 0:
             # DC coefficient, encode relative to previous DC value
-            if data_unit_offset == block_start_offset:
+            if data_unit_index == block_start_offset:
                 dc_diff = coefficient
             else:
                 dc_diff = coefficient - _transform_coefficient(
-                    component.coefficients[data_unit_offset - 64], point_transform
+                    component.coefficients[data_unit_index - 1][0], point_transform
                 )
             diff_bits = encode_amplitude(dc_diff)
             scan_data.append(HuffmanCode.dc(component.dc_table, len(diff_bits)))
@@ -149,7 +149,7 @@ def _encode_huffman_data_unit(
             while (
                 k + run_length <= selection[1]
                 and _transform_coefficient(
-                    component.coefficients[data_unit_offset + k + run_length],
+                    component.coefficients[data_unit_index][k + run_length],
                     point_transform,
                 )
                 == 0
@@ -162,7 +162,7 @@ def _encode_huffman_data_unit(
                 if run_length > 15:
                     run_length = 15
                 coefficient = _transform_coefficient(
-                    component.coefficients[data_unit_offset + k + run_length],
+                    component.coefficients[data_unit_index][k + run_length],
                     point_transform,
                 )
                 coefficient_bits = encode_amplitude(coefficient)
@@ -183,47 +183,45 @@ def huffman_dct_scan_data(
 ):
     assert len(components) > 0
     n_mcus = len(components[0].coefficients) // (
-        64 * components[0].sampling_factor[0] * components[0].sampling_factor[1]
+        components[0].sampling_factor[0] * components[0].sampling_factor[1]
     )
     sampling_limit = 0
     for c in components:
         assert (
-            len(c.coefficients)
-            == 64 * n_mcus * c.sampling_factor[0] * c.sampling_factor[1]
+            len(c.coefficients) == n_mcus * c.sampling_factor[0] * c.sampling_factor[1]
         )
         sampling_limit += c.sampling_factor[0] * c.sampling_factor[1]
     assert sampling_limit <= 10
     scan_data = []
-    data_unit_offsets = [0] * len(components)
-    block_start_offsets = [0] * len(components)
+    data_unit_indexes = [0] * len(components)
+    block_start_indexes = [0] * len(components)
     for m in range(n_mcus):
         if restart_interval != 0 and m != 0 and m % restart_interval == 0:
             scan_data.append(restart((m // restart_interval - 1) % 8))
-            block_start_offsets = data_unit_offsets[:]
+            block_start_indexes = data_unit_indexes[:]
 
         for i, component in enumerate(components):
             for _ in range(component.sampling_factor[0] * component.sampling_factor[1]):
                 _encode_huffman_data_unit(
                     scan_data,
                     component,
-                    data_unit_offsets[i],
+                    data_unit_indexes[i],
                     selection,
                     point_transform,
-                    block_start_offset=block_start_offsets[i],
+                    block_start_offset=block_start_indexes[i],
                 )
-                data_unit_offsets[i] += 64
+                data_unit_indexes[i] += 1
 
     return scan_data
 
 
 def huffman_dct_dc_scan_successive_data(coefficients, point_transform):
     bits = []
-    for k in range(0, len(coefficients), 64):
-        coefficient = coefficients[k]
-        if k == 0:
-            dc_diff = coefficient
-        else:
-            dc_diff = coefficient - coefficients[k - 64]
+    prev_dc = 0
+    for data_unit in coefficients:
+        dc = data_unit[0]
+        dc_diff = dc - prev_dc
+        prev_dc = dc
         if dc_diff < 0:
             dc_diff = -dc_diff
         bits.append((dc_diff >> point_transform) & 0x1)
@@ -249,17 +247,14 @@ def huffman_dct_ac_scan_successive_data(
 ):
     assert selection[0] >= 1
 
-    assert len(coefficients) % 64 == 0
-    n_data_units = len(coefficients) // 64
-
     scan_data = []
     correction_bits = [[]]
     eob_count = 0
     eob_correction_bits = []
-    for data_unit in range(n_data_units):
+    for data_unit in coefficients:
         run_length = 0
         for k in range(selection[0], selection[1] + 1):
-            coefficient = coefficients[data_unit * 64 + k]
+            coefficient = data_unit[k]
             old_transformed_coefficient = _transform_coefficient(
                 coefficient, point_transform + 1
             )
@@ -372,13 +367,12 @@ def arithmetic_dct_scan(
 ):
     assert len(components) > 0
     n_mcus = len(components[0].coefficients) // (
-        64 * components[0].sampling_factor[0] * components[0].sampling_factor[1]
+        components[0].sampling_factor[0] * components[0].sampling_factor[1]
     )
     sampling_limit = 0
     for c in components:
         assert (
-            len(c.coefficients)
-            == 64 * n_mcus * c.sampling_factor[0] * c.sampling_factor[1]
+            len(c.coefficients) == n_mcus * c.sampling_factor[0] * c.sampling_factor[1]
         )
         sampling_limit += c.sampling_factor[0] * c.sampling_factor[1]
     assert sampling_limit <= 10
@@ -387,12 +381,12 @@ def arithmetic_dct_scan(
     data = b""
     encoder = DCTArithmeticEncoder(components[0].conditioning_bounds, components[0].kx)
     scan_data = []
-    data_unit_offsets = [0] * len(components)
-    block_start_offsets = [0] * len(components)
+    data_unit_indexes = [0] * len(components)
+    block_start_indexes = [0] * len(components)
     for m in range(n_mcus):
         if restart_interval != 0 and m != 0 and m % restart_interval == 0:
             scan_data.append(restart((m // restart_interval - 1) % 8))
-            block_start_offsets = data_unit_offsets[:]
+            block_start_indexes = data_unit_indexes[:]
             data += encoder.get_data()
             encoder = DCTArithmeticEncoder(
                 components[0].conditioning_bounds, components[0].kx
@@ -404,24 +398,23 @@ def arithmetic_dct_scan(
                 encoder.encode_data_unit(
                     scan_data,
                     component,
-                    data_unit_offsets[i],
+                    data_unit_indexes[i],
                     selection,
                     point_transform,
-                    block_start_offset=block_start_offsets[i],
+                    block_start_index=block_start_indexes[i],
                 )
-                data_unit_offsets[i] += 64
+                data_unit_indexes[i] += 1
 
     return data + encoder.get_data()
 
 
 def arithmetic_dct_dc_scan_successive(coefficients, point_transform):
     encoder = arithmetic.Encoder()
-    for k in range(0, len(coefficients), 64):
-        coefficient = coefficients[k]
-        if k == 0:
-            dc_diff = coefficient
-        else:
-            dc_diff = coefficient - coefficients[k - 64]
+    prev_dc = 0
+    for data_unit in coefficients:
+        dc = data_unit[0]
+        dc_diff = dc - prev_dc
+        prev_dc = dc
         if dc_diff < 0:
             dc_diff = -dc_diff
         encoder.write_fixed_bit((dc_diff >> point_transform) & 0x1)
@@ -435,9 +428,6 @@ def arithmetic_dct_ac_scan_successive(
 ):
     assert selection[0] >= 1
 
-    assert len(coefficients) % 64 == 0
-    n_data_units = len(coefficients) // 64
-
     eob_states = []
     nonzero_states = []
     additional_states = []
@@ -447,24 +437,17 @@ def arithmetic_dct_ac_scan_successive(
         additional_states.append(arithmetic.State())
 
     encoder = arithmetic.Encoder()
-    for data_unit in range(n_data_units):
+    for data_unit in coefficients:
         eob = selection[1] + 1
         while eob > selection[0]:
-            if (
-                _transform_coefficient(
-                    coefficients[data_unit * 64 + eob - 1], point_transform
-                )
-                != 0
-            ):
+            if _transform_coefficient(data_unit[eob - 1], point_transform) != 0:
                 break
             eob -= 1
 
         eob_prev = eob
         while eob_prev > selection[0]:
             if (
-                _transform_coefficient(
-                    coefficients[data_unit * 64 + eob_prev - 1], point_transform + 1
-                )
+                _transform_coefficient(data_unit[eob_prev - 1], point_transform + 1)
                 != 0
             ):
                 break
@@ -479,17 +462,12 @@ def arithmetic_dct_ac_scan_successive(
                 encoder.write_bit(eob_states[k - 1], 0)
 
             # Encode run of zeros
-            while (
-                _transform_coefficient(
-                    coefficients[data_unit * 64 + k], point_transform
-                )
-                == 0
-            ):
+            while _transform_coefficient(data_unit[k], point_transform) == 0:
                 encoder.write_bit(nonzero_states[k - 1], 0)
                 k += 1
 
             transformed_coefficient = _transform_coefficient(
-                coefficients[data_unit * 64 + k], point_transform
+                data_unit[k], point_transform
             )
             if transformed_coefficient < -1 or transformed_coefficient > 1:
                 encoder.write_bit(
@@ -527,7 +505,7 @@ def make_dct_coefficients(width, height, depth, samples, quantization_table):
             du_coefficients = jpeg_dct.zig_zag(
                 jpeg_dct.quantize(jpeg_dct.fdct(values), quantization_table)
             )
-            coefficients.extend(du_coefficients)
+            coefficients.append(du_coefficients)
 
     return coefficients
 
