@@ -242,6 +242,12 @@ class HuffmanDCTScan:
         self.spectral_selection = spectral_selection
 
 
+class HuffmanDCTDCSuccessiveScan:
+    def __init__(self, data_units, point_transform=0):
+        self.data_units = data_units
+        self.point_transform = point_transform
+
+
 class ArithmeticDCTScan:
     def __init__(
         self,

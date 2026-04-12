@@ -172,6 +172,27 @@ class Encoder:
                     i += 1
         self.data += encoder.get_data()
 
+    def encode_huffman_dct_dc_scan_successive(self, scan):
+        bits = []
+        prev_dc = 0
+        b = 0
+        bit = 0x80
+        for data_unit in scan.data_units:
+            dc = data_unit[0]
+            dc_diff = dc - prev_dc
+            prev_dc = dc
+            if dc_diff < 0:
+                dc_diff = -dc_diff
+            if (dc_diff >> scan.point_transform) & 0x1 != 0:
+                b |= bit
+            bit >>= 1
+            if bit == 0:
+                self.data.append(b)
+                b = 0
+                bit = 0x80
+        if bit != 0x80:
+            self.data.append(b)
+
     def encode_arithmetic_dct_scan(self, scan):
         encoder = ArithmeticDCTScanEncoder(
             spectral_selection=scan.spectral_selection,
@@ -393,6 +414,8 @@ class Encoder:
                 self.encode_sos(segment)
             elif isinstance(segment, HuffmanDCTScan):
                 self.encode_huffman_dct_scan(segment)
+            elif isinstance(segment, HuffmanDCTDCSuccessiveScan):
+                self.encode_huffman_dct_dc_scan_successive(segment)
             elif isinstance(segment, ArithmeticDCTScan):
                 self.encode_arithmetic_dct_scan(segment)
             elif isinstance(segment, ArithmeticDCTDCSuccessiveScan):
