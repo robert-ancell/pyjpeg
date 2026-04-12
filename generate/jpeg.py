@@ -408,68 +408,6 @@ def arithmetic_dct_scan(
     return data + encoder.get_data()
 
 
-def arithmetic_dct_ac_scan_successive_data(
-    coefficients=[], selection=(1, 63), point_transform=0
-):
-    assert selection[0] >= 1
-
-    eob_states = []
-    nonzero_states = []
-    additional_states = []
-    for _ in range(63):
-        eob_states.append(arithmetic.State())
-        nonzero_states.append(arithmetic.State())
-        additional_states.append(arithmetic.State())
-
-    encoder = arithmetic.Encoder()
-    for data_unit in coefficients:
-        eob = selection[1] + 1
-        while eob > selection[0]:
-            if _transform_coefficient(data_unit[eob - 1], point_transform) != 0:
-                break
-            eob -= 1
-
-        eob_prev = eob
-        while eob_prev > selection[0]:
-            if (
-                _transform_coefficient(data_unit[eob_prev - 1], point_transform + 1)
-                != 0
-            ):
-                break
-            eob_prev -= 1
-
-        k = selection[0]
-        while k <= selection[1]:
-            if k >= eob_prev:
-                if k == eob:
-                    encoder.write_bit(eob_states[k - 1], 1)
-                    break
-                encoder.write_bit(eob_states[k - 1], 0)
-
-            # Encode run of zeros
-            while _transform_coefficient(data_unit[k], point_transform) == 0:
-                encoder.write_bit(nonzero_states[k - 1], 0)
-                k += 1
-
-            transformed_coefficient = _transform_coefficient(
-                data_unit[k], point_transform
-            )
-            if transformed_coefficient < -1 or transformed_coefficient > 1:
-                encoder.write_bit(
-                    additional_states[k - 1], transformed_coefficient & 0x1
-                )
-            else:
-                encoder.write_bit(nonzero_states[k - 1], 1)
-                if transformed_coefficient < 0:
-                    encoder.write_fixed_bit(1)
-                else:
-                    encoder.write_fixed_bit(0)
-            k += 1
-
-    encoder.flush()
-    return bytes(encoder.data)
-
-
 def make_dct_coefficients(width, height, depth, samples, quantization_table):
     offset = 1 << (depth - 1)
     coefficients = []

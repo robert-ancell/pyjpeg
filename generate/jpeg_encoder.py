@@ -11,6 +11,13 @@ from jpeg_segments import *
 # https://www.w3.org/Graphics/JPEG/jfif3.pdf
 
 
+def _transform_coefficient(coefficient, point_transform):
+    if coefficient > 0:
+        return coefficient >> point_transform
+    else:
+        return -(-coefficient >> point_transform)
+
+
 class Encoder:
     def __init__(self, segments):
         self.segments = segments
@@ -202,6 +209,68 @@ class Encoder:
         encoder.flush()
         self.data += bytes(encoder.data)
 
+    def encode_arithmetic_dct_ac_scan_successive(self, scan):
+        eob_states = []
+        nonzero_states = []
+        additional_states = []
+        for _ in range(63):
+            eob_states.append(arithmetic.State())
+            nonzero_states.append(arithmetic.State())
+            additional_states.append(arithmetic.State())
+
+        encoder = arithmetic.Encoder()
+        for data_unit in scan.data_units:
+            eob = scan.spectral_selection[1] + 1
+            while eob > scan.spectral_selection[0]:
+                if (
+                    _transform_coefficient(data_unit[eob - 1], scan.point_transform)
+                    != 0
+                ):
+                    break
+                eob -= 1
+
+            eob_prev = eob
+            while eob_prev > scan.spectral_selection[0]:
+                if (
+                    _transform_coefficient(
+                        data_unit[eob_prev - 1], scan.point_transform + 1
+                    )
+                    != 0
+                ):
+                    break
+                eob_prev -= 1
+
+            k = scan.spectral_selection[0]
+            while k <= scan.spectral_selection[1]:
+                if k >= eob_prev:
+                    if k == eob:
+                        encoder.write_bit(eob_states[k - 1], 1)
+                        break
+                    encoder.write_bit(eob_states[k - 1], 0)
+
+                # Encode run of zeros
+                while _transform_coefficient(data_unit[k], scan.point_transform) == 0:
+                    encoder.write_bit(nonzero_states[k - 1], 0)
+                    k += 1
+
+                transformed_coefficient = _transform_coefficient(
+                    data_unit[k], scan.point_transform
+                )
+                if transformed_coefficient < -1 or transformed_coefficient > 1:
+                    encoder.write_bit(
+                        additional_states[k - 1], transformed_coefficient & 0x1
+                    )
+                else:
+                    encoder.write_bit(nonzero_states[k - 1], 1)
+                    if transformed_coefficient < 0:
+                        encoder.write_fixed_bit(1)
+                    else:
+                        encoder.write_fixed_bit(0)
+                k += 1
+
+        encoder.flush()
+        self.data += bytes(encoder.data)
+
     def encode_lossless_scan(self, scan):
         assert self.sof is not None
         assert self.sos is not None
@@ -328,6 +397,8 @@ class Encoder:
                 self.encode_arithmetic_dct_scan(segment)
             elif isinstance(segment, ArithmeticDCTDCSuccessiveScan):
                 self.encode_arithmetic_dct_dc_scan_successive(segment)
+            elif isinstance(segment, ArithmeticDCTACSuccessiveScan):
+                self.encode_arithmetic_dct_ac_scan_successive(segment)
             elif isinstance(segment, LosslessScan):
                 self.encode_lossless_scan(segment)
             elif isinstance(segment, Restart):

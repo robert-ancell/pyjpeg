@@ -380,13 +380,14 @@ def make_dct_sequential(
                 assert len(component_indexes) == 1
                 if start == 0:
                     scan_data = ArithmeticDCTDCSuccessiveScan(
-                        coefficients[component_indexes[0]], point_transform
+                        coefficients[component_indexes[0]],
+                        point_transform=point_transform,
                     )
                 else:
-                    scan_data = jpeg.arithmetic_dct_ac_scan_successive_data(
+                    scan_data = ArithmeticDCTACSuccessiveScan(
                         coefficients[component_indexes[0]],
-                        selection,
-                        point_transform,
+                        spectral_selection=selection,
+                        point_transform=point_transform,
                     )
             else:
                 arithmetic_components = []

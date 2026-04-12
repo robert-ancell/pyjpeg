@@ -259,8 +259,15 @@ class ArithmeticDCTScan:
 
 
 class ArithmeticDCTDCSuccessiveScan:
-    def __init__(self, data_units, point_transform):
+    def __init__(self, data_units, point_transform=0):
         self.data_units = data_units
+        self.point_transform = point_transform
+
+
+class ArithmeticDCTACSuccessiveScan:
+    def __init__(self, data_units, spectral_selection=(1, 63), point_transform=0):
+        self.data_units = data_units
+        self.spectral_selection = spectral_selection
         self.point_transform = point_transform
 
 
