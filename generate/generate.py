@@ -313,14 +313,14 @@ def make_dct_sequential(
             table_index = 1
         component_quantization_tables.append(table_index)
 
-    coefficients = []
+    data_units = []
     for i in range(n_components):
         if i == 0 or not use_chrominance:
             quantization_table = luminance_quantization_table
         else:
             quantization_table = chrominance_quantization_table
-        coefficients.append(
-            jpeg.make_dct_coefficients(
+        data_units.append(
+            jpeg.make_dct_data_units(
                 component_sizes[i][0],
                 component_sizes[i][1],
                 precision,
@@ -380,12 +380,12 @@ def make_dct_sequential(
                 assert len(component_indexes) == 1
                 if start == 0:
                     scan_data = ArithmeticDCTDCSuccessiveScan(
-                        coefficients[component_indexes[0]],
+                        data_units[component_indexes[0]],
                         point_transform=point_transform,
                     )
                 else:
                     scan_data = ArithmeticDCTACSuccessiveScan(
-                        coefficients[component_indexes[0]],
+                        data_units[component_indexes[0]],
                         spectral_selection=selection,
                         point_transform=point_transform,
                     )
@@ -397,17 +397,17 @@ def make_dct_sequential(
                         sampling_factor = (1, 1)
                     else:
                         _, sampling_factor = components[i]
-                    mcu_coefficients = jpeg_dct.order_mcu_dct_coefficients(
+                    mcu_data_units = jpeg_dct.order_mcu_dct_data_units(
                         component_sizes[i][0],
                         component_sizes[i][1],
-                        coefficients[i],
+                        data_units[i],
                         sampling_factor,
                     )
                     arithmetic_components.append(
                         jpeg.ArithmeticDCTComponent(
                             conditioning_bounds=arithmetic_conditioning_bounds[0],
                             kx=arithmetic_conditioning_kx[0],
-                            coefficients=mcu_coefficients,
+                            data_units=mcu_data_units,
                             sampling_factor=sampling_factor,
                         )
                     )
@@ -425,17 +425,17 @@ def make_dct_sequential(
                     sampling_factor = (1, 1)
                 else:
                     _, sampling_factor = components[i]
-                mcu_coefficients = jpeg_dct.order_mcu_dct_coefficients(
+                mcu_data_units = jpeg_dct.order_mcu_dct_data_units(
                     component_sizes[i][0],
                     component_sizes[i][1],
-                    coefficients[i],
+                    data_units[i],
                     sampling_factor,
                 )
                 huffman_components.append(
                     jpeg.HuffmanDCTComponent(
                         dc_table=scan_components[i].dc_table,
                         ac_table=scan_components[i].ac_table,
-                        coefficients=mcu_coefficients,
+                        data_units=mcu_data_units,
                         sampling_factor=sampling_factor,
                     )
                 )
@@ -443,12 +443,12 @@ def make_dct_sequential(
                 assert len(component_indexes) == 1
                 if start == 0:
                     scan_data = jpeg.huffman_dct_dc_scan_successive_data(
-                        coefficients=coefficients[component_indexes[0]],
+                        data_units=data_units[component_indexes[0]],
                         point_transform=point_transform,
                     )
                 else:
                     scan_data = jpeg.huffman_dct_ac_scan_successive_data(
-                        coefficients=coefficients[component_indexes[0]],
+                        data_units=data_units[component_indexes[0]],
                         selection=selection,
                         point_transform=point_transform,
                     )

@@ -174,7 +174,7 @@ class DCTArithmeticEncoder:
         k = selection[0]
         while k <= selection[1]:
             coefficient = _transform_coefficient(
-                component.coefficients[data_unit_index][k], point_transform
+                component.data_units[data_unit_index][k], point_transform
             )
 
             if k == 0:
@@ -185,13 +185,13 @@ class DCTArithmeticEncoder:
                     prev_prev_dc = 0
                 else:
                     prev_dc = _transform_coefficient(
-                        component.coefficients[data_unit_index - 1][0], point_transform
+                        component.data_units[data_unit_index - 1][0], point_transform
                     )
                     if data_unit_index - 1 == block_start_index:
                         prev_prev_dc = 0
                     else:
                         prev_prev_dc = _transform_coefficient(
-                            component.coefficients[data_unit_index - 2][0],
+                            component.data_units[data_unit_index - 2][0],
                             point_transform,
                         )
                 dc_diff = dc - prev_dc
@@ -217,7 +217,7 @@ class DCTArithmeticEncoder:
                     for j in range(k, selection[1] + 1):
                         if (
                             _transform_coefficient(
-                                component.coefficients[data_unit_index][j],
+                                component.data_units[data_unit_index][j],
                                 point_transform,
                             )
                             != 0
@@ -238,7 +238,7 @@ class DCTArithmeticEncoder:
                         self.encoder.write_bit(self.ac_non_zero[k - 1], 0)
                         k += 1
                         coefficient = _transform_coefficient(
-                            component.coefficients[data_unit_index][k],
+                            component.data_units[data_unit_index][k],
                             point_transform,
                         )
                         zero_count += 1

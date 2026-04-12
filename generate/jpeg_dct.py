@@ -83,22 +83,22 @@ def idct(coefficients):
     return values
 
 
-def quantize(coefficients, quantization_table):
-    assert len(coefficients) == len(quantization_table)
-    quantized_coefficients = []
-    for i in range(len(coefficients)):
-        quantized_coefficients.append(round(coefficients[i] / quantization_table[i]))
-    return quantized_coefficients
+def quantize(data_unit, quantization_table):
+    assert len(data_unit) == len(quantization_table)
+    quantized_data_unit = []
+    for i in range(len(data_unit)):
+        quantized_data_unit.append(round(data_unit[i] / quantization_table[i]))
+    return quantized_data_unit
 
 
-def order_mcu_dct_coefficients(width, height, coefficients, sampling_factor):
+def order_mcu_dct_data_units(width, height, data_units, sampling_factor):
     if sampling_factor == (1, 1):
-        return coefficients
-    mcu_coefficients = []
+        return data_units
+    mcu_data_units = []
     for mcu_y in range(0, height // 8, sampling_factor[1]):
         for mcu_x in range(0, width // 8, sampling_factor[0]):
             for du_y in range(0, sampling_factor[1]):
                 for du_x in range(0, sampling_factor[0]):
                     i = (mcu_y + du_y) * (width // 8) + mcu_x + du_x
-                    mcu_coefficients.append(coefficients[i])
-    return mcu_coefficients
+                    mcu_data_units.append(data_units[i])
+    return mcu_data_units

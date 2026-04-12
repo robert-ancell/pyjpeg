@@ -83,11 +83,11 @@ def encode_scan_bits(bits):
 
 class HuffmanDCTComponent:
     def __init__(
-        self, dc_table=None, ac_table=None, coefficients=[], sampling_factor=(1, 1)
+        self, dc_table=None, ac_table=None, data_units=[], sampling_factor=(1, 1)
     ):
         self.dc_table = dc_table
         self.ac_table = ac_table
-        self.coefficients = coefficients
+        self.data_units = data_units
         self.sampling_factor = sampling_factor
 
 
@@ -128,7 +128,7 @@ def _encode_huffman_data_unit(
     k = selection[0]
     while k <= selection[1]:
         coefficient = _transform_coefficient(
-            component.coefficients[data_unit_index][k], point_transform
+            component.data_units[data_unit_index][k], point_transform
         )
         if k == 0:
             # DC coefficient, encode relative to previous DC value
@@ -136,7 +136,7 @@ def _encode_huffman_data_unit(
                 dc_diff = coefficient
             else:
                 dc_diff = coefficient - _transform_coefficient(
-                    component.coefficients[data_unit_index - 1][0], point_transform
+                    component.data_units[data_unit_index - 1][0], point_transform
                 )
             diff_bits = encode_amplitude(dc_diff)
             scan_data.append(HuffmanCode.dc(component.dc_table, len(diff_bits)))
@@ -149,7 +149,7 @@ def _encode_huffman_data_unit(
             while (
                 k + run_length <= selection[1]
                 and _transform_coefficient(
-                    component.coefficients[data_unit_index][k + run_length],
+                    component.data_units[data_unit_index][k + run_length],
                     point_transform,
                 )
                 == 0
@@ -162,7 +162,7 @@ def _encode_huffman_data_unit(
                 if run_length > 15:
                     run_length = 15
                 coefficient = _transform_coefficient(
-                    component.coefficients[data_unit_index][k + run_length],
+                    component.data_units[data_unit_index][k + run_length],
                     point_transform,
                 )
                 coefficient_bits = encode_amplitude(coefficient)
@@ -182,14 +182,12 @@ def huffman_dct_scan_data(
     restart_interval=0,
 ):
     assert len(components) > 0
-    n_mcus = len(components[0].coefficients) // (
+    n_mcus = len(components[0].data_units) // (
         components[0].sampling_factor[0] * components[0].sampling_factor[1]
     )
     sampling_limit = 0
     for c in components:
-        assert (
-            len(c.coefficients) == n_mcus * c.sampling_factor[0] * c.sampling_factor[1]
-        )
+        assert len(c.data_units) == n_mcus * c.sampling_factor[0] * c.sampling_factor[1]
         sampling_limit += c.sampling_factor[0] * c.sampling_factor[1]
     assert sampling_limit <= 10
     scan_data = []
@@ -215,10 +213,10 @@ def huffman_dct_scan_data(
     return scan_data
 
 
-def huffman_dct_dc_scan_successive_data(coefficients, point_transform):
+def huffman_dct_dc_scan_successive_data(data_units, point_transform):
     bits = []
     prev_dc = 0
-    for data_unit in coefficients:
+    for data_unit in data_units:
         dc = data_unit[0]
         dc_diff = dc - prev_dc
         prev_dc = dc
@@ -243,7 +241,7 @@ def encode_eob(count):
 
 
 def huffman_dct_ac_scan_successive_data(
-    table=0, coefficients=[], selection=(1, 63), point_transform=0
+    table=0, data_units=[], selection=(1, 63), point_transform=0
 ):
     assert selection[0] >= 1
 
@@ -251,7 +249,7 @@ def huffman_dct_ac_scan_successive_data(
     correction_bits = [[]]
     eob_count = 0
     eob_correction_bits = []
-    for data_unit in coefficients:
+    for data_unit in data_units:
         run_length = 0
         for k in range(selection[0], selection[1] + 1):
             coefficient = data_unit[k]
@@ -351,11 +349,11 @@ def huffman_dct_scan(huffman_tables, scan_data):
 
 class ArithmeticDCTComponent:
     def __init__(
-        self, conditioning_bounds=(0, 1), kx=5, coefficients=[], sampling_factor=(1, 1)
+        self, conditioning_bounds=(0, 1), kx=5, data_units=[], sampling_factor=(1, 1)
     ):
         self.conditioning_bounds = conditioning_bounds
         self.kx = kx
-        self.coefficients = coefficients
+        self.data_units = data_units
         self.sampling_factor = sampling_factor
 
 
@@ -366,14 +364,12 @@ def arithmetic_dct_scan(
     restart_interval=0,
 ):
     assert len(components) > 0
-    n_mcus = len(components[0].coefficients) // (
+    n_mcus = len(components[0].data_units) // (
         components[0].sampling_factor[0] * components[0].sampling_factor[1]
     )
     sampling_limit = 0
     for c in components:
-        assert (
-            len(c.coefficients) == n_mcus * c.sampling_factor[0] * c.sampling_factor[1]
-        )
+        assert len(c.data_units) == n_mcus * c.sampling_factor[0] * c.sampling_factor[1]
         sampling_limit += c.sampling_factor[0] * c.sampling_factor[1]
     assert sampling_limit <= 10
 
@@ -408,9 +404,9 @@ def arithmetic_dct_scan(
     return data + encoder.get_data()
 
 
-def make_dct_coefficients(width, height, depth, samples, quantization_table):
+def make_dct_data_units(width, height, depth, samples, quantization_table):
     offset = 1 << (depth - 1)
-    coefficients = []
+    data_units = []
     for du_y in range(0, height, 8):
         for du_x in range(0, width, 8):
             values = []
@@ -425,12 +421,12 @@ def make_dct_coefficients(width, height, depth, samples, quantization_table):
                     p = samples[py * width + px]
                     values.append(p - offset)
 
-            du_coefficients = jpeg_dct.zig_zag(
+            data_unit = jpeg_dct.zig_zag(
                 jpeg_dct.quantize(jpeg_dct.fdct(values), quantization_table)
             )
-            coefficients.append(du_coefficients)
+            data_units.append(data_unit)
 
-    return coefficients
+    return data_units
 
 
 def make_dct_huffman_dc_table(scan_data, table):
