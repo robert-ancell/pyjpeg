@@ -212,6 +212,7 @@ class Encoder:
                         scan.data_units[i],
                         dc_table,
                         ac_table,
+                        scan.point_transform,
                     )
                     i += 1
         self.data += encoder.get_data()
@@ -597,13 +598,15 @@ class ArithmeticDCTScanEncoder(ArithmeticScanEncoder):
         self.ac_low_mstates = make_states(14)
         self.ac_high_mstates = make_states(14)
 
-    def write_data_unit(self, component_index, data_unit, dc_table, ac_table):
+    def write_data_unit(
+        self, component_index, data_unit, dc_table, ac_table, point_transform
+    ):
         zz_data_unit = jpeg_dct.zig_zag(data_unit)
 
         k = self.spectral_selection[0]
         while k <= self.spectral_selection[1]:
             if k == 0:
-                dc = zz_data_unit[k]
+                dc = _transform_coefficient(zz_data_unit[k], point_transform)
                 dc_diff = dc - self.prev_dc.get(component_index, 0)
                 prev_dc_diff = self.prev_dc_diff.get(component_index, 0)
                 lower, upper = self.conditioning_bounds[dc_table]
@@ -624,7 +627,10 @@ class ArithmeticDCTScanEncoder(ArithmeticScanEncoder):
                 run_length = 0
                 while (
                     k + run_length <= self.spectral_selection[1]
-                    and zz_data_unit[k + run_length] == 0
+                    and _transform_coefficient(
+                        zz_data_unit[k + run_length], point_transform
+                    )
+                    == 0
                 ):
                     run_length += 1
                 if k + run_length > self.spectral_selection[1]:
@@ -644,7 +650,10 @@ class ArithmeticDCTScanEncoder(ArithmeticScanEncoder):
                         xstates = self.ac_high_xstates
                         mstates = self.ac_high_mstates
                     self.write_ac(
-                        self.ac_sn_sp_x1[k - 1], xstates, mstates, zz_data_unit[k]
+                        self.ac_sn_sp_x1[k - 1],
+                        xstates,
+                        mstates,
+                        _transform_coefficient(zz_data_unit[k], point_transform),
                     )
                     k += 1
 

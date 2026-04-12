@@ -429,7 +429,11 @@ def make_dct_sequential(
                         )
                     if interval != 0:
                         scan_data.append(Restart((interval - 1) % 8))
-                    if len(components) == 1 and width == 8 and height == 8:
+                    if (
+                        len(components) == 1
+                        and restart_interval == 0
+                        and selection == (0, 63)
+                    ):
                         # FIXME: Don't zig zag in the first place
                         data_units_ = []
                         for data_unit in data_units[0]:
@@ -445,6 +449,7 @@ def make_dct_sequential(
                                     )
                                 ],
                                 spectral_selection=selection,
+                                point_transform=point_transform,
                                 conditioning_bounds=arithmetic_conditioning_bounds,
                                 kx=arithmetic_conditioning_kx,
                             )
