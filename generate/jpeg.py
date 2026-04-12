@@ -347,51 +347,6 @@ def huffman_dct_scan(huffman_tables, scan_data):
     return data + encode_scan_bits(bits)
 
 
-class ArithmeticDCTComponent:
-    def __init__(
-        self, conditioning_bounds=(0, 1), kx=5, data_units=[], sampling_factor=(1, 1)
-    ):
-        self.conditioning_bounds = conditioning_bounds
-        self.kx = kx
-        self.data_units = data_units
-        self.sampling_factor = sampling_factor
-
-
-def arithmetic_dct_scan(
-    components=[],
-    selection=(0, 63),
-    point_transform=0,
-):
-    assert len(components) > 0
-    n_mcus = len(components[0].data_units) // (
-        components[0].sampling_factor[0] * components[0].sampling_factor[1]
-    )
-    sampling_limit = 0
-    for c in components:
-        assert len(c.data_units) == n_mcus * c.sampling_factor[0] * c.sampling_factor[1]
-        sampling_limit += c.sampling_factor[0] * c.sampling_factor[1]
-    assert sampling_limit <= 10
-
-    # FIXME: Per component.
-    data = b""
-    encoder = DCTArithmeticEncoder(components[0].conditioning_bounds, components[0].kx)
-    scan_data = []
-    data_unit_indexes = [0] * len(components)
-    for m in range(n_mcus):
-        for i, component in enumerate(components):
-            for _ in range(component.sampling_factor[0] * component.sampling_factor[1]):
-                encoder.encode_data_unit(
-                    scan_data,
-                    component,
-                    data_unit_indexes[i],
-                    selection,
-                    point_transform,
-                )
-                data_unit_indexes[i] += 1
-
-    return data + encoder.get_data()
-
-
 def make_dct_data_units(width, height, depth, samples, quantization_table):
     offset = 1 << (depth - 1)
     data_units = []

@@ -403,6 +403,7 @@ def make_dct_sequential(
                 scan_data = []
                 for interval in range(n_intervals):
                     arithmetic_components = []
+                    mcu_data_units = []
                     for i in component_indexes:
                         # MCU is 1 in non-interleaved
                         if len(component_indexes) == 1:
@@ -411,55 +412,46 @@ def make_dct_sequential(
                             _, sampling_factor = components[i]
                         interval_length = len(data_units[i]) // n_intervals
                         interval_start = interval * interval_length
-                        mcu_data_units = jpeg_dct.order_mcu_dct_data_units(
-                            component_sizes[i][0],
-                            component_sizes[i][1] // n_intervals,
-                            data_units[i][
-                                interval_start : interval_start + interval_length
-                            ],
-                            sampling_factor,
+                        mcu_data_units.append(
+                            jpeg_dct.order_mcu_dct_data_units(
+                                component_sizes[i][0],
+                                component_sizes[i][1] // n_intervals,
+                                data_units[i][
+                                    interval_start : interval_start + interval_length
+                                ],
+                                sampling_factor,
+                            )
                         )
                         arithmetic_components.append(
-                            jpeg.ArithmeticDCTComponent(
-                                conditioning_bounds=arithmetic_conditioning_bounds[0],
-                                kx=arithmetic_conditioning_kx[0],
-                                data_units=mcu_data_units,
-                                sampling_factor=sampling_factor,
+                            (
+                                sampling_factor,
+                                scan_components[i].dc_table,
+                                scan_components[i].ac_table,
                             )
                         )
                     if interval != 0:
                         scan_data.append(Restart((interval - 1) % 8))
-                    if len(components) == 1:
-                        # FIXME: Don't zig zag in the first place
-                        data_units_ = []
-                        for data_unit in data_units[0][
-                            interval_start : interval_start + interval_length
-                        ]:
-                            data_units_.append(jpeg_dct.unzig_zag(data_unit))
-                        scan_data.append(
-                            ArithmeticDCTScan(
-                                data_units_,
-                                components=[
-                                    (
-                                        (1, 1),
-                                        scan_components[0].dc_table,
-                                        scan_components[0].ac_table,
-                                    )
-                                ],
-                                spectral_selection=selection,
-                                point_transform=point_transform,
-                                conditioning_bounds=arithmetic_conditioning_bounds,
-                                kx=arithmetic_conditioning_kx,
-                            )
+                    # FIXME: Don't zig zag in the first place
+                    # FIXME: Interleave earlier
+                    data_units_ = []
+                    while len(mcu_data_units[0]) > 0:
+                        for i, (sampling_factor, _, _) in enumerate(
+                            arithmetic_components
+                        ):
+                            for _ in range(sampling_factor[0] * sampling_factor[1]):
+                                data_units_.append(
+                                    jpeg_dct.unzig_zag(mcu_data_units[i].pop(0))
+                                )
+                    scan_data.append(
+                        ArithmeticDCTScan(
+                            data_units_,
+                            components=arithmetic_components,
+                            spectral_selection=selection,
+                            point_transform=point_transform,
+                            conditioning_bounds=arithmetic_conditioning_bounds,
+                            kx=arithmetic_conditioning_kx,
                         )
-                    else:
-                        scan_data.append(
-                            jpeg.arithmetic_dct_scan(
-                                components=arithmetic_components,
-                                selection=selection,
-                                point_transform=point_transform,
-                            )
-                        )
+                    )
         else:
             huffman_components = []
             for i in component_indexes:
