@@ -429,13 +429,34 @@ def make_dct_sequential(
                         )
                     if interval != 0:
                         scan_data.append(Restart((interval - 1) % 8))
-                    scan_data.append(
-                        jpeg.arithmetic_dct_scan(
-                            components=arithmetic_components,
-                            selection=selection,
-                            point_transform=point_transform,
+                    if len(components) == 1 and width == 8 and height == 8:
+                        # FIXME: Don't zig zag in the first place
+                        data_units_ = []
+                        for data_unit in data_units[0]:
+                            data_units_.append(jpeg_dct.unzig_zag(data_unit))
+                        scan_data.append(
+                            ArithmeticDCTScan(
+                                data_units_,
+                                components=[
+                                    (
+                                        (1, 1),
+                                        scan_components[0].dc_table,
+                                        scan_components[0].ac_table,
+                                    )
+                                ],
+                                spectral_selection=selection,
+                                conditioning_bounds=arithmetic_conditioning_bounds,
+                                kx=arithmetic_conditioning_kx,
+                            )
                         )
-                    )
+                    else:
+                        scan_data.append(
+                            jpeg.arithmetic_dct_scan(
+                                components=arithmetic_components,
+                                selection=selection,
+                                point_transform=point_transform,
+                            )
+                        )
         else:
             huffman_components = []
             for i in component_indexes:
