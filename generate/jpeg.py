@@ -361,7 +361,6 @@ def arithmetic_dct_scan(
     components=[],
     selection=(0, 63),
     point_transform=0,
-    restart_interval=0,
 ):
     assert len(components) > 0
     n_mcus = len(components[0].data_units) // (
@@ -378,17 +377,7 @@ def arithmetic_dct_scan(
     encoder = DCTArithmeticEncoder(components[0].conditioning_bounds, components[0].kx)
     scan_data = []
     data_unit_indexes = [0] * len(components)
-    block_start_indexes = [0] * len(components)
     for m in range(n_mcus):
-        if restart_interval != 0 and m != 0 and m % restart_interval == 0:
-            scan_data.append(restart((m // restart_interval - 1) % 8))
-            block_start_indexes = data_unit_indexes[:]
-            data += encoder.get_data()
-            encoder = DCTArithmeticEncoder(
-                components[0].conditioning_bounds, components[0].kx
-            )
-            data += restart((m // restart_interval - 1) % 8)
-
         for i, component in enumerate(components):
             for _ in range(component.sampling_factor[0] * component.sampling_factor[1]):
                 encoder.encode_data_unit(
@@ -397,7 +386,6 @@ def arithmetic_dct_scan(
                     data_unit_indexes[i],
                     selection,
                     point_transform,
-                    block_start_index=block_start_indexes[i],
                 )
                 data_unit_indexes[i] += 1
 

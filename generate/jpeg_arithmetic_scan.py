@@ -169,7 +169,6 @@ class DCTArithmeticEncoder:
         data_unit_index,
         selection,
         point_transform,
-        block_start_index,
     ):
         k = selection[0]
         while k <= selection[1]:
@@ -180,14 +179,14 @@ class DCTArithmeticEncoder:
             if k == 0:
                 dc = coefficient
                 # DC coefficient, encode relative to previous DC value
-                if data_unit_index == block_start_index:
+                if data_unit_index == 0:
                     prev_dc = 0
                     prev_prev_dc = 0
                 else:
                     prev_dc = _transform_coefficient(
                         component.data_units[data_unit_index - 1][0], point_transform
                     )
-                    if data_unit_index - 1 == block_start_index:
+                    if data_unit_index - 1 == 0:
                         prev_prev_dc = 0
                     else:
                         prev_prev_dc = _transform_coefficient(
