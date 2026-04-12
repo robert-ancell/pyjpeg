@@ -429,10 +429,12 @@ def make_dct_sequential(
                         )
                     if interval != 0:
                         scan_data.append(Restart((interval - 1) % 8))
-                    if len(components) == 1 and restart_interval == 0:
+                    if len(components) == 1:
                         # FIXME: Don't zig zag in the first place
                         data_units_ = []
-                        for data_unit in data_units[0]:
+                        for data_unit in data_units[0][
+                            interval_start : interval_start + interval_length
+                        ]:
                             data_units_.append(jpeg_dct.unzig_zag(data_unit))
                         scan_data.append(
                             ArithmeticDCTScan(
