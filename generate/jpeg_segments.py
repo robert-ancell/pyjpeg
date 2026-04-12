@@ -258,6 +258,12 @@ class ArithmeticDCTScan:
         self.kx = kx
 
 
+class ArithmeticDCTDCSuccessiveScan:
+    def __init__(self, data_units, point_transform):
+        self.data_units = data_units
+        self.point_transform = point_transform
+
+
 class LosslessScan:
     def __init__(self, samples):
         self.samples = samples

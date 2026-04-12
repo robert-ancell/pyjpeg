@@ -408,21 +408,6 @@ def arithmetic_dct_scan(
     return data + encoder.get_data()
 
 
-def arithmetic_dct_dc_scan_successive_data(coefficients, point_transform):
-    encoder = arithmetic.Encoder()
-    prev_dc = 0
-    for data_unit in coefficients:
-        dc = data_unit[0]
-        dc_diff = dc - prev_dc
-        prev_dc = dc
-        if dc_diff < 0:
-            dc_diff = -dc_diff
-        encoder.write_fixed_bit((dc_diff >> point_transform) & 0x1)
-
-    encoder.flush()
-    return bytes(encoder.data)
-
-
 def arithmetic_dct_ac_scan_successive_data(
     coefficients=[], selection=(1, 63), point_transform=0
 ):

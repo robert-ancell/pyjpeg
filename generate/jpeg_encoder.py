@@ -188,6 +188,20 @@ class Encoder:
                     i += 1
         self.data += encoder.get_data()
 
+    def encode_arithmetic_dct_dc_scan_successive(self, scan):
+        encoder = arithmetic.Encoder()
+        prev_dc = 0
+        for data_unit in scan.data_units:
+            dc = data_unit[0]
+            dc_diff = dc - prev_dc
+            prev_dc = dc
+            if dc_diff < 0:
+                dc_diff = -dc_diff
+            encoder.write_fixed_bit((dc_diff >> scan.point_transform) & 0x1)
+
+        encoder.flush()
+        self.data += bytes(encoder.data)
+
     def encode_lossless_scan(self, scan):
         assert self.sof is not None
         assert self.sos is not None
@@ -312,6 +326,8 @@ class Encoder:
                 self.encode_huffman_dct_scan(segment)
             elif isinstance(segment, ArithmeticDCTScan):
                 self.encode_arithmetic_dct_scan(segment)
+            elif isinstance(segment, ArithmeticDCTDCSuccessiveScan):
+                self.encode_arithmetic_dct_dc_scan_successive(segment)
             elif isinstance(segment, LosslessScan):
                 self.encode_lossless_scan(segment)
             elif isinstance(segment, Restart):
