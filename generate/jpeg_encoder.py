@@ -198,6 +198,7 @@ class Encoder:
             spectral_selection=scan.spectral_selection,
             conditioning_bounds=scan.conditioning_bounds,
             kx=scan.kx,
+            point_transform=scan.point_transform,
         )
 
         i = 0
@@ -212,7 +213,6 @@ class Encoder:
                         scan.data_units[i],
                         dc_table,
                         ac_table,
-                        scan.point_transform,
                     )
                     i += 1
         self.data += encoder.get_data()
@@ -570,11 +570,13 @@ class ArithmeticDCTScanEncoder(ArithmeticScanEncoder):
         spectral_selection=(0, 63),
         conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
         kx=[5, 5, 5, 5],
+        point_transform=0,
     ):
         super().__init__()
         self.spectral_selection = spectral_selection
         self.conditioning_bounds = conditioning_bounds
         self.kx = kx
+        self.point_transform = point_transform
         self.prev_dc = {}
         self.prev_dc_diff = {}
 
@@ -598,15 +600,13 @@ class ArithmeticDCTScanEncoder(ArithmeticScanEncoder):
         self.ac_low_mstates = make_states(14)
         self.ac_high_mstates = make_states(14)
 
-    def write_data_unit(
-        self, component_index, data_unit, dc_table, ac_table, point_transform
-    ):
+    def write_data_unit(self, component_index, data_unit, dc_table, ac_table):
         zz_data_unit = jpeg_dct.zig_zag(data_unit)
 
         k = self.spectral_selection[0]
         while k <= self.spectral_selection[1]:
             if k == 0:
-                dc = _transform_coefficient(zz_data_unit[k], point_transform)
+                dc = _transform_coefficient(zz_data_unit[k], self.point_transform)
                 dc_diff = dc - self.prev_dc.get(component_index, 0)
                 prev_dc_diff = self.prev_dc_diff.get(component_index, 0)
                 lower, upper = self.conditioning_bounds[dc_table]
@@ -628,7 +628,7 @@ class ArithmeticDCTScanEncoder(ArithmeticScanEncoder):
                 while (
                     k + run_length <= self.spectral_selection[1]
                     and _transform_coefficient(
-                        zz_data_unit[k + run_length], point_transform
+                        zz_data_unit[k + run_length], self.point_transform
                     )
                     == 0
                 ):
@@ -653,7 +653,7 @@ class ArithmeticDCTScanEncoder(ArithmeticScanEncoder):
                         self.ac_sn_sp_x1[k - 1],
                         xstates,
                         mstates,
-                        _transform_coefficient(zz_data_unit[k], point_transform),
+                        _transform_coefficient(zz_data_unit[k], self.point_transform),
                     )
                     k += 1
 
