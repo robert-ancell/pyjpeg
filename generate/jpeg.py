@@ -2,7 +2,6 @@ import struct
 
 import jpeg_dct
 from huffman import *
-from jpeg_arithmetic_scan import *
 from jpeg_marker import *
 
 # https://www.w3.org/Graphics/JPEG/itu-t81.pdf
