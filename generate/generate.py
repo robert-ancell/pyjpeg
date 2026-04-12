@@ -429,11 +429,7 @@ def make_dct_sequential(
                         )
                     if interval != 0:
                         scan_data.append(Restart((interval - 1) % 8))
-                    if (
-                        len(components) == 1
-                        and restart_interval == 0
-                        and selection == (0, 63)
-                    ):
+                    if len(components) == 1 and restart_interval == 0:
                         # FIXME: Don't zig zag in the first place
                         data_units_ = []
                         for data_unit in data_units[0]:
