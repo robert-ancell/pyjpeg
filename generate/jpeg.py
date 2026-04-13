@@ -1,23 +1,8 @@
-import struct
-
 import jpeg_dct
 from huffman import *
-from jpeg_marker import *
 
 # https://www.w3.org/Graphics/JPEG/itu-t81.pdf
 # https://www.w3.org/Graphics/JPEG/jfif3.pdf
-
-
-# FIXME: unknown application data
-
-
-def marker(value):
-    return struct.pack("BB", 0xFF, value)
-
-
-def restart(index):
-    assert index >= 0 and index <= 7
-    return marker(MARKER_RST0 + index)
 
 
 def get_bits(value, length):
@@ -178,7 +163,6 @@ def huffman_dct_scan_data(
     components=[],
     selection=(0, 63),
     point_transform=0,
-    restart_interval=0,
 ):
     assert len(components) > 0
     n_mcus = len(components[0].data_units) // (
@@ -193,10 +177,6 @@ def huffman_dct_scan_data(
     data_unit_indexes = [0] * len(components)
     block_start_indexes = [0] * len(components)
     for m in range(n_mcus):
-        if restart_interval != 0 and m != 0 and m % restart_interval == 0:
-            scan_data.append(restart((m // restart_interval - 1) % 8))
-            block_start_indexes = data_unit_indexes[:]
-
         for i, component in enumerate(components):
             for _ in range(component.sampling_factor[0] * component.sampling_factor[1]):
                 _encode_huffman_data_unit(

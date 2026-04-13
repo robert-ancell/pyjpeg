@@ -4,13 +4,14 @@ import json
 import math
 
 import huffman
-import jpeg
 import jpeg_dct
 import jpeg_encoder
 import jpeg_lossless
 from jpeg_segments import *
 from pgm import *
 from quantization_tables import *
+
+import jpeg
 
 WIDTH = 32
 HEIGHT = 32
@@ -466,54 +467,69 @@ def make_dct_sequential(
                         )
                     )
         else:
-            huffman_components = []
-            for i in component_indexes:
-                # MCU is 1 in non-interleaved
-                if len(component_indexes) == 1:
-                    sampling_factor = (1, 1)
+            scan_data = []
+            for interval in range(n_intervals):
+                huffman_components = []
+                for i in component_indexes:
+                    # MCU is 1 in non-interleaved
+                    if len(component_indexes) == 1:
+                        sampling_factor = (1, 1)
+                    else:
+                        _, sampling_factor = components[i]
+                    interval_length = len(data_units[i]) // n_intervals
+                    interval_start = interval * interval_length
+                    mcu_data_units = jpeg_dct.order_mcu_dct_data_units(
+                        component_sizes[i][0],
+                        component_sizes[i][1],
+                        data_units[i][
+                            interval_start : interval_start + interval_length
+                        ],
+                        sampling_factor,
+                    )
+                    huffman_components.append(
+                        jpeg.HuffmanDCTComponent(
+                            dc_table=scan_components[i].dc_table,
+                            ac_table=scan_components[i].ac_table,
+                            data_units=mcu_data_units,
+                            sampling_factor=sampling_factor,
+                        )
+                    )
+                if successive:
+                    assert len(component_indexes) == 1
+                    if start == 0:
+                        scan_data = [
+                            jpeg.huffman_dct_dc_scan_successive_data(
+                                data_units=data_units[component_indexes[0]],
+                                point_transform=point_transform,
+                            )
+                        ]
+                    else:
+                        scan_data = [
+                            jpeg.huffman_dct_ac_scan_successive_data(
+                                data_units=data_units[component_indexes[0]],
+                                selection=selection,
+                                point_transform=point_transform,
+                            )
+                        ]
                 else:
-                    _, sampling_factor = components[i]
-                mcu_data_units = jpeg_dct.order_mcu_dct_data_units(
-                    component_sizes[i][0],
-                    component_sizes[i][1],
-                    data_units[i],
-                    sampling_factor,
-                )
-                huffman_components.append(
-                    jpeg.HuffmanDCTComponent(
-                        dc_table=scan_components[i].dc_table,
-                        ac_table=scan_components[i].ac_table,
-                        data_units=mcu_data_units,
-                        sampling_factor=sampling_factor,
+                    if interval != 0:
+                        scan_data.append(Restart((interval - 1) % 8))
+                    scan_data.append(
+                        jpeg.huffman_dct_scan_data(
+                            components=huffman_components,
+                            selection=selection,
+                            point_transform=point_transform,
+                        )
                     )
-                )
-            if successive:
-                assert len(component_indexes) == 1
-                if start == 0:
-                    scan_data = jpeg.huffman_dct_dc_scan_successive_data(
-                        data_units=data_units[component_indexes[0]],
-                        point_transform=point_transform,
-                    )
-                else:
-                    scan_data = jpeg.huffman_dct_ac_scan_successive_data(
-                        data_units=data_units[component_indexes[0]],
-                        selection=selection,
-                        point_transform=point_transform,
-                    )
-            else:
-                scan_data = jpeg.huffman_dct_scan_data(
-                    components=huffman_components,
-                    restart_interval=restart_interval,
-                    selection=selection,
-                    point_transform=point_transform,
-                )
         jpeg_scans.append((sos, scan_data))
 
     # Generate Huffman tables and encode scans.
     if not arithmetic:
         all_huffman_bits = []
         for _, scan_data in jpeg_scans:
-            all_huffman_bits.extend(scan_data)
+            for d in scan_data:
+                if not isinstance(d, Restart):
+                    all_huffman_bits.extend(d)
         dc_table = jpeg.make_dct_huffman_dc_table(all_huffman_bits, 0)
         ac_table = jpeg.make_dct_huffman_ac_table(all_huffman_bits, 0)
         huffman_tables = [
@@ -527,9 +543,15 @@ def make_dct_sequential(
             huffman_tables.append(HuffmanTable.ac(1, ac_table))
 
         for i, (sos, scan_data) in enumerate(jpeg_scans):
+            scan_data_ = []
+            for d in scan_data:
+                if isinstance(d, Restart):
+                    scan_data_.append(d)
+                else:
+                    scan_data_.append(jpeg.huffman_dct_scan(huffman_tables, d))
             jpeg_scans[i] = (
                 sos,
-                [jpeg.huffman_dct_scan(huffman_tables, scan_data)],
+                scan_data_,
             )
 
     segments = [StartOfImage()]
