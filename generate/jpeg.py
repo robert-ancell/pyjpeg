@@ -326,31 +326,6 @@ def huffman_dct_scan(huffman_tables, scan_data):
     return data + encode_scan_bits(bits)
 
 
-def make_dct_data_units(width, height, depth, samples, quantization_table):
-    offset = 1 << (depth - 1)
-    data_units = []
-    for du_y in range(0, height, 8):
-        for du_x in range(0, width, 8):
-            values = []
-            for y in range(8):
-                for x in range(8):
-                    px = du_x + x
-                    py = du_y + y
-                    if px >= width:
-                        px = width - 1
-                    if py >= height:
-                        py = height - 1
-                    p = samples[py * width + px]
-                    values.append(p - offset)
-
-            data_unit = jpeg_dct.zig_zag(
-                jpeg_dct.quantize(jpeg_dct.fdct(values), quantization_table)
-            )
-            data_units.append(data_unit)
-
-    return data_units
-
-
 def make_dct_huffman_dc_table(scan_data, table):
     frequencies = [0] * 256
     for d in scan_data:
