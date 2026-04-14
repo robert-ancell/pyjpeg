@@ -151,6 +151,7 @@ class Encoder:
     def encode_huffman_dct_scan(self, scan):
         encoder = HuffmanDCTScanEncoder(
             spectral_selection=scan.spectral_selection,
+            point_transform=scan.point_transform,
             dc_codecs=self.dc_huffman_codecs,
             ac_codecs=self.ac_huffman_codecs,
             symbol_frequencies=self._huffman_symbol_frequencies,
@@ -173,10 +174,8 @@ class Encoder:
         self.data += encoder.get_data()
 
     def encode_huffman_dct_dc_scan_successive(self, scan):
-        bits = []
+        scan_data = []
         prev_dc = 0
-        b = 0
-        bit = 0x80
         for data_unit in scan.data_units:
             dc = data_unit[0]
             dc_diff = dc - prev_dc
@@ -184,14 +183,127 @@ class Encoder:
             if dc_diff < 0:
                 dc_diff = -dc_diff
             if (dc_diff >> scan.point_transform) & 0x1 != 0:
-                b |= bit
-            bit >>= 1
-            if bit == 0:
-                self.data.append(b)
-                b = 0
-                bit = 0x80
-        if bit != 0x80:
-            self.data.append(b)
+                scan_data.append(1)
+            else:
+                scan_data.append(0)
+
+        self.encode_scan_data(scan_data)
+
+    def encode_huffman_dct_ac_scan_successive(self, scan):
+        def get_bits(value, length):
+            bits = []
+            for i in range(length):
+                if value & (1 << (length - i - 1)) != 0:
+                    bits.append(1)
+                else:
+                    bits.append(0)
+            return bits
+
+        def get_eob_length(count):
+            assert count >= 1 and count <= 32767
+            length = 0
+            while count != 1:
+                count >>= 1
+                length += 1
+            return length
+
+        def encode_eob(count):
+            length = get_eob_length(count)
+            return get_bits(count, length)
+
+        scan_data = []
+        correction_bits = [[]]
+        eob_count = 0
+        eob_correction_bits = []
+        for data_unit in scan.data_units:
+            run_length = 0
+            for k in range(scan.spectral_selection[0], scan.spectral_selection[1] + 1):
+                coefficient = data_unit[k]
+                old_transformed_coefficient = _transform_coefficient(
+                    coefficient, scan.point_transform + 1
+                )
+                transformed_coefficient = _transform_coefficient(
+                    coefficient, scan.point_transform
+                )
+
+                if old_transformed_coefficient == 0:
+                    if transformed_coefficient == 0:
+                        run_length += 1
+
+                        # Max run length is 16, so need to keep correction bits in these blocks.
+                        if run_length % 16 == 0:
+                            correction_bits.append([])
+                    else:
+                        if eob_count > 0:
+                            eob_bits = encode_eob(eob_count)
+                            scan_data.extend(
+                                self.ac_huffman_codecs[scan.ac_table].encode_symbol(
+                                    len(eob_bits) << 4 | 0
+                                )
+                            )
+                            scan_data.extend(eob_bits)
+                            scan_data.extend(eob_correction_bits)
+                            eob_count = 0
+                            eob_correction_bits = []
+
+                        while run_length > 15:
+                            # ZRL
+                            scan_data.extend(
+                                self.ac_huffman_codecs[scan.ac_table].encode_symbol(
+                                    15 << 4 | 0
+                                )
+                            )
+                            scan_data.extend(correction_bits[0])
+                            run_length -= 16
+                            correction_bits = correction_bits[1:]
+                        assert len(correction_bits) == 1
+
+                        scan_data.extend(
+                            self.ac_huffman_codecs[scan.ac_table].encode_symbol(
+                                run_length << 4 | 1
+                            )
+                        )
+                        if transformed_coefficient < 0:
+                            scan_data.append(0)
+                        else:
+                            scan_data.append(1)
+                        scan_data.extend(correction_bits[0])
+                        run_length = 0
+                        correction_bits = [[]]
+                else:
+                    correction_bits[-1].append(transformed_coefficient & 0x1)
+
+                if (
+                    k == scan.spectral_selection[1]
+                    and (run_length + len(correction_bits[-1])) > 0
+                ):
+                    eob_count += 1
+                    for bits in correction_bits:
+                        eob_correction_bits.extend(bits)
+                    correction_bits = [[]]
+                    run_length = 0
+                    # FIXME: If eob_count is 32767 then have to generate it now
+
+        if eob_count > 0:
+            eob_bits = encode_eob(eob_count)
+            scan_data.extend(
+                self.ac_huffman_codecs[scan.ac_table].encode_symbol(
+                    len(eob_bits) << 4 | 0
+                )
+            )
+            scan_data.extend(eob_bits)
+            scan_data.extend(eob_correction_bits)
+
+        self.encode_scan_data(scan_data)
+
+    def encode_scan_data(self, scan_data):
+        while len(scan_data) % 8 != 0:
+            scan_data.append(0)
+        while len(scan_data) > 0:
+            byte = 0
+            for _ in range(8):
+                byte = byte << 1 | scan_data.pop(0)
+            self.data += bytes(byte)
 
     def encode_arithmetic_dct_scan(self, scan):
         encoder = ArithmeticDCTScanEncoder(
@@ -417,6 +529,8 @@ class Encoder:
                 self.encode_huffman_dct_scan(segment)
             elif isinstance(segment, HuffmanDCTDCSuccessiveScan):
                 self.encode_huffman_dct_dc_scan_successive(segment)
+            elif isinstance(segment, HuffmanDCTACSuccessiveScan):
+                self.encode_huffman_dct_ac_scan_successive(segment)
             elif isinstance(segment, ArithmeticDCTScan):
                 self.encode_arithmetic_dct_scan(segment)
             elif isinstance(segment, ArithmeticDCTDCSuccessiveScan):
@@ -800,6 +914,7 @@ class HuffmanDCTScanEncoder(HuffmanScanEncoder):
     def __init__(
         self,
         spectral_selection=(0, 63),
+        point_transform=0,
         dc_codecs=[None, None, None, None],
         ac_codecs=[None, None, None, None],
         symbol_frequencies={},
@@ -810,6 +925,7 @@ class HuffmanDCTScanEncoder(HuffmanScanEncoder):
             symbol_frequencies=symbol_frequencies,
         )
         self.spectral_selection = spectral_selection
+        self.point_transform = point_transform
         self.prev_dc = {}
 
     def write_data_unit(self, component_index, data_unit, dc_table, ac_table):
@@ -818,7 +934,7 @@ class HuffmanDCTScanEncoder(HuffmanScanEncoder):
         k = self.spectral_selection[0]
         while k <= self.spectral_selection[1]:
             if k == 0:
-                dc = zz_data_unit[k]
+                dc = _transform_coefficient(zz_data_unit[k], self.point_transform)
                 dc_diff = dc - self.prev_dc.get(component_index, 0)
                 self.prev_dc[component_index] = dc
                 self.write_dc(dc_diff, dc_table)
@@ -827,7 +943,10 @@ class HuffmanDCTScanEncoder(HuffmanScanEncoder):
                 run_length = 0
                 while (
                     k + run_length <= self.spectral_selection[1]
-                    and zz_data_unit[k + run_length] == 0
+                    and _transform_coefficient(
+                        zz_data_unit[k + run_length], self.point_transform
+                    )
+                    == 0
                 ):
                     run_length += 1
                 if k + run_length > self.spectral_selection[1]:
@@ -838,7 +957,11 @@ class HuffmanDCTScanEncoder(HuffmanScanEncoder):
                     k += 16
                 else:
                     k += run_length
-                    self.write_ac(run_length, zz_data_unit[k], ac_table)
+                    self.write_ac(
+                        run_length,
+                        _transform_coefficient(zz_data_unit[k], self.point_transform),
+                        ac_table,
+                    )
                     k += 1
 
 
@@ -959,7 +1082,7 @@ if __name__ == "__main__":
         [
             StartOfImage(),
             DefineQuantizationTables([QuantizationTable(0, quantization_table)]),
-            StartOfFrame.extended(8, 8, 8, [FrameComponent.dct(1)], arithmetic=True),
+            StartOfFrame.extended(8, 8, [FrameComponent.dct(1)], arithmetic=True),
             StartOfScan.dct([ScanComponent.dct(1, 0, 0)]),
             ArithmeticDCTScan([dct_coefficients]),
             EndOfImage(),
@@ -976,7 +1099,7 @@ if __name__ == "__main__":
                     HuffmanTable.dc(0, standard_luminance_dc_huffman_table),
                 ]
             ),
-            StartOfFrame.lossless(8, 8, 8, [FrameComponent.lossless(1)]),
+            StartOfFrame.lossless(8, 8, [FrameComponent.lossless(1)]),
             StartOfScan.lossless([ScanComponent.lossless(1, 0)]),
             LosslessScan(samples),
             EndOfImage(),
@@ -988,9 +1111,7 @@ if __name__ == "__main__":
     encoder = Encoder(
         [
             StartOfImage(),
-            StartOfFrame.lossless(
-                8, 8, 8, [FrameComponent.lossless(1)], arithmetic=True
-            ),
+            StartOfFrame.lossless(8, 8, [FrameComponent.lossless(1)], arithmetic=True),
             StartOfScan.lossless([ScanComponent.lossless(1, 0)]),
             LosslessScan(samples),
             EndOfImage(),
@@ -1215,7 +1336,6 @@ if __name__ == "__main__":
             StartOfFrame.lossless(
                 8,
                 8,
-                8,
                 [
                     FrameComponent.lossless(1),
                     FrameComponent.lossless(2),
@@ -1236,3 +1356,77 @@ if __name__ == "__main__":
     )
     encoder.encode()
     open("test-lossless-arithmetic-color.jpg", "wb").write(encoder.data)
+
+    encoder = Encoder(
+        [
+            StartOfImage(),
+            DefineQuantizationTables([QuantizationTable(0, quantization_table)]),
+            DefineHuffmanTables(
+                [
+                    HuffmanTable.dc(0, standard_luminance_dc_huffman_table),
+                    HuffmanTable.ac(0, standard_luminance_ac_huffman_table),
+                ]
+            ),
+            StartOfFrame.progressive(8, 8, [FrameComponent.dct(1)]),
+            StartOfScan.dct(
+                [ScanComponent.dct(1, 0, 0)],
+                spectral_selection=(0, 0),
+                point_transform=1,
+            ),
+            HuffmanDCTScan(
+                [dct_coefficients], spectral_selection=(0, 0), point_transform=1
+            ),
+            StartOfScan.dct(
+                [ScanComponent.dct(1, 0, 0)],
+                spectral_selection=(0, 0),
+                previous_point_transform=1,
+                point_transform=0,
+            ),
+            HuffmanDCTDCSuccessiveScan([dct_coefficients]),
+            StartOfScan.dct(
+                [ScanComponent.dct(1, 0, 0)],
+                spectral_selection=(1, 63),
+            ),
+            HuffmanDCTScan([dct_coefficients], spectral_selection=(1, 63)),
+            EndOfImage(),
+        ]
+    )
+    encoder.encode(optimize_huffman=True)
+    open("test-progressive-huffman.jpg", "wb").write(encoder.data)
+
+    encoder = Encoder(
+        [
+            StartOfImage(),
+            DefineQuantizationTables([QuantizationTable(0, quantization_table)]),
+            DefineHuffmanTables(
+                [
+                    HuffmanTable.dc(0, standard_luminance_dc_huffman_table),
+                    HuffmanTable.ac(0, standard_luminance_ac_huffman_table),
+                ]
+            ),
+            StartOfFrame.progressive(8, 8, [FrameComponent.dct(1)], arithmetic=True),
+            StartOfScan.dct(
+                [ScanComponent.dct(1, 0, 0)],
+                spectral_selection=(0, 0),
+                point_transform=1,
+            ),
+            ArithmeticDCTScan(
+                [dct_coefficients], spectral_selection=(0, 0), point_transform=1
+            ),
+            StartOfScan.dct(
+                [ScanComponent.dct(1, 0, 0)],
+                spectral_selection=(0, 0),
+                previous_point_transform=1,
+                point_transform=0,
+            ),
+            ArithmeticDCTDCSuccessiveScan([dct_coefficients]),
+            StartOfScan.dct(
+                [ScanComponent.dct(1, 0, 0)],
+                spectral_selection=(1, 63),
+            ),
+            ArithmeticDCTScan([dct_coefficients], spectral_selection=(1, 63)),
+            EndOfImage(),
+        ]
+    )
+    encoder.encode()
+    open("test-progressive-arithmetic.jpg", "wb").write(encoder.data)

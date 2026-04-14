@@ -5,13 +5,13 @@ import math
 
 import huffman
 import jpeg_dct
-import jpeg_encoder
 import jpeg_lossless
 from jpeg_segments import *
 from pgm import *
 from quantization_tables import *
 
 import jpeg
+import jpeg_encoder
 
 WIDTH = 32
 HEIGHT = 32
@@ -594,13 +594,21 @@ def make_dct_sequential(
     if extended:
         segments.append(
             StartOfFrame.extended(
-                number_of_lines, width, precision, sof_components, arithmetic=arithmetic
+                number_of_lines,
+                width,
+                sof_components,
+                precision=precision,
+                arithmetic=arithmetic,
             )
         )
     elif progressive:
         segments.append(
             StartOfFrame.progressive(
-                number_of_lines, width, precision, sof_components, arithmetic=arithmetic
+                number_of_lines,
+                width,
+                sof_components,
+                precision=precision,
+                arithmetic=arithmetic,
             )
         )
     else:
@@ -655,7 +663,11 @@ def make_lossless(
         sof_components.append(FrameComponent.lossless(i + 1))
     segments.append(
         StartOfFrame.lossless(
-            number_of_lines, width, precision, sof_components, arithmetic=arithmetic
+            number_of_lines,
+            width,
+            sof_components,
+            precision=precision,
+            arithmetic=arithmetic,
         )
     )
     if not arithmetic:

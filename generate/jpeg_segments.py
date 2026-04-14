@@ -163,7 +163,7 @@ class StartOfFrame:
         return StartOfFrame(0, 8, number_of_lines, samples_per_line, components)
 
     def extended(
-        number_of_lines, samples_per_line, precision, components, arithmetic=False
+        number_of_lines, samples_per_line, components, precision=8, arithmetic=False
     ):
         if arithmetic:
             n = 9
@@ -172,7 +172,7 @@ class StartOfFrame:
         return StartOfFrame(n, precision, number_of_lines, samples_per_line, components)
 
     def progressive(
-        number_of_lines, samples_per_line, precision, components, arithmetic=False
+        number_of_lines, samples_per_line, components, precision=8, arithmetic=False
     ):
         if arithmetic:
             n = 10
@@ -181,7 +181,7 @@ class StartOfFrame:
         return StartOfFrame(n, precision, number_of_lines, samples_per_line, components)
 
     def lossless(
-        number_of_lines, samples_per_line, precision, components, arithmetic=False
+        number_of_lines, samples_per_line, components, precision=8, arithmetic=False
     ):
         if arithmetic:
             n = 11
@@ -235,16 +235,35 @@ class StartOfScan:
 
 class HuffmanDCTScan:
     def __init__(
-        self, data_units, components=[((1, 1), 0, 0)], spectral_selection=(0, 63)
+        self,
+        data_units,
+        components=[((1, 1), 0, 0)],
+        spectral_selection=(0, 63),
+        point_transform=0,
     ):
         self.data_units = data_units
         self.components = components
         self.spectral_selection = spectral_selection
+        self.point_transform = point_transform
 
 
 class HuffmanDCTDCSuccessiveScan:
     def __init__(self, data_units, point_transform=0):
         self.data_units = data_units
+        self.point_transform = point_transform
+
+
+class HuffmanDCTACSuccessiveScan:
+    def __init__(
+        self,
+        data_units,
+        ac_table=0,
+        spectral_selection=(1, 63),
+        point_transform=0,
+    ):
+        self.data_units = data_units
+        self.ac_table = ac_table
+        self.spectral_selection = spectral_selection
         self.point_transform = point_transform
 
 
