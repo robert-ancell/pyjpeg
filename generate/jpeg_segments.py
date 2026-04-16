@@ -308,8 +308,14 @@ class ArithmeticDCTACSuccessiveScan:
         self.point_transform = point_transform
 
 
-class LosslessScan:
-    def __init__(self, samples, predictor=0):
+class HuffmanLosslessScan:
+    def __init__(self, samples, predictor=1):
+        self.samples = samples
+        self.predictor = predictor
+
+
+class ArithmeticLosslessScan:
+    def __init__(self, samples, predictor=1):
         self.samples = samples
         self.predictor = predictor
 

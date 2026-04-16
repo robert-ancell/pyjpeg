@@ -404,7 +404,7 @@ class Encoder:
     def encode_lossless_scan(self, scan):
         assert self.sof is not None
         assert self.sos is not None
-        if self.arithmetic:
+        if isinstance(scan, ArithmeticLosslessScan):
             encoder = ArithmeticLosslessScanEncoder()
         else:
             encoder = HuffmanLosslessScanEncoder(
@@ -460,7 +460,7 @@ class Encoder:
                     diff -= 65536
                 if diff < -32767:
                     diff += 65536
-                if self.arithmetic:
+                if isinstance(scan, ArithmeticLosslessScan):
                     encoder.write_data_unit(
                         self.conditioning_bounds[scan_component.dc_table],
                         left_diff,
@@ -537,7 +537,9 @@ class Encoder:
                 self.encode_arithmetic_dct_dc_scan_successive(segment)
             elif isinstance(segment, ArithmeticDCTACSuccessiveScan):
                 self.encode_arithmetic_dct_ac_scan_successive(segment)
-            elif isinstance(segment, LosslessScan):
+            elif isinstance(segment, HuffmanLosslessScan):
+                self.encode_lossless_scan(segment)
+            elif isinstance(segment, ArithmeticLosslessScan):
                 self.encode_lossless_scan(segment)
             elif isinstance(segment, Restart):
                 self.encode_rst(segment)
@@ -1093,7 +1095,7 @@ if __name__ == "__main__":
             ),
             StartOfFrame.lossless(8, 8, [FrameComponent.lossless(1)]),
             StartOfScan.lossless([ScanComponent.lossless(1, 0)]),
-            LosslessScan(samples, predictor=0),
+            HuffmanLosslessScan(samples, predictor=1),
             EndOfImage(),
         ]
     )
@@ -1105,7 +1107,7 @@ if __name__ == "__main__":
             StartOfImage(),
             StartOfFrame.lossless(8, 8, [FrameComponent.lossless(1)], arithmetic=True),
             StartOfScan.lossless([ScanComponent.lossless(1, 0)]),
-            LosslessScan(samples, predictor=0),
+            ArithmeticLosslessScan(samples, predictor=1),
             EndOfImage(),
         ]
     )
@@ -1342,7 +1344,7 @@ if __name__ == "__main__":
                     ScanComponent.lossless(3, 0),
                 ]
             ),
-            LosslessScan(ycbcr_samples),
+            ArithmeticLosslessScan(ycbcr_samples),
             EndOfImage(),
         ]
     )

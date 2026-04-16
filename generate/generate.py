@@ -237,7 +237,9 @@ def segments_to_json(segments):
             segment, ArithmeticDCTScan
         ):
             s.append({"type": "DCT"})
-        elif isinstance(segment, LosslessScan):
+        elif isinstance(segment, HuffmanLosslessScan) or isinstance(
+            segment, ArithmeticLosslessScan
+        ):
             s.append({"type": "Lossless"})
         elif isinstance(segment, Restart):
             s.append({"type": "RST%d" % segment.index})
@@ -715,7 +717,20 @@ def make_lossless(
             if offset != 0:
                 index = (offset // segment_length) - 1
                 segments.append(Restart(index % 8))
-            segments.append(LosslessScan(samples, predictor=predictor))
+            if arithmetic:
+                segments.append(
+                    ArithmeticLosslessScan(
+                        samples,
+                        predictor=predictor,
+                    )
+                )
+            else:
+                segments.append(
+                    HuffmanLosslessScan(
+                        samples,
+                        predictor=predictor,
+                    )
+                )
             if offset == 0 and scan_index == 0 and use_dnl:
                 segments.append(DefineNumberOfLines(height))
     segments.append(EndOfImage())
