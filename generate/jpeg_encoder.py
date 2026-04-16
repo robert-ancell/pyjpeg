@@ -152,14 +152,12 @@ class Encoder:
         encoder = HuffmanDCTScanEncoder(
             spectral_selection=scan.spectral_selection,
             point_transform=scan.point_transform,
-            dc_encoders=self.dc_huffman_encoders,
-            ac_encoders=self.ac_huffman_encoders,
             symbol_frequencies=self._huffman_symbol_frequencies,
         )
 
         i = 0
         while i < len(scan.data_units):
-            for component_index, (sampling_factor, dc_table, ac_table) in enumerate(
+            for component_index, (sampling_factor, dc_encoder, ac_encoder) in enumerate(
                 scan.components
             ):
                 for _ in range(sampling_factor[0] * sampling_factor[1]):
@@ -167,8 +165,8 @@ class Encoder:
                     encoder.write_data_unit(
                         component_index,
                         scan.data_units[i],
-                        dc_table,
-                        ac_table,
+                        dc_encoder,
+                        ac_encoder,
                     )
                     i += 1
         self.data += encoder.get_data()
@@ -404,12 +402,9 @@ class Encoder:
         assert self.sof is not None
         assert self.sos is not None
         if self.arithmetic:
-            encoder = ArithmeticLosslessScanEncoder(
-                conditioning_bounds=self.conditioning_bounds
-            )
+            encoder = ArithmeticLosslessScanEncoder()
         else:
             encoder = HuffmanLosslessScanEncoder(
-                dc_encoders=self.dc_huffman_encoders,
                 symbol_frequencies=self._huffman_symbol_frequencies,
             )
 
@@ -463,12 +458,20 @@ class Encoder:
                     diff -= 65536
                 if diff < -32767:
                     diff += 65536
-                encoder.write_data_unit(
-                    scan_component.dc_table,
-                    left_diff,
-                    above_diffs[component_index][x],
-                    diff,
-                )
+                if self.arithmetic:
+                    encoder.write_data_unit(
+                        self.conditioning_bounds[scan_component.dc_table],
+                        left_diff,
+                        above_diffs[component_index][x],
+                        diff,
+                    )
+                else:
+                    encoder.write_data_unit(
+                        self.dc_huffman_encoders[scan_component.dc_table],
+                        left_diff,
+                        above_diffs[component_index][x],
+                        diff,
+                    )
                 diffs[component_index][x] = diff
             x += 1
             if x >= self.sof.samples_per_line:
@@ -763,12 +766,8 @@ class ArithmeticDCTScanEncoder(ArithmeticScanEncoder):
 
 
 class ArithmeticLosslessScanEncoder(ArithmeticScanEncoder):
-    def __init__(
-        self,
-        conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
-    ):
+    def __init__(self):
         super().__init__()
-        self.conditioning_bounds = conditioning_bounds
 
         def make_states(count):
             states = []
@@ -785,8 +784,8 @@ class ArithmeticLosslessScanEncoder(ArithmeticScanEncoder):
         self.small_mstates = make_states(14)
         self.large_mstates = make_states(14)
 
-    def write_data_unit(self, table, left_diff, above_diff, data_unit):
-        lower, upper = self.conditioning_bounds[table]
+    def write_data_unit(self, conditioning_bounds, left_diff, above_diff, data_unit):
+        lower, upper = conditioning_bounds
         ca = self.classify_value(lower, upper, left_diff)
         cb = self.classify_value(lower, upper, above_diff)
         c = ca * 5 + cb
@@ -813,39 +812,35 @@ class ArithmeticLosslessScanEncoder(ArithmeticScanEncoder):
 class HuffmanScanEncoder:
     def __init__(
         self,
-        dc_encoders=[None, None, None, None],
-        ac_encoders=[None, None, None, None],
         symbol_frequencies={},
     ):
-        self.dc_encoders = dc_encoders
-        self.ac_encoders = ac_encoders
         self.symbol_frequencies = symbol_frequencies
         self.bits = []
 
     # DC coefficient, written as a change from previous DC coefficient.
-    def write_dc(self, dc_diff, table):
+    def write_dc(self, dc_diff, encoder):
         length = self.get_magnitude_length(dc_diff)
         symbol = length
-        self.write_symbol(symbol, self.dc_encoders[table])
+        self.write_symbol(symbol, encoder)
         self.write_magnitude(dc_diff, length)
 
     # Zero AC coefficients until end of block.
-    def write_eob(self, table, block_count=1):
+    def write_eob(self, encoder, block_count=1):
         assert 1 <= block_count <= 32767
         length = self.get_magnitude_length(block_count)
-        self.write_ac(length - 1, 0, table)
+        self.write_ac(length - 1, 0, encoder)
         if block_count > 1:
             self.write_magnitude(block_count, length - 1)
 
     # Run of 16 zero AC coefficients.
-    def write_zrl(self, table):
-        self.write_ac(15, 0, table)
+    def write_zrl(self, encoder):
+        self.write_ac(15, 0, encoder)
 
     # AC Coefficient after [run_length] zero coefficients.
-    def write_ac(self, run_length, ac, table):
+    def write_ac(self, run_length, ac, encoder):
         length = self.get_magnitude_length(ac)
         symbol = run_length << 4 | length
-        self.write_symbol(symbol, self.ac_encoders[table])
+        self.write_symbol(symbol, encoder)
         self.write_magnitude(ac, length)
 
     # Write a Huffman symbol
@@ -905,20 +900,16 @@ class HuffmanDCTScanEncoder(HuffmanScanEncoder):
         self,
         spectral_selection=(0, 63),
         point_transform=0,
-        dc_encoders=[None, None, None, None],
-        ac_encoders=[None, None, None, None],
         symbol_frequencies={},
     ):
         super().__init__(
-            dc_encoders=dc_encoders,
-            ac_encoders=ac_encoders,
             symbol_frequencies=symbol_frequencies,
         )
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
         self.prev_dc = {}
 
-    def write_data_unit(self, component_index, data_unit, dc_table, ac_table):
+    def write_data_unit(self, component_index, data_unit, dc_encoder, ac_encoder):
         zz_data_unit = jpeg_dct.zig_zag(data_unit)
 
         k = self.spectral_selection[0]
@@ -927,7 +918,7 @@ class HuffmanDCTScanEncoder(HuffmanScanEncoder):
                 dc = _transform_coefficient(zz_data_unit[k], self.point_transform)
                 dc_diff = dc - self.prev_dc.get(component_index, 0)
                 self.prev_dc[component_index] = dc
-                self.write_dc(dc_diff, dc_table)
+                self.write_dc(dc_diff, dc_encoder)
                 k += 1
             else:
                 run_length = 0
@@ -940,17 +931,17 @@ class HuffmanDCTScanEncoder(HuffmanScanEncoder):
                 ):
                     run_length += 1
                 if k + run_length > self.spectral_selection[1]:
-                    self.write_eob(ac_table)
+                    self.write_eob(ac_encoder)
                     k = self.spectral_selection[1] + 1
                 elif run_length >= 16:
-                    self.write_zrl(ac_table)
+                    self.write_zrl(ac_encoder)
                     k += 16
                 else:
                     k += run_length
                     self.write_ac(
                         run_length,
                         _transform_coefficient(zz_data_unit[k], self.point_transform),
-                        ac_table,
+                        ac_encoder,
                     )
                     k += 1
 
@@ -958,16 +949,14 @@ class HuffmanDCTScanEncoder(HuffmanScanEncoder):
 class HuffmanLosslessScanEncoder(HuffmanScanEncoder):
     def __init__(
         self,
-        dc_encoders=[None, None, None, None],
         symbol_frequencies={},
     ):
         super().__init__(
-            dc_encoders=dc_encoders,
             symbol_frequencies=symbol_frequencies,
         )
 
-    def write_data_unit(self, table, left_diff, above_diff, data_unit):
-        self.write_dc(data_unit, table)
+    def write_data_unit(self, encoder, left_diff, above_diff, data_unit):
+        self.write_dc(data_unit, encoder)
 
 
 if __name__ == "__main__":
@@ -1061,7 +1050,16 @@ if __name__ == "__main__":
             ),
             StartOfFrame.baseline(8, 8, [FrameComponent.dct(1)]),
             StartOfScan.dct([ScanComponent.dct(1, 0, 0)]),
-            HuffmanDCTScan([dct_coefficients]),
+            HuffmanDCTScan(
+                [dct_coefficients],
+                [
+                    (
+                        (1, 1),
+                        huffman.HuffmanEncoder(standard_luminance_dc_huffman_table),
+                        huffman.HuffmanEncoder(standard_luminance_ac_huffman_table),
+                    ),
+                ],
+            ),
             EndOfImage(),
         ]
     )
@@ -1074,7 +1072,12 @@ if __name__ == "__main__":
             DefineQuantizationTables([QuantizationTable(0, quantization_table)]),
             StartOfFrame.extended(8, 8, [FrameComponent.dct(1)], arithmetic=True),
             StartOfScan.dct([ScanComponent.dct(1, 0, 0)]),
-            ArithmeticDCTScan([dct_coefficients]),
+            ArithmeticDCTScan(
+                [dct_coefficients],
+                [
+                    ((1, 1), (0, 1), 5),
+                ],
+            ),
             EndOfImage(),
         ]
     )
@@ -1364,7 +1367,16 @@ if __name__ == "__main__":
                 point_transform=1,
             ),
             HuffmanDCTScan(
-                [dct_coefficients], spectral_selection=(0, 0), point_transform=1
+                [dct_coefficients],
+                [
+                    (
+                        (1, 1),
+                        huffman.HuffmanEncoder(standard_luminance_dc_huffman_table),
+                        huffman.HuffmanEncoder(standard_luminance_ac_huffman_table),
+                    ),
+                ],
+                spectral_selection=(0, 0),
+                point_transform=1,
             ),
             StartOfScan.dct(
                 [ScanComponent.dct(1, 0, 0)],
@@ -1377,7 +1389,17 @@ if __name__ == "__main__":
                 [ScanComponent.dct(1, 0, 0)],
                 spectral_selection=(1, 63),
             ),
-            HuffmanDCTScan([dct_coefficients], spectral_selection=(1, 63)),
+            HuffmanDCTScan(
+                [dct_coefficients],
+                [
+                    (
+                        (1, 1),
+                        huffman.HuffmanEncoder(standard_luminance_dc_huffman_table),
+                        huffman.HuffmanEncoder(standard_luminance_ac_huffman_table),
+                    ),
+                ],
+                spectral_selection=(1, 63),
+            ),
             EndOfImage(),
         ]
     )
@@ -1401,7 +1423,16 @@ if __name__ == "__main__":
                 point_transform=1,
             ),
             ArithmeticDCTScan(
-                [dct_coefficients], spectral_selection=(0, 0), point_transform=1
+                [dct_coefficients],
+                [
+                    (
+                        (1, 1),
+                        (0, 1),
+                        5,
+                    ),
+                ],
+                spectral_selection=(0, 0),
+                point_transform=1,
             ),
             StartOfScan.dct(
                 [ScanComponent.dct(1, 0, 0)],
@@ -1414,7 +1445,17 @@ if __name__ == "__main__":
                 [ScanComponent.dct(1, 0, 0)],
                 spectral_selection=(1, 63),
             ),
-            ArithmeticDCTScan([dct_coefficients], spectral_selection=(1, 63)),
+            ArithmeticDCTScan(
+                [dct_coefficients],
+                [
+                    (
+                        (1, 1),
+                        (0, 1),
+                        5,
+                    ),
+                ],
+                spectral_selection=(1, 63),
+            ),
             EndOfImage(),
         ]
     )

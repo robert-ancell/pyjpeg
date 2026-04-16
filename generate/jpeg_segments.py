@@ -237,7 +237,7 @@ class HuffmanDCTScan:
     def __init__(
         self,
         data_units,
-        components=[((1, 1), 0, 0)],
+        components,
         spectral_selection=(0, 63),
         point_transform=0,
     ):
@@ -271,7 +271,7 @@ class ArithmeticDCTScan:
     def __init__(
         self,
         data_units,
-        components=[((1, 1), (0, 1), 5)],
+        components,
         spectral_selection=(0, 63),
         point_transform=0,
     ):
