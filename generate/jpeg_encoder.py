@@ -1095,7 +1095,7 @@ if __name__ == "__main__":
             ),
             StartOfFrame.lossless(8, 8, [FrameComponent.lossless(1)]),
             StartOfScan.lossless([ScanComponent.lossless(1, 0)]),
-            HuffmanLosslessScan(samples, predictor=1),
+            HuffmanLosslessScan(samples),
             EndOfImage(),
         ]
     )
@@ -1107,7 +1107,7 @@ if __name__ == "__main__":
             StartOfImage(),
             StartOfFrame.lossless(8, 8, [FrameComponent.lossless(1)], arithmetic=True),
             StartOfScan.lossless([ScanComponent.lossless(1, 0)]),
-            ArithmeticLosslessScan(samples, predictor=1),
+            ArithmeticLosslessScan(samples),
             EndOfImage(),
         ]
     )
