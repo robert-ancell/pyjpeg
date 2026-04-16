@@ -131,24 +131,6 @@ class HuffmanDecoder:
                 symbol_tree = symbol
 
 
-def get_huffman_code(table, symbol):
-    code = 0
-    for i, symbols_by_length in enumerate(table):
-        length = i + 1
-        for s in symbols_by_length:
-            if s == symbol:
-                bits = []
-                for i in range(length):
-                    if code & (1 << (length - i - 1)) != 0:
-                        bits.append(1)
-                    else:
-                        bits.append(0)
-                return bits
-            code += 1
-        code <<= 1
-    raise Exception("Missing symbol")
-
-
 if __name__ == "__main__":
     # Table from ITU T.81 K.3.2
     table = [
