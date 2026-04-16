@@ -33,7 +33,6 @@ class Encoder:
         self._huffman_symbol_frequencies = {}
         self._dht_to_encoders = {}
         # FIXME: Remove when fix lossless
-        self.conditioning_bounds = [(0, 1), (0, 1), (0, 1), (0, 1)]
         self.sof = None
         self.sos = None
 
@@ -90,11 +89,6 @@ class Encoder:
             data += struct.pack(
                 "BB", table.table_class << 4 | table.destination, table.value
             )
-            if table.table_class == 0:
-                self.conditioning_bounds[table.destination] = (
-                    table.value & 0xF,
-                    table.value >> 4,
-                )
         self.encode_segment(data)
 
     def encode_dri(self, dri):
@@ -440,7 +434,7 @@ class Encoder:
                     diff += 65536
                 if isinstance(scan, ArithmeticLosslessScan):
                     encoder.write_data_unit(
-                        self.conditioning_bounds[scan_component.dc_table],
+                        scan.components[component_index].conditioning_bounds,
                         left_diff,
                         above_diffs[component_index][x],
                         diff,
@@ -1085,7 +1079,10 @@ if __name__ == "__main__":
             StartOfImage(),
             StartOfFrame.lossless(8, 8, [FrameComponent.lossless(1)], arithmetic=True),
             StartOfScan.lossless([ScanComponent.lossless(1, 0)]),
-            ArithmeticLosslessScan(samples),
+            ArithmeticLosslessScan(
+                samples,
+                [ArithmeticLosslessScanComponent()],
+            ),
             EndOfImage(),
         ]
     )
@@ -1322,7 +1319,14 @@ if __name__ == "__main__":
                     ScanComponent.lossless(3, 0),
                 ]
             ),
-            ArithmeticLosslessScan(ycbcr_samples),
+            ArithmeticLosslessScan(
+                ycbcr_samples,
+                components=[
+                    ArithmeticLosslessScanComponent(),
+                    ArithmeticLosslessScanComponent(),
+                    ArithmeticLosslessScanComponent(),
+                ],
+            ),
             EndOfImage(),
         ]
     )

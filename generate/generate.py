@@ -696,8 +696,15 @@ def make_lossless(
         scan_components.append(ScanComponent.lossless(i + 1, table=table))
     for scan_index, component_indexes in enumerate(scans):
         sos_components = []
+        arithmetic_scan_components = []
         for c in component_indexes:
             sos_components.append(scan_components[c])
+            if arithmetic:
+                arithmetic_scan_components.append(
+                    ArithmeticLosslessScanComponent(
+                        conditioning_bounds=conditioning_bounds
+                    )
+                )
         segments.append(
             StartOfScan.lossless(
                 components=sos_components,
@@ -721,6 +728,7 @@ def make_lossless(
                 segments.append(
                     ArithmeticLosslessScan(
                         samples,
+                        arithmetic_scan_components,
                         predictor=predictor,
                     )
                 )
