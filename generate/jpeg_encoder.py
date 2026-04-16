@@ -157,16 +157,17 @@ class Encoder:
 
         i = 0
         while i < len(scan.data_units):
-            for component_index, (sampling_factor, dc_encoder, ac_encoder) in enumerate(
-                scan.components
-            ):
-                for _ in range(sampling_factor[0] * sampling_factor[1]):
+            for component_index, scan_component in enumerate(scan.components):
+                for _ in range(
+                    scan_component.sampling_factor[0]
+                    * scan_component.sampling_factor[1]
+                ):
                     assert i < len(scan.data_units)
                     encoder.write_data_unit(
                         component_index,
                         scan.data_units[i],
-                        dc_encoder,
-                        ac_encoder,
+                        scan_component.dc_encoder,
+                        scan_component.ac_encoder,
                     )
                     i += 1
         self.data += encoder.get_data()
@@ -309,15 +310,17 @@ class Encoder:
 
         i = 0
         while i < len(scan.data_units):
-            for component_index, (
-                sampling_factor,
-                conditioning_bounds,
-                kx,
-            ) in enumerate(scan.components):
-                for _ in range(sampling_factor[0] * sampling_factor[1]):
+            for component_index, scan_component in enumerate(scan.components):
+                for _ in range(
+                    scan_component.sampling_factor[0]
+                    * scan_component.sampling_factor[1]
+                ):
                     assert i < len(scan.data_units)
                     encoder.write_data_unit(
-                        component_index, scan.data_units[i], conditioning_bounds, kx
+                        component_index,
+                        scan.data_units[i],
+                        scan_component.conditioning_bounds,
+                        scan_component.kx,
                     )
                     i += 1
         self.data += encoder.get_data()
@@ -1053,8 +1056,7 @@ if __name__ == "__main__":
             HuffmanDCTScan(
                 [dct_coefficients],
                 [
-                    (
-                        (1, 1),
+                    HuffmanDCTScanComponent(
                         huffman.HuffmanEncoder(standard_luminance_dc_huffman_table),
                         huffman.HuffmanEncoder(standard_luminance_ac_huffman_table),
                     ),
@@ -1074,9 +1076,7 @@ if __name__ == "__main__":
             StartOfScan.dct([ScanComponent.dct(1, 0, 0)]),
             ArithmeticDCTScan(
                 [dct_coefficients],
-                [
-                    ((1, 1), (0, 1), 5),
-                ],
+                [ArithmeticDCTScanComponent()],
             ),
             EndOfImage(),
         ]
@@ -1369,8 +1369,7 @@ if __name__ == "__main__":
             HuffmanDCTScan(
                 [dct_coefficients],
                 [
-                    (
-                        (1, 1),
+                    HuffmanDCTScanComponent(
                         huffman.HuffmanEncoder(standard_luminance_dc_huffman_table),
                         huffman.HuffmanEncoder(standard_luminance_ac_huffman_table),
                     ),
@@ -1392,8 +1391,7 @@ if __name__ == "__main__":
             HuffmanDCTScan(
                 [dct_coefficients],
                 [
-                    (
-                        (1, 1),
+                    HuffmanDCTScanComponent(
                         huffman.HuffmanEncoder(standard_luminance_dc_huffman_table),
                         huffman.HuffmanEncoder(standard_luminance_ac_huffman_table),
                     ),
@@ -1424,13 +1422,7 @@ if __name__ == "__main__":
             ),
             ArithmeticDCTScan(
                 [dct_coefficients],
-                [
-                    (
-                        (1, 1),
-                        (0, 1),
-                        5,
-                    ),
-                ],
+                [ArithmeticDCTScanComponent()],
                 spectral_selection=(0, 0),
                 point_transform=1,
             ),
@@ -1447,13 +1439,7 @@ if __name__ == "__main__":
             ),
             ArithmeticDCTScan(
                 [dct_coefficients],
-                [
-                    (
-                        (1, 1),
-                        (0, 1),
-                        5,
-                    ),
-                ],
+                [ArithmeticDCTScanComponent()],
                 spectral_selection=(1, 63),
             ),
             EndOfImage(),

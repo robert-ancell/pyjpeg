@@ -462,12 +462,14 @@ def make_dct_sequential(
                             )
                         )
                         arithmetic_components.append(
-                            (
-                                sampling_factor,
-                                arithmetic_conditioning_bounds[
+                            ArithmeticDCTScanComponent(
+                                sampling_factor=sampling_factor,
+                                conditioning_bounds=arithmetic_conditioning_bounds[
                                     scan_components[i].dc_table
                                 ],
-                                arithmetic_conditioning_kx[scan_components[i].ac_table],
+                                kx=arithmetic_conditioning_kx[
+                                    scan_components[i].ac_table
+                                ],
                             )
                         )
                     if interval != 0:
@@ -476,10 +478,11 @@ def make_dct_sequential(
                     # FIXME: Interleave earlier
                     data_units_ = []
                     while len(mcu_data_units[0]) > 0:
-                        for i, (sampling_factor, _, _) in enumerate(
-                            arithmetic_components
-                        ):
-                            for _ in range(sampling_factor[0] * sampling_factor[1]):
+                        for i, scan_component in enumerate(arithmetic_components):
+                            for _ in range(
+                                scan_component.sampling_factor[0]
+                                * scan_component.sampling_factor[1]
+                            ):
                                 data_units_.append(
                                     jpeg_dct.unzig_zag(mcu_data_units[i].pop(0))
                                 )

@@ -233,6 +233,13 @@ class StartOfScan:
         return StartOfScan(components, predictor, 0, 0, point_transform)
 
 
+class HuffmanDCTScanComponent:
+    def __init__(self, dc_encoder, ac_encoder, sampling_factor=(1, 1)):
+        self.dc_encoder = dc_encoder
+        self.ac_encoder = ac_encoder
+        self.sampling_factor = sampling_factor
+
+
 class HuffmanDCTScan:
     def __init__(
         self,
@@ -265,6 +272,13 @@ class HuffmanDCTACSuccessiveScan:
         self.ac_table = ac_table
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
+
+
+class ArithmeticDCTScanComponent:
+    def __init__(self, sampling_factor=(1, 1), conditioning_bounds=(0, 1), kx=5):
+        self.sampling_factor = sampling_factor
+        self.conditioning_bounds = conditioning_bounds
+        self.kx = kx
 
 
 class ArithmeticDCTScan:
