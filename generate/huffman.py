@@ -53,11 +53,10 @@ def make_huffman_table(frequencies):
             v2 = others[v2]
 
 
-class HuffmanCodec:
+class HuffmanEncoder:
     def __init__(self, table):
-        code = 0
         self.codes = {}
-        self.symbol_tree = [None, None]
+        self.symbol_frequencies = [0] * 256
 
         def add_code(code, length, symbol):
             # Convert to bits
@@ -71,14 +70,7 @@ class HuffmanCodec:
             # Store in a map for encoding
             self.codes[symbol] = bits
 
-            # Store in a symbol tree for decoding
-            symbol_tree = self.symbol_tree
-            for bit in bits[:-1]:
-                if symbol_tree[bit] is None:
-                    symbol_tree[bit] = [None, None]
-                symbol_tree = symbol_tree[bit]
-            symbol_tree[bits[-1]] = symbol
-
+        code = 0
         for i, symbols_by_length in enumerate(table):
             length = i + 1
             for symbol in symbols_by_length:
@@ -87,13 +79,46 @@ class HuffmanCodec:
                 # FIXME: Handle overflow
             code <<= 1
 
-    def encode_symbol(self, symbol):
+    def encode(self, symbol):
         code = self.codes.get(symbol)
         if code is None:
             raise Exception("Unknown Huffman symbol")
+        self.symbol_frequencies[symbol] += 1
         return code
 
-    def decode_symbol(self, code):
+
+class HuffmanDecoder:
+    def __init__(self, table):
+        self.symbol_tree = [None, None]
+        self.symbol_frequencies = [0] * 256
+
+        def add_code(code, length, symbol):
+            # Convert to bits
+            bits = []
+            for i in range(length):
+                if code & (1 << (length - i - 1)) != 0:
+                    bits.append(1)
+                else:
+                    bits.append(0)
+
+            # Store in a symbol tree for decoding
+            symbol_tree = self.symbol_tree
+            for bit in bits[:-1]:
+                if symbol_tree[bit] is None:
+                    symbol_tree[bit] = [None, None]
+                symbol_tree = symbol_tree[bit]
+            symbol_tree[bits[-1]] = symbol
+
+        code = 0
+        for i, symbols_by_length in enumerate(table):
+            length = i + 1
+            for symbol in symbols_by_length:
+                add_code(code, length, symbol)
+                code += 1
+                # FIXME: Handle overflow
+            code <<= 1
+
+    def decode(self, code):
         symbol_tree = self.symbol_tree
         for bit in code:
             symbol = symbol_tree[bit]
@@ -270,6 +295,8 @@ if __name__ == "__main__":
             250,
         ],
     ]
-    codec = HuffmanCodec(table)
-    assert codec.encode_symbol(34) == [1, 1, 1, 1, 1, 0, 0, 1]
-    assert codec.decode_symbol([1, 1, 1, 1, 1, 0, 0, 1]) == 34
+    encoder = HuffmanEncoder(table)
+    assert encoder.encode(34) == [1, 1, 1, 1, 1, 0, 0, 1]
+
+    decoder = HuffmanDecoder(table)
+    assert decoder.decode([1, 1, 1, 1, 1, 0, 0, 1]) == 34

@@ -294,29 +294,29 @@ def huffman_dct_ac_scan_successive_data(
 def huffman_dct_scan(huffman_tables, scan_data):
     data = b""
     bits = []
-    huffman_dc_codecs = [
-        HuffmanCodec([]),
-        HuffmanCodec([]),
-        HuffmanCodec([]),
-        HuffmanCodec([]),
+    huffman_dc_encoders = [
+        HuffmanEncoder([]),
+        HuffmanEncoder([]),
+        HuffmanEncoder([]),
+        HuffmanEncoder([]),
     ]
-    huffman_ac_codecs = [
-        HuffmanCodec([]),
-        HuffmanCodec([]),
-        HuffmanCodec([]),
-        HuffmanCodec([]),
+    huffman_ac_encoders = [
+        HuffmanEncoder([]),
+        HuffmanEncoder([]),
+        HuffmanEncoder([]),
+        HuffmanEncoder([]),
     ]
     for table in huffman_tables:
         if table.table_class == 0:
-            huffman_dc_codecs[table.destination] = HuffmanCodec(table.table)
+            huffman_dc_encoders[table.destination] = HuffmanEncoder(table.table)
         else:
-            huffman_ac_codecs[table.destination] = HuffmanCodec(table.table)
+            huffman_ac_encoders[table.destination] = HuffmanEncoder(table.table)
     for d in scan_data:
         if isinstance(d, HuffmanCode):
             if d.table_class == 0:
-                bits.extend(huffman_dc_codecs[d.table].encode_symbol(d.symbol))
+                bits.extend(huffman_dc_encoders[d.table].encode(d.symbol))
             else:
-                bits.extend(huffman_ac_codecs[d.table].encode_symbol(d.symbol))
+                bits.extend(huffman_ac_encoders[d.table].encode(d.symbol))
         elif isinstance(d, bytes):
             data += encode_scan_bits(bits)
             bits = []
