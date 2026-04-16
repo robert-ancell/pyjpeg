@@ -53,28 +53,26 @@ def make_huffman_table(frequencies):
             v2 = others[v2]
 
 
+def _code_to_bits(code, length):
+    bits = []
+    for i in range(length):
+        if code & (1 << (length - i - 1)) != 0:
+            bits.append(1)
+        else:
+            bits.append(0)
+    return bits
+
+
 class HuffmanEncoder:
     def __init__(self, table):
         self.codes = {}
         self.symbol_frequencies = [0] * 256
 
-        def add_code(code, length, symbol):
-            # Convert to bits
-            bits = []
-            for i in range(length):
-                if code & (1 << (length - i - 1)) != 0:
-                    bits.append(1)
-                else:
-                    bits.append(0)
-
-            # Store in a map for encoding
-            self.codes[symbol] = bits
-
         code = 0
         for i, symbols_by_length in enumerate(table):
             length = i + 1
             for symbol in symbols_by_length:
-                add_code(code, length, symbol)
+                self.codes[symbol] = _code_to_bits(code, length)
                 code += 1
                 # FIXME: Handle overflow
             code <<= 1
@@ -93,15 +91,8 @@ class HuffmanDecoder:
         self.symbol_frequencies = [0] * 256
 
         def add_code(code, length, symbol):
-            # Convert to bits
-            bits = []
-            for i in range(length):
-                if code & (1 << (length - i - 1)) != 0:
-                    bits.append(1)
-                else:
-                    bits.append(0)
-
             # Store in a symbol tree for decoding
+            bits = _code_to_bits(code, length)
             symbol_tree = self.symbol_tree
             for bit in bits[:-1]:
                 if symbol_tree[bit] is None:
