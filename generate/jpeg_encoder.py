@@ -236,9 +236,7 @@ class Encoder:
                         if eob_count > 0:
                             eob_bits = encode_eob(eob_count)
                             scan_data.extend(
-                                self.ac_huffman_encoders[scan.ac_table].encode(
-                                    len(eob_bits) << 4 | 0
-                                )
+                                scan.encoder.encode(len(eob_bits) << 4 | 0)
                             )
                             scan_data.extend(eob_bits)
                             scan_data.extend(eob_correction_bits)
@@ -247,21 +245,13 @@ class Encoder:
 
                         while run_length > 15:
                             # ZRL
-                            scan_data.extend(
-                                self.ac_huffman_encoders[scan.ac_table].encode(
-                                    15 << 4 | 0
-                                )
-                            )
+                            scan_data.extend(scan.encoder.encode(15 << 4 | 0))
                             scan_data.extend(correction_bits[0])
                             run_length -= 16
                             correction_bits = correction_bits[1:]
                         assert len(correction_bits) == 1
 
-                        scan_data.extend(
-                            self.ac_huffman_encoders[scan.ac_table].encode(
-                                run_length << 4 | 1
-                            )
-                        )
+                        scan_data.extend(scan.encoder.encode(run_length << 4 | 1))
                         if transformed_coefficient < 0:
                             scan_data.append(0)
                         else:
@@ -285,9 +275,7 @@ class Encoder:
 
         if eob_count > 0:
             eob_bits = encode_eob(eob_count)
-            scan_data.extend(
-                self.ac_huffman_encoders[scan.ac_table].encode(len(eob_bits) << 4 | 0)
-            )
+            scan_data.extend(scan.encoder.encode(len(eob_bits) << 4 | 0))
             scan_data.extend(eob_bits)
             scan_data.extend(eob_correction_bits)
 
