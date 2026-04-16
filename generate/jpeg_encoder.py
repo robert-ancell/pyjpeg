@@ -306,23 +306,20 @@ class Encoder:
     def encode_arithmetic_dct_scan(self, scan):
         encoder = ArithmeticDCTScanEncoder(
             spectral_selection=scan.spectral_selection,
-            conditioning_bounds=scan.conditioning_bounds,
-            kx=scan.kx,
             point_transform=scan.point_transform,
         )
 
         i = 0
         while i < len(scan.data_units):
-            for component_index, (sampling_factor, dc_table, ac_table) in enumerate(
-                scan.components
-            ):
+            for component_index, (
+                sampling_factor,
+                conditioning_bounds,
+                kx,
+            ) in enumerate(scan.components):
                 for _ in range(sampling_factor[0] * sampling_factor[1]):
                     assert i < len(scan.data_units)
                     encoder.write_data_unit(
-                        component_index,
-                        scan.data_units[i],
-                        dc_table,
-                        ac_table,
+                        component_index, scan.data_units[i], conditioning_bounds, kx
                     )
                     i += 1
         self.data += encoder.get_data()
@@ -680,14 +677,10 @@ class ArithmeticDCTScanEncoder(ArithmeticScanEncoder):
     def __init__(
         self,
         spectral_selection=(0, 63),
-        conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
-        kx=[5, 5, 5, 5],
         point_transform=0,
     ):
         super().__init__()
         self.spectral_selection = spectral_selection
-        self.conditioning_bounds = conditioning_bounds
-        self.kx = kx
         self.point_transform = point_transform
         self.prev_dc = {}
         self.prev_dc_diff = {}
@@ -712,7 +705,7 @@ class ArithmeticDCTScanEncoder(ArithmeticScanEncoder):
         self.ac_low_mstates = make_states(14)
         self.ac_high_mstates = make_states(14)
 
-    def write_data_unit(self, component_index, data_unit, dc_table, ac_table):
+    def write_data_unit(self, component_index, data_unit, conditioning_bounds, kx):
         zz_data_unit = jpeg_dct.zig_zag(data_unit)
 
         k = self.spectral_selection[0]
@@ -721,7 +714,7 @@ class ArithmeticDCTScanEncoder(ArithmeticScanEncoder):
                 dc = _transform_coefficient(zz_data_unit[k], self.point_transform)
                 dc_diff = dc - self.prev_dc.get(component_index, 0)
                 prev_dc_diff = self.prev_dc_diff.get(component_index, 0)
-                lower, upper = self.conditioning_bounds[dc_table]
+                lower, upper = conditioning_bounds
                 c = self.classify_value(lower, upper, prev_dc_diff)
                 self.write_dc(
                     self.dc_non_zero[c],
@@ -754,7 +747,6 @@ class ArithmeticDCTScanEncoder(ArithmeticScanEncoder):
                         self.encoder.write_bit(self.ac_non_zero[k - 1], 0)
                         k += 1
                     self.encoder.write_bit(self.ac_non_zero[k - 1], 1)
-                    kx = self.kx[ac_table]
                     if k <= kx:
                         xstates = self.ac_low_xstates
                         mstates = self.ac_low_mstates

@@ -464,8 +464,10 @@ def make_dct_sequential(
                         arithmetic_components.append(
                             (
                                 sampling_factor,
-                                scan_components[i].dc_table,
-                                scan_components[i].ac_table,
+                                arithmetic_conditioning_bounds[
+                                    scan_components[i].dc_table
+                                ],
+                                arithmetic_conditioning_kx[scan_components[i].ac_table],
                             )
                         )
                     if interval != 0:
@@ -487,8 +489,6 @@ def make_dct_sequential(
                             components=arithmetic_components,
                             spectral_selection=selection,
                             point_transform=point_transform,
-                            conditioning_bounds=arithmetic_conditioning_bounds,
-                            kx=arithmetic_conditioning_kx,
                         )
                     )
         else:

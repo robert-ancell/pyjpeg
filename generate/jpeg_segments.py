@@ -271,18 +271,14 @@ class ArithmeticDCTScan:
     def __init__(
         self,
         data_units,
-        components=[((1, 1), 0, 0)],
+        components=[((1, 1), (0, 1), 5)],
         spectral_selection=(0, 63),
         point_transform=0,
-        conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
-        kx=[5, 5, 5, 5],
     ):
         self.data_units = data_units
         self.components = components
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
-        self.conditioning_bounds = conditioning_bounds
-        self.kx = kx
 
 
 class ArithmeticDCTDCSuccessiveScan:
