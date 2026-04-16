@@ -30,12 +30,6 @@ class Encoder:
             huffman.HuffmanEncoder([]),
             huffman.HuffmanEncoder([]),
         ]
-        self.ac_huffman_encoders = [
-            huffman.HuffmanEncoder([]),
-            huffman.HuffmanEncoder([]),
-            huffman.HuffmanEncoder([]),
-            huffman.HuffmanEncoder([]),
-        ]
         self._huffman_symbol_frequencies = {}
         self._dht_to_encoders = {}
         self.conditioning_bounds = [(0, 1), (0, 1), (0, 1), (0, 1)]
@@ -84,10 +78,9 @@ class Encoder:
             encoder = huffman.HuffmanEncoder(table.table)
             self._huffman_symbol_frequencies[encoder] = [0] * 256
             self._dht_to_encoders[dht].append(encoder)
+            # FIXME: Remove when fix lossless
             if table.table_class == 0:
                 self.dc_huffman_encoders[table.destination] = encoder
-            else:
-                self.ac_huffman_encoders[table.destination] = encoder
         self.encode_segment(data)
 
     def encode_dac(self, dac):
