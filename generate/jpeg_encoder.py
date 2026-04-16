@@ -23,7 +23,7 @@ class Encoder:
         self.segments = segments
         self.optimized_segments = []
         self.data = b""
-        self.arithmetic = False
+        # FIXME: Remove when fix lossless
         self.dc_huffman_encoders = [
             huffman.HuffmanEncoder([]),
             huffman.HuffmanEncoder([]),
@@ -32,8 +32,8 @@ class Encoder:
         ]
         self._huffman_symbol_frequencies = {}
         self._dht_to_encoders = {}
+        # FIXME: Remove when fix lossless
         self.conditioning_bounds = [(0, 1), (0, 1), (0, 1), (0, 1)]
-        self.kx = [5, 5, 5, 5]
         self.sof = None
         self.sos = None
 
@@ -95,8 +95,6 @@ class Encoder:
                     table.value & 0xF,
                     table.value >> 4,
                 )
-            else:
-                self.kx[table.destination] = table.value
         self.encode_segment(data)
 
     def encode_dri(self, dri):
@@ -120,7 +118,6 @@ class Encoder:
             sof.samples_per_line,
             len(sof.components),
         )
-        self.arithmetic = sof.n >= 8
         for component in sof.components:
             sampling_factor = (
                 component.sampling_factor[0] << 4 | component.sampling_factor[1]
