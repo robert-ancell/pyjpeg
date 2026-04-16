@@ -441,7 +441,6 @@ class Encoder:
                 else:
                     a = b = c = 0
                     b = get_sample(x, y - 1, component_index)
-                    predictor = self.sos.ss
                     if x == 0:
                         # If on left edge, use the above value for prediction
                         a = b
@@ -449,7 +448,7 @@ class Encoder:
                     else:
                         a = get_sample(x - 1, y, component_index)
                         c = get_sample(x - 1, y - 1, component_index)
-                    p = jpeg_lossless.predictor(predictor, a, b, c)
+                    p = jpeg_lossless.predictor(scan.predictor, a, b, c)
 
                 if x == 0:
                     left_diff = 0
@@ -1094,7 +1093,7 @@ if __name__ == "__main__":
             ),
             StartOfFrame.lossless(8, 8, [FrameComponent.lossless(1)]),
             StartOfScan.lossless([ScanComponent.lossless(1, 0)]),
-            LosslessScan(samples),
+            LosslessScan(samples, predictor=0),
             EndOfImage(),
         ]
     )
@@ -1106,7 +1105,7 @@ if __name__ == "__main__":
             StartOfImage(),
             StartOfFrame.lossless(8, 8, [FrameComponent.lossless(1)], arithmetic=True),
             StartOfScan.lossless([ScanComponent.lossless(1, 0)]),
-            LosslessScan(samples),
+            LosslessScan(samples, predictor=0),
             EndOfImage(),
         ]
     )

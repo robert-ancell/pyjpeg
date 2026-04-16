@@ -309,8 +309,9 @@ class ArithmeticDCTACSuccessiveScan:
 
 
 class LosslessScan:
-    def __init__(self, samples):
+    def __init__(self, samples, predictor=0):
         self.samples = samples
+        self.predictor = predictor
 
 
 class Restart:

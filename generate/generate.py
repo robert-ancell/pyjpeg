@@ -715,7 +715,7 @@ def make_lossless(
             if offset != 0:
                 index = (offset // segment_length) - 1
                 segments.append(Restart(index % 8))
-            segments.append(LosslessScan(samples))
+            segments.append(LosslessScan(samples, predictor=predictor))
             if offset == 0 and scan_index == 0 and use_dnl:
                 segments.append(DefineNumberOfLines(height))
     segments.append(EndOfImage())
