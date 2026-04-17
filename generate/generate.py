@@ -729,16 +729,20 @@ def make_lossless(
             if arithmetic:
                 segments.append(
                     ArithmeticLosslessScan(
+                        width,
                         samples,
                         scan_components,
+                        precision=precision,
                         predictor=predictor,
                     )
                 )
             else:
                 segments.append(
                     HuffmanLosslessScan(
+                        width,
                         samples,
                         scan_components,
+                        precision=precision,
                         predictor=predictor,
                     )
                 )

@@ -33,7 +33,6 @@ class Encoder:
         self._huffman_symbol_frequencies = {}
         self._dht_to_encoders = {}
         # FIXME: Remove when fix lossless
-        self.sof = None
         self.sos = None
 
     def encode_marker(self, value):
@@ -103,7 +102,6 @@ class Encoder:
         self.encode_segment(data)
 
     def encode_sof(self, sof):
-        self.sof = sof
         self.encode_marker(MARKER_SOF0 + sof.n)
         data = struct.pack(
             ">BHHB",
@@ -374,7 +372,6 @@ class Encoder:
         self.data += bytes(encoder.data)
 
     def encode_lossless_scan(self, scan):
-        assert self.sof is not None
         assert self.sos is not None
         if isinstance(scan, ArithmeticLosslessScan):
             encoder = ArithmeticLosslessScanEncoder()
@@ -383,7 +380,7 @@ class Encoder:
                 symbol_frequencies=self._huffman_symbol_frequencies,
             )
 
-        samples_per_line = self.sof.samples_per_line
+        samples_per_line = scan.samples_per_line
         n_components = len(self.sos.components)
         diffs = []
         above_diffs = []
@@ -407,7 +404,7 @@ class Encoder:
                 # First line uses fixed predictor since no samples above
                 if y == 0:
                     if x == 0:
-                        p = 1 << (self.sof.precision - 1)
+                        p = 1 << (scan.precision - 1)
                     else:
                         p = get_sample(x - 1, y, component_index)
                 else:
@@ -448,7 +445,7 @@ class Encoder:
                     )
                 diffs[component_index][x] = diff
             x += 1
-            if x >= self.sof.samples_per_line:
+            if x >= scan.samples_per_line:
                 x = 0
                 y += 1
                 for j in range(n_components):
@@ -1068,6 +1065,7 @@ if __name__ == "__main__":
             StartOfFrame.lossless(8, 8, [FrameComponent.lossless(1)]),
             StartOfScan.lossless([ScanComponent.lossless(1, 0)]),
             HuffmanLosslessScan(
+                8,
                 samples,
                 [
                     HuffmanLosslessScanComponent(
@@ -1087,6 +1085,7 @@ if __name__ == "__main__":
             StartOfFrame.lossless(8, 8, [FrameComponent.lossless(1)], arithmetic=True),
             StartOfScan.lossless([ScanComponent.lossless(1, 0)]),
             ArithmeticLosslessScan(
+                8,
                 samples,
                 [ArithmeticLosslessScanComponent()],
             ),
@@ -1327,6 +1326,7 @@ if __name__ == "__main__":
                 ]
             ),
             ArithmeticLosslessScan(
+                8,
                 ycbcr_samples,
                 components=[
                     ArithmeticLosslessScanComponent(),
