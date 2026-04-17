@@ -706,7 +706,7 @@ def make_lossless(
                     )
                 )
             else:
-                scan_components.append(HuffmanLosslessScanComponent())
+                scan_components.append(HuffmanLosslessScanComponent(None))  # FIXME
         segments.append(
             StartOfScan.lossless(
                 components=sos_components,

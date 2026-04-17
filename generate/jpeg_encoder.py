@@ -1067,7 +1067,14 @@ if __name__ == "__main__":
             ),
             StartOfFrame.lossless(8, 8, [FrameComponent.lossless(1)]),
             StartOfScan.lossless([ScanComponent.lossless(1, 0)]),
-            HuffmanLosslessScan(samples, [HuffmanLosslessScanComponent()]),
+            HuffmanLosslessScan(
+                samples,
+                [
+                    HuffmanLosslessScanComponent(
+                        huffman.HuffmanEncoder(standard_luminance_dc_huffman_table),
+                    )
+                ],
+            ),
             EndOfImage(),
         ]
     )

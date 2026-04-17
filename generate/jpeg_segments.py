@@ -309,8 +309,8 @@ class ArithmeticDCTACSuccessiveScan:
 
 
 class HuffmanLosslessScanComponent:
-    def __init__(self):
-        pass
+    def __init__(self, encoder):
+        self.encoder = encoder
 
 
 class HuffmanLosslessScan:
