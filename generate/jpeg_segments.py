@@ -291,9 +291,9 @@ class StartOfScan:
 
 
 class HuffmanDCTScanComponent:
-    def __init__(self, dc_encoder, ac_encoder, sampling_factor=(1, 1)):
-        self.dc_encoder = dc_encoder
-        self.ac_encoder = ac_encoder
+    def __init__(self, dc_table, ac_table, sampling_factor=(1, 1)):
+        self.dc_table = dc_table
+        self.ac_table = ac_table
         self.sampling_factor = sampling_factor
 
 
@@ -321,12 +321,12 @@ class HuffmanDCTACSuccessiveScan:
     def __init__(
         self,
         data_units,
-        encoder,
+        table,
         spectral_selection=(1, 63),
         point_transform=0,
     ):
         self.data_units = data_units
-        self.encoder = encoder
+        self.table = table
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
 
@@ -366,8 +366,8 @@ class ArithmeticDCTACSuccessiveScan:
 
 
 class HuffmanLosslessScanComponent:
-    def __init__(self, encoder):
-        self.encoder = encoder
+    def __init__(self, table):
+        self.table = table
 
 
 class HuffmanLosslessScan:

@@ -140,6 +140,9 @@ class Encoder:
         i = 0
         while i < len(scan.data_units):
             for component_index, scan_component in enumerate(scan.components):
+                dc_encoder = huffman.HuffmanEncoder(scan_component.dc_table)
+                ac_encoder = huffman.HuffmanEncoder(scan_component.ac_table)
+
                 for _ in range(
                     scan_component.sampling_factor[0]
                     * scan_component.sampling_factor[1]
@@ -148,8 +151,8 @@ class Encoder:
                     encoder.write_data_unit(
                         component_index,
                         scan.data_units[i],
-                        scan_component.dc_encoder,
-                        scan_component.ac_encoder,
+                        dc_encoder,
+                        ac_encoder,
                     )
                     i += 1
         self.data += encoder.get_data()
@@ -192,6 +195,7 @@ class Encoder:
             length = get_eob_length(count)
             return get_bits(count, length)
 
+        encoder = arithmetic.Encoder(scan.table)
         scan_data = []
         correction_bits = [[]]
         eob_count = 0
@@ -217,9 +221,7 @@ class Encoder:
                     else:
                         if eob_count > 0:
                             eob_bits = encode_eob(eob_count)
-                            scan_data.extend(
-                                scan.encoder.encode(len(eob_bits) << 4 | 0)
-                            )
+                            scan_data.extend(encoder.encode(len(eob_bits) << 4 | 0))
                             scan_data.extend(eob_bits)
                             scan_data.extend(eob_correction_bits)
                             eob_count = 0
@@ -227,13 +229,13 @@ class Encoder:
 
                         while run_length > 15:
                             # ZRL
-                            scan_data.extend(scan.encoder.encode(15 << 4 | 0))
+                            scan_data.extend(encoder.encode(15 << 4 | 0))
                             scan_data.extend(correction_bits[0])
                             run_length -= 16
                             correction_bits = correction_bits[1:]
                         assert len(correction_bits) == 1
 
-                        scan_data.extend(scan.encoder.encode(run_length << 4 | 1))
+                        scan_data.extend(encoder.encode(run_length << 4 | 1))
                         if transformed_coefficient < 0:
                             scan_data.append(0)
                         else:
@@ -257,7 +259,7 @@ class Encoder:
 
         if eob_count > 0:
             eob_bits = encode_eob(eob_count)
-            scan_data.extend(scan.encoder.encode(len(eob_bits) << 4 | 0))
+            scan_data.extend(encoder.encode(len(eob_bits) << 4 | 0))
             scan_data.extend(eob_bits)
             scan_data.extend(eob_correction_bits)
 
@@ -1027,15 +1029,15 @@ if __name__ == "__main__":
                 [dct_coefficients],
                 [
                     HuffmanDCTScanComponent(
-                        huffman.HuffmanEncoder(standard_luminance_dc_huffman_table),
-                        huffman.HuffmanEncoder(standard_luminance_ac_huffman_table),
+                        standard_luminance_dc_huffman_table,
+                        standard_luminance_ac_huffman_table,
                     ),
                 ],
             ),
             EndOfImage(),
         ]
     )
-    encoder.encode(optimize_huffman=True)
+    encoder.encode()
     open("test-huffman.jpg", "wb").write(encoder.data)
 
     encoder = Encoder(
@@ -1069,14 +1071,14 @@ if __name__ == "__main__":
                 samples,
                 [
                     HuffmanLosslessScanComponent(
-                        huffman.HuffmanEncoder(standard_luminance_dc_huffman_table),
+                        standard_luminance_dc_huffman_table,
                     )
                 ],
             ),
             EndOfImage(),
         ]
     )
-    encoder.encode(optimize_huffman=True)
+    encoder.encode()
     open("test-lossless-huffman.jpg", "wb").write(encoder.data)
 
     encoder = Encoder(
@@ -1360,8 +1362,8 @@ if __name__ == "__main__":
                 [dct_coefficients],
                 [
                     HuffmanDCTScanComponent(
-                        huffman.HuffmanEncoder(standard_luminance_dc_huffman_table),
-                        huffman.HuffmanEncoder(standard_luminance_ac_huffman_table),
+                        standard_luminance_dc_huffman_table,
+                        standard_luminance_ac_huffman_table,
                     ),
                 ],
                 spectral_selection=(0, 0),
@@ -1382,8 +1384,8 @@ if __name__ == "__main__":
                 [dct_coefficients],
                 [
                     HuffmanDCTScanComponent(
-                        huffman.HuffmanEncoder(standard_luminance_dc_huffman_table),
-                        huffman.HuffmanEncoder(standard_luminance_ac_huffman_table),
+                        standard_luminance_dc_huffman_table,
+                        standard_luminance_ac_huffman_table,
                     ),
                 ],
                 spectral_selection=(1, 63),
@@ -1391,7 +1393,7 @@ if __name__ == "__main__":
             EndOfImage(),
         ]
     )
-    encoder.encode(optimize_huffman=True)
+    encoder.encode()
     open("test-progressive-huffman.jpg", "wb").write(encoder.data)
 
     encoder = Encoder(
