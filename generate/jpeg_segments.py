@@ -2,7 +2,7 @@ import struct
 
 
 class StartOfImage:
-    def __init__self():
+    def __init__(self):
         pass
 
     def __repr__(self):
