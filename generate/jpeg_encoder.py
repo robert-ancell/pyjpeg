@@ -130,11 +130,12 @@ class Encoder:
         data += struct.pack("BBB", sos.ss, sos.se, a)
         self.encode_segment(data)
 
-    def encode_huffman_dct_scan(self, scan):
-        encoder = HuffmanDCTScanEncoder(
+    def encode_huffman_dct_scan(
+        self, scan, dc_symbol_frequencies=None, ac_symbol_frequencies=None
+    ):
+        scan_encoder = HuffmanDCTScanEncoder(
             spectral_selection=scan.spectral_selection,
             point_transform=scan.point_transform,
-            symbol_frequencies=self._huffman_symbol_frequencies,
         )
 
         i = 0
@@ -148,14 +149,24 @@ class Encoder:
                     * scan_component.sampling_factor[1]
                 ):
                     assert i < len(scan.data_units)
-                    encoder.write_data_unit(
+                    if dc_symbol_frequencies is not None:
+                        dc_frequencies = dc_symbol_frequencies[component_index]
+                    else:
+                        dc_frequencies = None
+                    if ac_symbol_frequencies is not None:
+                        ac_frequencies = ac_symbol_frequencies[component_index]
+                    else:
+                        ac_frequencies = None
+                    scan_encoder.write_data_unit(
                         component_index,
                         scan.data_units[i],
                         dc_encoder,
                         ac_encoder,
+                        dc_symbol_frequencies=dc_frequencies,
+                        ac_symbol_frequencies=ac_frequencies,
                     )
                     i += 1
-        self.data += encoder.get_data()
+        self.data += scan_encoder.get_data()
 
     def encode_huffman_dct_dc_scan_successive(self, scan):
         scan_data = []
@@ -373,13 +384,13 @@ class Encoder:
         encoder.flush()
         self.data += bytes(encoder.data)
 
-    def encode_huffman_lossless_scan(self, scan):
-        return self._encode_lossless_scan(scan)
+    def encode_huffman_lossless_scan(self, scan, symbol_frequencies=None):
+        return self._encode_lossless_scan(scan, symbol_frequencies)
 
     def encode_arithmetic_lossless_scan(self, scan):
-        return self._encode_lossless_scan(scan)
+        self._encode_lossless_scan(scan)
 
-    def _encode_lossless_scan(self, scan):
+    def _encode_lossless_scan(self, scan, symbol_frequencies=None):
         assert self.sos is not None
         if isinstance(scan, ArithmeticLosslessScan):
             encoder = ArithmeticLosslessScanEncoder()
@@ -450,6 +461,7 @@ class Encoder:
                         left_diff,
                         above_diffs[component_index][x],
                         diff,
+                        symbol_frequencies=None,  # FIXME
                     )
                 diffs[component_index][x] = diff
             x += 1
@@ -795,14 +807,15 @@ class HuffmanScanEncoder:
         self,
         symbol_frequencies={},
     ):
+        # FIXME: Remove
         self.symbol_frequencies = symbol_frequencies
         self.bits = []
 
     # DC coefficient, written as a change from previous DC coefficient.
-    def write_dc(self, dc_diff, encoder):
+    def write_dc(self, dc_diff, encoder, symbol_frequencies=None):
         length = self.get_magnitude_length(dc_diff)
         symbol = length
-        self.write_symbol(symbol, encoder)
+        self.write_symbol(symbol, encoder, symbol_frequencies)
         self.write_magnitude(dc_diff, length)
 
     # Zero AC coefficients until end of block.
@@ -818,14 +831,17 @@ class HuffmanScanEncoder:
         self.write_ac(15, 0, encoder)
 
     # AC Coefficient after [run_length] zero coefficients.
-    def write_ac(self, run_length, ac, encoder):
+    def write_ac(self, run_length, ac, encoder, symbol_frequencies=None):
         length = self.get_magnitude_length(ac)
         symbol = run_length << 4 | length
-        self.write_symbol(symbol, encoder)
+        self.write_symbol(symbol, encoder, symbol_frequencies)
         self.write_magnitude(ac, length)
 
     # Write a Huffman symbol
-    def write_symbol(self, symbol, encoder):
+    def write_symbol(self, symbol, encoder, symbol_frequencies=None):
+        if symbol_frequencies is not None:
+            symbol_frequencies[symbol] += 1
+        # FIXME: Remove
         if encoder in self.symbol_frequencies:
             self.symbol_frequencies[encoder][symbol] += 1
         if encoder is not None:
@@ -881,16 +897,21 @@ class HuffmanDCTScanEncoder(HuffmanScanEncoder):
         self,
         spectral_selection=(0, 63),
         point_transform=0,
-        symbol_frequencies={},
     ):
-        super().__init__(
-            symbol_frequencies=symbol_frequencies,
-        )
+        super().__init__()
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
         self.prev_dc = {}
 
-    def write_data_unit(self, component_index, data_unit, dc_encoder, ac_encoder):
+    def write_data_unit(
+        self,
+        component_index,
+        data_unit,
+        dc_encoder,
+        ac_encoder,
+        dc_symbol_frequencies=None,
+        ac_symbol_frequencies=None,
+    ):
         zz_data_unit = jpeg_dct.zig_zag(data_unit)
 
         k = self.spectral_selection[0]
@@ -899,7 +920,7 @@ class HuffmanDCTScanEncoder(HuffmanScanEncoder):
                 dc = _transform_coefficient(zz_data_unit[k], self.point_transform)
                 dc_diff = dc - self.prev_dc.get(component_index, 0)
                 self.prev_dc[component_index] = dc
-                self.write_dc(dc_diff, dc_encoder)
+                self.write_dc(dc_diff, dc_encoder, dc_symbol_frequencies)
                 k += 1
             else:
                 run_length = 0
@@ -923,6 +944,7 @@ class HuffmanDCTScanEncoder(HuffmanScanEncoder):
                         run_length,
                         _transform_coefficient(zz_data_unit[k], self.point_transform),
                         ac_encoder,
+                        ac_symbol_frequencies,
                     )
                     k += 1
 
@@ -936,8 +958,10 @@ class HuffmanLosslessScanEncoder(HuffmanScanEncoder):
             symbol_frequencies=symbol_frequencies,
         )
 
-    def write_data_unit(self, encoder, left_diff, above_diff, data_unit):
-        self.write_dc(data_unit, encoder)
+    def write_data_unit(
+        self, encoder, left_diff, above_diff, data_unit, symbol_frequencies=None
+    ):
+        self.write_dc(data_unit, encoder, symbol_frequencies)
 
 
 if __name__ == "__main__":
