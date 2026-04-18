@@ -373,7 +373,13 @@ class Encoder:
         encoder.flush()
         self.data += bytes(encoder.data)
 
-    def encode_lossless_scan(self, scan):
+    def encode_huffman_lossless_scan(self, scan):
+        return self._encode_lossless_scan(scan)
+
+    def encode_arithmetic_lossless_scan(self, scan):
+        return self._encode_lossless_scan(scan)
+
+    def _encode_lossless_scan(self, scan):
         assert self.sos is not None
         if isinstance(scan, ArithmeticLosslessScan):
             encoder = ArithmeticLosslessScanEncoder()
@@ -509,9 +515,9 @@ class Encoder:
             elif isinstance(segment, ArithmeticDCTACSuccessiveScan):
                 self.encode_arithmetic_dct_ac_scan_successive(segment)
             elif isinstance(segment, HuffmanLosslessScan):
-                self.encode_lossless_scan(segment)
+                self.encode_huffman_lossless_scan(segment)
             elif isinstance(segment, ArithmeticLosslessScan):
-                self.encode_lossless_scan(segment)
+                self.encode_arithmetic_lossless_scan(segment)
             elif isinstance(segment, Restart):
                 self.encode_rst(segment)
             elif isinstance(segment, DefineNumberOfLines):
