@@ -228,7 +228,7 @@ class StartOfFrame:
             n = 3
         return StartOfFrame(n, precision, number_of_lines, samples_per_line, components)
 
-    def __repr(self):
+    def __repr__(self):
         if self.n == 0:
             return f"StartOfFrame.baseline({self.number_of_lines}, {self.samples_per_line}, {self.components})"
         elif self.n in (1, 9):
