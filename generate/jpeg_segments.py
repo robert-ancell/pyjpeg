@@ -5,6 +5,9 @@ class StartOfImage:
     def __init__self():
         pass
 
+    def __repr__(self):
+        return f"StartOfImage()"
+
 
 class Density:
     def __init__(self, unit=0, x=0, y=0):
@@ -76,6 +79,9 @@ class Comment:
     def __init__(self, data):
         self.data = data
 
+    def __repr__(self):
+        return f"Comment({self.data})"
+
 
 class QuantizationTable:
     def __init__(self, destination, values, precision=8):
@@ -83,10 +89,16 @@ class QuantizationTable:
         self.precision = precision
         self.values = values
 
+    def __repr__(self):
+        return f"QuantizationTable({self.destination}, {self.values}, precision={self.precision})"
+
 
 class DefineQuantizationTables:
     def __init__(self, tables):
         self.tables = tables
+
+    def __repr__(self):
+        return f"DefineQuantizationTables({self.tables})"
 
 
 class HuffmanTable:
@@ -101,10 +113,19 @@ class HuffmanTable:
     def ac(destination, table):
         return HuffmanTable(1, destination, table)
 
+    def __repr__(self):
+        if self.table_class == 0:
+            return f"HuffmanTable.dc({self.destination}, {self.table})"
+        else:
+            return f"HuffmanTable.ac({self.destination}, {self.table})"
+
 
 class DefineHuffmanTables:
     def __init__(self, tables):
         self.tables = tables
+
+    def __repr__(self):
+        return f"DefineHuffmanTables({self.tables})"
 
 
 class ArithmeticConditioning:
@@ -119,15 +140,27 @@ class ArithmeticConditioning:
     def ac(destination, kx):
         return ArithmeticConditioning(1, destination, kx)
 
+    def __repr__(self):
+        if self.table_class == 0:
+            return f"ArithmeticConditioning.dc({self.destination}, {self.value})"
+        else:
+            return f"ArithmeticConditioning.ac({self.destination}, {self.value})"
+
 
 class DefineArithmeticConditioning:
     def __init__(self, tables):
         self.tables = tables
 
+    def __repr__(self):
+        return f"DefineArithmeticConditioning({self.tables})"
+
 
 class DefineRestartInterval:
     def __init__(self, restart_interval):
         self.restart_interval = restart_interval
+
+    def __repr__(self):
+        return f"DefineRestartInterval({self.restart_interval})"
 
 
 class ExpandReferenceComponents:
@@ -136,6 +169,9 @@ class ExpandReferenceComponents:
         assert 0 <= expand_vertical <= 15
         self.expand_horizontal = expand_horizontal
         self.expand_vertical = expand_vertical
+
+    def __repr__(self):
+        return f"ExpandReferenceComponents({self.expand_horizontal}, {self.expand_vertical})"
 
 
 class FrameComponent:
@@ -149,6 +185,9 @@ class FrameComponent:
 
     def lossless(id, sampling_factor=(1, 1)):
         return FrameComponent(id, sampling_factor, 0)
+
+    def __repr__(self):
+        return f"FrameComponent({self.id}, {self.sampling_factor}, {self.quantization_table_index})"
 
 
 class StartOfFrame:
@@ -189,6 +228,18 @@ class StartOfFrame:
             n = 3
         return StartOfFrame(n, precision, number_of_lines, samples_per_line, components)
 
+    def __repr(self):
+        if self.n == 0:
+            return f"StartOfFrame.baseline({self.number_of_lines}, {self.samples_per_line}, {self.components})"
+        elif self.n in (1, 9):
+            return f"StartOfFrame.extended({self.number_of_lines}, {self.samples_per_line}, {self.components}, precision={self.precision}, arithmetic={self.n == 9})"
+        elif self.n in (2, 10):
+            return f"StartOfFrame.progressive({self.number_of_lines}, {self.samples_per_line}, {self.components}, precision={self.precision}, arithmetic={self.n == 10})"
+        elif self.n in (3, 11):
+            return f"StartOfFrame.lossless({self.number_of_lines}, {self.samples_per_line}, {self.components}, precision={self.precision}, arithmetic={self.n == 11})"
+        else:
+            return f"StartOfFrame({self.n}, {self.precision}, {self.number_of_lines}, {self.samples_per_line}, {self.components})"
+
 
 class ScanComponent:
     def __init__(self, component_selector, dc_table, ac_table):
@@ -201,6 +252,9 @@ class ScanComponent:
 
     def lossless(component_selector, table):
         return ScanComponent(component_selector, table, 0)
+
+    def __repr__(self):
+        return f"ScanComponent({self.component_selector}, {self.dc_table}, {self.ac_table})"
 
 
 class StartOfScan:
@@ -231,6 +285,9 @@ class StartOfScan:
 
     def lossless(components, predictor=1, point_transform=0):
         return StartOfScan(components, predictor, 0, 0, point_transform)
+
+    def __repr__(self):
+        return f"StartOfScan({self.components}, {self.ss}, {self.se}, {self.ah}, {self.al})"
 
 
 class HuffmanDCTScanComponent:
@@ -340,12 +397,21 @@ class Restart:
     def __init__(self, index):
         self.index = index
 
+    def __repr__(self):
+        return f"Restart({self.index})"
+
 
 class DefineNumberOfLines:
     def __init__(self, number_of_lines):
         self.number_of_lines = number_of_lines
 
+    def __repr__(self):
+        return f"DefineNumberOfLines({self.number_of_lines})"
+
 
 class EndOfImage:
-    def __init__self():
+    def __init__(self):
         pass
+
+    def __repr__(self):
+        return "EndOfImage()"
