@@ -4,8 +4,10 @@ import arithmetic
 import huffman
 import jpeg_dct
 import jpeg_lossless
+from dht import DefineHuffmanTables
 from jpeg_marker import *
 from jpeg_segments import *
+from sos import StartOfScan
 
 # https://www.w3.org/Graphics/JPEG/itu-t81.pdf
 # https://www.w3.org/Graphics/JPEG/jfif3.pdf
@@ -22,93 +24,6 @@ class Encoder:
     def __init__(self, segments):
         self.segments = segments
         self.data = b""
-
-    def encode_marker(self, value):
-        self.data += struct.pack("BB", 0xFF, value)
-
-    def encode_segment(self, data):
-        self.data += struct.pack(">H", 2 + len(data)) + data
-
-    def encode_soi(self):
-        self.encode_marker(MARKER_SOI)
-
-    def encode_app(self, app):
-        self.encode_marker(MARKER_APP0 + app.n)
-        self.encode_segment(app.data)
-
-    def encode_com(self, com):
-        self.encode_marker(MARKER_COM)
-        self.encode_segment(com.data)
-
-    def encode_dqt(self, dqt):
-        self.encode_marker(MARKER_DQT)
-        data = b""
-        for table in dqt.tables:
-            precision = {8: 0, 16: 1}[table.precision]
-            data += struct.pack("B", precision << 4 | table.destination) + bytes(
-                jpeg_dct.zig_zag(table.values)
-            )
-        self.encode_segment(data)
-
-    def encode_dht(self, dht):
-        self.encode_marker(MARKER_DHT)
-        data = b""
-        for table in dht.tables:
-            data += struct.pack("B", table.table_class << 4 | table.destination)
-            assert len(table.table) == 16
-            for symbols in table.table:
-                data += struct.pack("B", len(symbols))
-            for symbols in table.table:
-                data += bytes(symbols)
-        self.encode_segment(data)
-
-    def encode_dac(self, dac):
-        self.encode_marker(MARKER_DAC)
-        data = b""
-        for table in dac.tables:
-            data += struct.pack(
-                "BB", table.table_class << 4 | table.destination, table.value
-            )
-        self.encode_segment(data)
-
-    def encode_dri(self, dri):
-        self.encode_marker(MARKER_DRI)
-        data = struct.pack(">H", dri.restart_interval)
-        self.encode_segment(data)
-
-    def encode_exp(self, exp):
-        self.encode_marker(MARKER_EXP)
-        expand = exp.expand_horizontal << 4 | exp.expand_vertical
-        data = struct.pack("B", expand)
-        self.encode_segment(data)
-
-    def encode_sof(self, sof):
-        self.encode_marker(MARKER_SOF0 + sof.n)
-        data = struct.pack(
-            ">BHHB",
-            sof.precision,
-            sof.number_of_lines,
-            sof.samples_per_line,
-            len(sof.components),
-        )
-        for component in sof.components:
-            sampling_factor = (
-                component.sampling_factor[0] << 4 | component.sampling_factor[1]
-            )
-            data += struct.pack(
-                "BBB", component.id, sampling_factor, component.quantization_table_index
-            )
-        self.encode_segment(data)
-
-    def encode_sos(self, sos):
-        self.encode_marker(MARKER_SOS)
-        data = struct.pack("B", len(sos.components))
-        for component in sos.components:
-            tables = component.dc_table << 4 | component.ac_table
-            data += struct.pack("BB", component.component_selector, tables)
-        a = sos.ah << 4 | sos.al
-        data += struct.pack("BBB", sos.ss, sos.se, a)
-        self.encode_segment(data)
 
     def encode_huffman_dct_scan(
         self, scan, dc_symbol_frequencies=None, ac_symbol_frequencies=None
@@ -467,43 +382,12 @@ class Encoder:
                     diffs[j] = [0] * samples_per_line
         self.data += encoder.get_data()
 
-    def encode_rst(self, rst):
-        self.encode_marker(MARKER_RST0 + rst.index)
-
-    def encode_dnl(self, dnl):
-        self.encode_marker(MARKER_DNL)
-        data = struct.pack(">H", dnl.number_of_lines)
-        self.encode_segment(data)
-
-    def encode_eoi(self):
-        self.encode_marker(MARKER_EOI)
-
     def encode(self):
         self._encode_segments(self.segments)
 
     def _encode_segments(self, segments):
         for segment in segments:
-            if isinstance(segment, StartOfImage):
-                self.encode_soi()
-            elif isinstance(segment, ApplicationSpecificData):
-                self.encode_app(segment)
-            elif isinstance(segment, Comment):
-                self.encode_com(segment)
-            elif isinstance(segment, DefineQuantizationTables):
-                self.encode_dqt(segment)
-            elif isinstance(segment, DefineHuffmanTables):
-                self.encode_dht(segment)
-            elif isinstance(segment, DefineArithmeticConditioning):
-                self.encode_dac(segment)
-            elif isinstance(segment, DefineRestartInterval):
-                self.encode_dri(segment)
-            elif isinstance(segment, ExpandReferenceComponents):
-                self.encode_exp(segment)
-            elif isinstance(segment, StartOfFrame):
-                self.encode_sof(segment)
-            elif isinstance(segment, StartOfScan):
-                self.encode_sos(segment)
-            elif isinstance(segment, HuffmanDCTScan):
+            if isinstance(segment, HuffmanDCTScan):
                 self.encode_huffman_dct_scan(segment)
             elif isinstance(segment, HuffmanDCTDCSuccessiveScan):
                 self.encode_huffman_dct_dc_successive_scan(segment)
@@ -519,17 +403,8 @@ class Encoder:
                 self.encode_huffman_lossless_scan(segment)
             elif isinstance(segment, ArithmeticLosslessScan):
                 self.encode_arithmetic_lossless_scan(segment)
-            elif isinstance(segment, Restart):
-                self.encode_rst(segment)
-            elif isinstance(segment, DefineNumberOfLines):
-                self.encode_dnl(segment)
-            elif isinstance(segment, EndOfImage):
-                self.encode_eoi()
-            elif isinstance(segment, bytes):
-                # FIXME: Remove when all encoding working
-                self.data += segment
             else:
-                raise Exception("Unknown segment")
+                self.data += segment.encode()
 
 
 ARITHMETIC_CLASSIFICATION_ZERO = 0

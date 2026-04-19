@@ -6,10 +6,26 @@ import math
 import huffman
 import jpeg_dct
 import jpeg_lossless
+from app import (
+    ADOBE_COLOR_SPACE_RGB_OR_CMYK,
+    ADOBE_COLOR_SPACE_Y_CB_CR,
+    ApplicationSpecificData,
+)
+from com import Comment
+from dac import ArithmeticConditioning, DefineArithmeticConditioning
+from dht import DefineHuffmanTables, HuffmanTable
+from dnl import DefineNumberOfLines
+from dqt import DefineQuantizationTables, QuantizationTable
+from dri import DefineRestartInterval
+from eoi import EndOfImage
 from huffman_tables import *
 from jpeg_segments import *
 from pgm import *
 from quantization_tables import *
+from rst import Restart
+from sof import FrameComponent, StartOfFrame
+from soi import StartOfImage
+from sos import ScanComponent, StartOfScan
 
 import jpeg_encoder
 
