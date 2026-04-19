@@ -168,7 +168,7 @@ class Encoder:
                     i += 1
         self.data += scan_encoder.get_data()
 
-    def encode_huffman_dct_dc_scan_successive(self, scan):
+    def encode_huffman_dct_dc_successive_scan(self, scan):
         scan_data = []
         prev_dc = 0
         for data_unit in scan.data_units:
@@ -184,7 +184,7 @@ class Encoder:
 
         self.encode_scan_data(scan_data)
 
-    def encode_huffman_dct_ac_scan_successive(self, scan):
+    def encode_huffman_dct_ac_successive_scan(self, scan):
         def get_bits(value, length):
             bits = []
             for i in range(length):
@@ -308,7 +308,7 @@ class Encoder:
                     i += 1
         self.data += encoder.get_data()
 
-    def encode_arithmetic_dct_dc_scan_successive(self, scan):
+    def encode_arithmetic_dct_dc_successive_scan(self, scan):
         encoder = arithmetic.Encoder()
         prev_dc = 0
         for data_unit in scan.data_units:
@@ -322,7 +322,7 @@ class Encoder:
         encoder.flush()
         self.data += bytes(encoder.data)
 
-    def encode_arithmetic_dct_ac_scan_successive(self, scan):
+    def encode_arithmetic_dct_ac_successive_scan(self, scan):
         eob_states = []
         nonzero_states = []
         additional_states = []
@@ -517,15 +517,15 @@ class Encoder:
             elif isinstance(segment, HuffmanDCTScan):
                 self.encode_huffman_dct_scan(segment)
             elif isinstance(segment, HuffmanDCTDCSuccessiveScan):
-                self.encode_huffman_dct_dc_scan_successive(segment)
+                self.encode_huffman_dct_dc_successive_scan(segment)
             elif isinstance(segment, HuffmanDCTACSuccessiveScan):
-                self.encode_huffman_dct_ac_scan_successive(segment)
+                self.encode_huffman_dct_ac_successive_scan(segment)
             elif isinstance(segment, ArithmeticDCTScan):
                 self.encode_arithmetic_dct_scan(segment)
             elif isinstance(segment, ArithmeticDCTDCSuccessiveScan):
-                self.encode_arithmetic_dct_dc_scan_successive(segment)
+                self.encode_arithmetic_dct_dc_successive_scan(segment)
             elif isinstance(segment, ArithmeticDCTACSuccessiveScan):
-                self.encode_arithmetic_dct_ac_scan_successive(segment)
+                self.encode_arithmetic_dct_ac_successive_scan(segment)
             elif isinstance(segment, HuffmanLosslessScan):
                 self.encode_huffman_lossless_scan(segment)
             elif isinstance(segment, ArithmeticLosslessScan):
