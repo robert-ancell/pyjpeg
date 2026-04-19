@@ -10,3 +10,6 @@ class HuffmanLosslessScan:
         self.components = components
         self.precision = precision
         self.predictor = predictor
+
+    def encode(self):
+        return b""  # FIXME

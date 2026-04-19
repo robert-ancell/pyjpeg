@@ -1,6 +1,6 @@
 import dct
 import huffman
-from huffman_scan_encoder import HuffmanScanEncoder
+from huffman_scan import HuffmanScanEncoder
 
 
 class HuffmanDCTScanComponent:

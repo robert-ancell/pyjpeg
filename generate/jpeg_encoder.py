@@ -19,7 +19,7 @@ from huffman_dct_ac_successive_scan import HuffmanDCTACSuccessiveScan
 from huffman_dct_dc_successive_scan import HuffmanDCTDCSuccessiveScan
 from huffman_dct_scan import HuffmanDCTScan, HuffmanDCTScanComponent
 from huffman_lossless_scan import HuffmanLosslessScan, HuffmanLosslessScanComponent
-from huffman_scan_encoder import HuffmanScanEncoder
+from huffman_scan import HuffmanScanEncoder
 from sof import FrameComponent, StartOfFrame
 from soi import StartOfImage
 from sos import ScanComponent, StartOfScan
