@@ -4,12 +4,18 @@ import arithmetic
 import huffman
 import jpeg_dct
 import jpeg_lossless
-from dht import DefineHuffmanTables
-from huffman_dct_scan import HuffmanDCTScan
+from arithmetic_dct_scan import ArithmeticDCTScan, ArithmeticDCTScanComponent
+from arithmetic_scan_encoder import ArithmeticScanEncoder
+from dht import DefineHuffmanTables, HuffmanTable
+from dqt import DefineQuantizationTables, QuantizationTable
+from eoi import EndOfImage
+from huffman_dct_scan import HuffmanDCTScan, HuffmanDCTScanComponent
 from huffman_scan_encoder import HuffmanScanEncoder
 from jpeg_marker import *
 from jpeg_segments import *
-from sos import StartOfScan
+from sof import FrameComponent, StartOfFrame
+from soi import StartOfImage
+from sos import ScanComponent, StartOfScan
 
 # https://www.w3.org/Graphics/JPEG/itu-t81.pdf
 # https://www.w3.org/Graphics/JPEG/jfif3.pdf
@@ -146,29 +152,6 @@ class Encoder:
             for _ in range(8):
                 byte = byte << 1 | scan_data.pop(0)
             self.data += bytes(byte)
-
-    def encode_arithmetic_dct_scan(self, scan):
-        encoder = ArithmeticDCTScanEncoder(
-            spectral_selection=scan.spectral_selection,
-            point_transform=scan.point_transform,
-        )
-
-        i = 0
-        while i < len(scan.data_units):
-            for component_index, scan_component in enumerate(scan.components):
-                for _ in range(
-                    scan_component.sampling_factor[0]
-                    * scan_component.sampling_factor[1]
-                ):
-                    assert i < len(scan.data_units)
-                    encoder.write_data_unit(
-                        component_index,
-                        scan.data_units[i],
-                        scan_component.conditioning_bounds,
-                        scan_component.kx,
-                    )
-                    i += 1
-        self.data += encoder.get_data()
 
     def encode_arithmetic_dct_dc_successive_scan(self, scan):
         encoder = arithmetic.Encoder()
@@ -353,8 +336,6 @@ class Encoder:
                 self.encode_huffman_dct_dc_successive_scan(segment)
             elif isinstance(segment, HuffmanDCTACSuccessiveScan):
                 self.encode_huffman_dct_ac_successive_scan(segment)
-            elif isinstance(segment, ArithmeticDCTScan):
-                self.encode_arithmetic_dct_scan(segment)
             elif isinstance(segment, ArithmeticDCTDCSuccessiveScan):
                 self.encode_arithmetic_dct_dc_successive_scan(segment)
             elif isinstance(segment, ArithmeticDCTACSuccessiveScan):
@@ -372,199 +353,6 @@ ARITHMETIC_CLASSIFICATION_SMALL_POSITIVE = 1
 ARITHMETIC_CLASSIFICATION_SMALL_NEGATIVE = 2
 ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE = 3
 ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE = 4
-
-
-class ArithmeticScanEncoder:
-    def __init__(
-        self,
-    ):
-        self.encoder = arithmetic.Encoder()
-
-    def write_dc(self, non_zero, sign, sp, sn, xstates, mstates, value):
-        if value == 0:
-            self.encoder.write_bit(non_zero, 0)
-            return
-        self.encoder.write_bit(non_zero, 1)
-
-        if value > 0:
-            magnitude = value
-            self.encoder.write_bit(sign, 0)
-            mag_state = sp
-        else:
-            magnitude = -value
-            self.encoder.write_bit(sign, 1)
-            mag_state = sn
-
-        if magnitude == 1:
-            self.encoder.write_bit(mag_state, 0)
-            return
-        self.encoder.write_bit(mag_state, 1)
-
-        # Encode width of (magnitude - 1) (must be 2+ if above not encoded)
-        v = magnitude - 1
-        width = 0
-        while (v >> width) != 0:
-            width += 1
-
-        for i in range(width - 1):
-            self.encoder.write_bit(xstates[i], 1)
-        self.encoder.write_bit(xstates[width - 1], 0)
-
-        # Encode lowest bits of magnitude (first bit is implied 1)
-        for i in range(width - 2, -1, -1):
-            bit = (v >> i) & 0x1
-            self.encoder.write_bit(mstates[width - 2], bit)
-
-    def classify_value(self, lower, upper, value):
-        if lower > 0:
-            lower = 1 << (lower - 1)
-        upper = 1 << upper
-        if value >= 0:
-            if value <= lower:
-                return ARITHMETIC_CLASSIFICATION_ZERO
-            elif value <= upper:
-                return ARITHMETIC_CLASSIFICATION_SMALL_POSITIVE
-            else:
-                return ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE
-        else:
-            if value >= -lower:
-                return ARITHMETIC_CLASSIFICATION_ZERO
-            elif value >= -upper:
-                return ARITHMETIC_CLASSIFICATION_SMALL_NEGATIVE
-            else:
-                return ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE
-
-    def write_ac(self, ac_sn_sp_x1, xstates, mstates, ac):
-        assert ac != 0
-
-        if ac > 0:
-            sign = 1
-            magnitude = ac
-            self.encoder.write_fixed_bit(0)
-        else:
-            sign = -1
-            magnitude = -ac
-            self.encoder.write_fixed_bit(1)
-
-        if magnitude == 1:
-            self.encoder.write_bit(ac_sn_sp_x1, 0)
-            return
-        self.encoder.write_bit(ac_sn_sp_x1, 1)
-
-        # Encode width of (magnitude - 1) (must be 2+ if above not encoded)
-        v = magnitude - 1
-        width = 0
-        while (v >> width) != 0:
-            width += 1
-
-        if width == 1:
-            self.encoder.write_bit(ac_sn_sp_x1, 0)
-        else:
-            self.encoder.write_bit(ac_sn_sp_x1, 1)
-            for i in range(1, width - 1):
-                self.encoder.write_bit(xstates[i - 1], 1)
-            self.encoder.write_bit(xstates[width - 2], 0)
-
-        for i in range(width - 2, -1, -1):
-            bit = (v >> i) & 0x1
-            self.encoder.write_bit(mstates[width - 2], bit)
-
-    def get_data(self):
-        self.encoder.flush()
-        return bytes(self.encoder.data)
-
-
-class ArithmeticDCTScanEncoder(ArithmeticScanEncoder):
-    def __init__(
-        self,
-        spectral_selection=(0, 63),
-        point_transform=0,
-    ):
-        super().__init__()
-        self.spectral_selection = spectral_selection
-        self.point_transform = point_transform
-        self.prev_dc = {}
-        self.prev_dc_diff = {}
-
-        def make_states(count):
-            states = []
-            for _ in range(count):
-                states.append(arithmetic.State())
-            return states
-
-        self.dc_non_zero = make_states(5)
-        self.dc_sign = make_states(5)
-        self.dc_sp = make_states(5)
-        self.dc_sn = make_states(5)
-        self.dc_xstates = make_states(15)
-        self.dc_mstates = make_states(14)
-        self.ac_end_of_block = make_states(63)
-        self.ac_non_zero = make_states(63)
-        self.ac_sn_sp_x1 = make_states(63)
-        self.ac_low_xstates = make_states(14)
-        self.ac_high_xstates = make_states(14)
-        self.ac_low_mstates = make_states(14)
-        self.ac_high_mstates = make_states(14)
-
-    def write_data_unit(self, component_index, data_unit, conditioning_bounds, kx):
-        zz_data_unit = jpeg_dct.zig_zag(data_unit)
-
-        k = self.spectral_selection[0]
-        while k <= self.spectral_selection[1]:
-            if k == 0:
-                dc = jpeg_dct.transform_coefficient(
-                    zz_data_unit[k], self.point_transform
-                )
-                dc_diff = dc - self.prev_dc.get(component_index, 0)
-                prev_dc_diff = self.prev_dc_diff.get(component_index, 0)
-                lower, upper = conditioning_bounds
-                c = self.classify_value(lower, upper, prev_dc_diff)
-                self.write_dc(
-                    self.dc_non_zero[c],
-                    self.dc_sign[c],
-                    self.dc_sp[c],
-                    self.dc_sn[c],
-                    self.dc_xstates,
-                    self.dc_mstates,
-                    dc_diff,
-                )
-                self.prev_dc[component_index] = dc
-                self.prev_dc_diff[component_index] = dc_diff
-                k += 1
-            else:
-                run_length = 0
-                while (
-                    k + run_length <= self.spectral_selection[1]
-                    and jpeg_dct.transform_coefficient(
-                        zz_data_unit[k + run_length], self.point_transform
-                    )
-                    == 0
-                ):
-                    run_length += 1
-                if k + run_length > self.spectral_selection[1]:
-                    self.encoder.write_bit(self.ac_end_of_block[k - 1], 1)
-                    k += run_length
-                else:
-                    self.encoder.write_bit(self.ac_end_of_block[k - 1], 0)
-                    for _ in range(run_length):
-                        self.encoder.write_bit(self.ac_non_zero[k - 1], 0)
-                        k += 1
-                    self.encoder.write_bit(self.ac_non_zero[k - 1], 1)
-                    if k <= kx:
-                        xstates = self.ac_low_xstates
-                        mstates = self.ac_low_mstates
-                    else:
-                        xstates = self.ac_high_xstates
-                        mstates = self.ac_high_mstates
-                    self.write_ac(
-                        self.ac_sn_sp_x1[k - 1],
-                        xstates,
-                        mstates,
-                        jpeg_dct.transform_coefficient(
-                            zz_data_unit[k], self.point_transform
-                        ),
-                    )
-                    k += 1
 
 
 class ArithmeticLosslessScanEncoder(ArithmeticScanEncoder):

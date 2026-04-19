@@ -11,6 +11,7 @@ from app import (
     ADOBE_COLOR_SPACE_Y_CB_CR,
     ApplicationSpecificData,
 )
+from arithmetic_dct_scan import ArithmeticDCTScan, ArithmeticDCTScanComponent
 from com import Comment
 from dac import ArithmeticConditioning, DefineArithmeticConditioning
 from dht import DefineHuffmanTables, HuffmanTable

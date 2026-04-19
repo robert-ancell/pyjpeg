@@ -21,27 +21,6 @@ class HuffmanDCTACSuccessiveScan:
         self.point_transform = point_transform
 
 
-class ArithmeticDCTScanComponent:
-    def __init__(self, sampling_factor=(1, 1), conditioning_bounds=(0, 1), kx=5):
-        self.sampling_factor = sampling_factor
-        self.conditioning_bounds = conditioning_bounds
-        self.kx = kx
-
-
-class ArithmeticDCTScan:
-    def __init__(
-        self,
-        data_units,
-        components,
-        spectral_selection=(0, 63),
-        point_transform=0,
-    ):
-        self.data_units = data_units
-        self.components = components
-        self.spectral_selection = spectral_selection
-        self.point_transform = point_transform
-
-
 class ArithmeticDCTDCSuccessiveScan:
     def __init__(self, data_units, point_transform=0):
         self.data_units = data_units
