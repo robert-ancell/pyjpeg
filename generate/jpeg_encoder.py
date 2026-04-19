@@ -206,7 +206,7 @@ class Encoder:
             length = get_eob_length(count)
             return get_bits(count, length)
 
-        encoder = arithmetic.Encoder(scan.table)
+        encoder = huffman.HuffmanEncoder(scan.table)
         scan_data = []
         correction_bits = [[]]
         eob_count = 0
