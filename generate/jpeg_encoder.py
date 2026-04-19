@@ -461,7 +461,7 @@ class Encoder:
                         left_diff,
                         above_diffs[component_index][x],
                         diff,
-                        symbol_frequencies=None,  # FIXME
+                        symbol_frequencies=symbol_frequencies,
                     )
                 diffs[component_index][x] = diff
             x += 1
@@ -964,6 +964,11 @@ class HuffmanLosslessScanEncoder(HuffmanScanEncoder):
         self.write_dc(data_unit, encoder, symbol_frequencies)
 
 
+def optimize_huffman(segments):
+    # FIXME
+    return segments
+
+
 if __name__ == "__main__":
     from huffman_tables import *
 
@@ -1043,30 +1048,29 @@ if __name__ == "__main__":
         offset_samples.append(s - 128)
     dct_coefficients = quantize(fdct(offset_samples), quantization_table)
 
-    encoder = Encoder(
-        [
-            StartOfImage(),
-            DefineQuantizationTables([QuantizationTable(0, quantization_table)]),
-            DefineHuffmanTables(
-                [
-                    HuffmanTable.dc(0, standard_luminance_dc_huffman_table),
-                    HuffmanTable.ac(0, standard_luminance_ac_huffman_table),
-                ]
-            ),
-            StartOfFrame.baseline(8, 8, [FrameComponent.dct(1)]),
-            StartOfScan.dct([ScanComponent.dct(1, 0, 0)]),
-            HuffmanDCTScan(
-                [dct_coefficients],
-                [
-                    HuffmanDCTScanComponent(
-                        standard_luminance_dc_huffman_table,
-                        standard_luminance_ac_huffman_table,
-                    ),
-                ],
-            ),
-            EndOfImage(),
-        ]
-    )
+    segments = [
+        StartOfImage(),
+        DefineQuantizationTables([QuantizationTable(0, quantization_table)]),
+        DefineHuffmanTables(
+            [
+                HuffmanTable.dc(0, standard_luminance_dc_huffman_table),
+                HuffmanTable.ac(0, standard_luminance_ac_huffman_table),
+            ]
+        ),
+        StartOfFrame.baseline(8, 8, [FrameComponent.dct(1)]),
+        StartOfScan.dct([ScanComponent.dct(1, 0, 0)]),
+        HuffmanDCTScan(
+            [dct_coefficients],
+            [
+                HuffmanDCTScanComponent(
+                    standard_luminance_dc_huffman_table,
+                    standard_luminance_ac_huffman_table,
+                ),
+            ],
+        ),
+        EndOfImage(),
+    ]
+    encoder = Encoder(optimize_huffman(segments))
     encoder.encode()
     open("test-huffman.jpg", "wb").write(encoder.data)
 
@@ -1086,28 +1090,27 @@ if __name__ == "__main__":
     encoder.encode()
     open("test-arithmetic.jpg", "wb").write(encoder.data)
 
-    encoder = Encoder(
-        [
-            StartOfImage(),
-            DefineHuffmanTables(
-                [
-                    HuffmanTable.dc(0, standard_luminance_dc_huffman_table),
-                ]
-            ),
-            StartOfFrame.lossless(8, 8, [FrameComponent.lossless(1)]),
-            StartOfScan.lossless([ScanComponent.lossless(1, 0)]),
-            HuffmanLosslessScan(
-                8,
-                samples,
-                [
-                    HuffmanLosslessScanComponent(
-                        standard_luminance_dc_huffman_table,
-                    )
-                ],
-            ),
-            EndOfImage(),
-        ]
-    )
+    segments = [
+        StartOfImage(),
+        DefineHuffmanTables(
+            [
+                HuffmanTable.dc(0, standard_luminance_dc_huffman_table),
+            ]
+        ),
+        StartOfFrame.lossless(8, 8, [FrameComponent.lossless(1)]),
+        StartOfScan.lossless([ScanComponent.lossless(1, 0)]),
+        HuffmanLosslessScan(
+            8,
+            samples,
+            [
+                HuffmanLosslessScanComponent(
+                    standard_luminance_dc_huffman_table,
+                )
+            ],
+        ),
+        EndOfImage(),
+    ]
+    encoder = Encoder(optimize_huffman(segments))
     encoder.encode()
     open("test-lossless-huffman.jpg", "wb").write(encoder.data)
 
@@ -1372,57 +1375,56 @@ if __name__ == "__main__":
     encoder.encode()
     open("test-lossless-arithmetic-color.jpg", "wb").write(encoder.data)
 
-    encoder = Encoder(
-        [
-            StartOfImage(),
-            DefineQuantizationTables([QuantizationTable(0, quantization_table)]),
-            DefineHuffmanTables(
-                [
-                    HuffmanTable.dc(0, standard_luminance_dc_huffman_table),
-                    HuffmanTable.ac(0, standard_luminance_ac_huffman_table),
-                ]
-            ),
-            StartOfFrame.progressive(8, 8, [FrameComponent.dct(1)]),
-            StartOfScan.dct(
-                [ScanComponent.dct(1, 0, 0)],
-                spectral_selection=(0, 0),
-                point_transform=1,
-            ),
-            HuffmanDCTScan(
-                [dct_coefficients],
-                [
-                    HuffmanDCTScanComponent(
-                        standard_luminance_dc_huffman_table,
-                        standard_luminance_ac_huffman_table,
-                    ),
-                ],
-                spectral_selection=(0, 0),
-                point_transform=1,
-            ),
-            StartOfScan.dct(
-                [ScanComponent.dct(1, 0, 0)],
-                spectral_selection=(0, 0),
-                previous_point_transform=1,
-                point_transform=0,
-            ),
-            HuffmanDCTDCSuccessiveScan([dct_coefficients]),
-            StartOfScan.dct(
-                [ScanComponent.dct(1, 0, 0)],
-                spectral_selection=(1, 63),
-            ),
-            HuffmanDCTScan(
-                [dct_coefficients],
-                [
-                    HuffmanDCTScanComponent(
-                        standard_luminance_dc_huffman_table,
-                        standard_luminance_ac_huffman_table,
-                    ),
-                ],
-                spectral_selection=(1, 63),
-            ),
-            EndOfImage(),
-        ]
-    )
+    segments = [
+        StartOfImage(),
+        DefineQuantizationTables([QuantizationTable(0, quantization_table)]),
+        DefineHuffmanTables(
+            [
+                HuffmanTable.dc(0, standard_luminance_dc_huffman_table),
+                HuffmanTable.ac(0, standard_luminance_ac_huffman_table),
+            ]
+        ),
+        StartOfFrame.progressive(8, 8, [FrameComponent.dct(1)]),
+        StartOfScan.dct(
+            [ScanComponent.dct(1, 0, 0)],
+            spectral_selection=(0, 0),
+            point_transform=1,
+        ),
+        HuffmanDCTScan(
+            [dct_coefficients],
+            [
+                HuffmanDCTScanComponent(
+                    standard_luminance_dc_huffman_table,
+                    standard_luminance_ac_huffman_table,
+                ),
+            ],
+            spectral_selection=(0, 0),
+            point_transform=1,
+        ),
+        StartOfScan.dct(
+            [ScanComponent.dct(1, 0, 0)],
+            spectral_selection=(0, 0),
+            previous_point_transform=1,
+            point_transform=0,
+        ),
+        HuffmanDCTDCSuccessiveScan([dct_coefficients]),
+        StartOfScan.dct(
+            [ScanComponent.dct(1, 0, 0)],
+            spectral_selection=(1, 63),
+        ),
+        HuffmanDCTScan(
+            [dct_coefficients],
+            [
+                HuffmanDCTScanComponent(
+                    standard_luminance_dc_huffman_table,
+                    standard_luminance_ac_huffman_table,
+                ),
+            ],
+            spectral_selection=(1, 63),
+        ),
+        EndOfImage(),
+    ]
+    encoder = Encoder(optimize_huffman(segments))
     encoder.encode()
     open("test-progressive-huffman.jpg", "wb").write(encoder.data)
 
