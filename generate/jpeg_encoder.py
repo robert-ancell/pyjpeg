@@ -22,13 +22,6 @@ class Encoder:
     def __init__(self, segments):
         self.segments = segments
         self.data = b""
-        # FIXME: Remove when fix lossless
-        self.dc_huffman_encoders = [
-            huffman.HuffmanEncoder([]),
-            huffman.HuffmanEncoder([]),
-            huffman.HuffmanEncoder([]),
-            huffman.HuffmanEncoder([]),
-        ]
 
     def encode_marker(self, value):
         self.data += struct.pack("BB", 0xFF, value)
@@ -67,10 +60,6 @@ class Encoder:
                 data += struct.pack("B", len(symbols))
             for symbols in table.table:
                 data += bytes(symbols)
-            encoder = huffman.HuffmanEncoder(table.table)
-            # FIXME: Remove when fix lossless
-            if table.table_class == 0:
-                self.dc_huffman_encoders[table.destination] = encoder
         self.encode_segment(data)
 
     def encode_dac(self, dac):
@@ -450,8 +439,9 @@ class Encoder:
                         ]
                     else:
                         component_symbol_frequencies = None
+                    dc_encoder = huffman.HuffmanEncoder(scan_component.table)
                     encoder.write_data_unit(
-                        self.dc_huffman_encoders[scan_component.table],
+                        dc_encoder,
                         left_diff,
                         above_diffs[component_index][x],
                         diff,
@@ -939,8 +929,6 @@ def optimize_huffman(segments):
                 else:
                     ac_huffman_tables[table.destination] = table
                     symbol_frequencies[table] = [0] * 256
-            # FIXME: Remove
-            encoder.encode_dht(segment)
         elif isinstance(segment, StartOfScan):
             sos = segment
         elif isinstance(segment, HuffmanDCTScan):
@@ -997,8 +985,8 @@ def optimize_huffman(segments):
         elif isinstance(segment, HuffmanDCTACSuccessiveScan):
             segment.table = ac_huffman_tables[sos.components[0].ac_table].table
         elif isinstance(segment, HuffmanLosslessScan):
-            # FIXME: Change when table not index
-            pass
+            for i, component in enumerate(segment.components):
+                component.table = dc_huffman_tables[sos.components[i].dc_table].table
 
     return segments
 
@@ -1136,11 +1124,7 @@ if __name__ == "__main__":
         HuffmanLosslessScan(
             8,
             samples,
-            [
-                HuffmanLosslessScanComponent(
-                    0  # FIXME standard_luminance_dc_huffman_table,
-                )
-            ],
+            [HuffmanLosslessScanComponent(standard_luminance_dc_huffman_table)],
         ),
         EndOfImage(),
     ]

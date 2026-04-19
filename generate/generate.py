@@ -675,15 +675,18 @@ def make_lossless(
             arithmetic=arithmetic,
         )
     )
+    huffman_table = None
     if not arithmetic:
-        # Huffman table able to encode all possible 16 bit values
-        frequencies = [0] * 256
-        for i in range(16):
-            frequencies[i] = 1
-        huffman_table = huffman.make_huffman_table(frequencies)
+        # Need large table to handle all bit depths
+        huffman_table = huffman.make_huffman_table([1] * 256)
         tables = []
         for i in range(len(component_samples)):
-            tables.append(HuffmanTable.dc(i, huffman_table))
+            tables.append(
+                HuffmanTable.dc(
+                    i,
+                    huffman_table,
+                )
+            )
         segments.append(DefineHuffmanTables(tables))
     if restart_interval != 0:
         segments.append(DefineRestartInterval(restart_interval))
@@ -706,10 +709,7 @@ def make_lossless(
                     )
                 )
             else:
-                # FIXME: Replace table index with table
-                scan_components.append(
-                    HuffmanLosslessScanComponent(all_scan_components[c].dc_table)
-                )
+                scan_components.append(HuffmanLosslessScanComponent(huffman_table))
         segments.append(
             StartOfScan.lossless(
                 components=sos_components,
