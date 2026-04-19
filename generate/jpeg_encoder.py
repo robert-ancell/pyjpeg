@@ -164,7 +164,7 @@ class Encoder:
 
         self.encode_scan_data(scan_data)
 
-    def encode_huffman_dct_ac_successive_scan(self, scan):
+    def encode_huffman_dct_ac_successive_scan(self, scan, symbol_frequencies=None):
         def get_bits(value, length):
             bits = []
             for i in range(length):
@@ -185,6 +185,11 @@ class Encoder:
         def encode_eob(count):
             length = get_eob_length(count)
             return get_bits(count, length)
+
+        def encode_symbol(encoder, symbol):
+            if symbol_frequencies is not None:
+                symbol_frequencies[symbol] += 1
+            return encoder.encode(symbol)
 
         encoder = huffman.HuffmanEncoder(scan.table)
         scan_data = []
@@ -212,7 +217,12 @@ class Encoder:
                     else:
                         if eob_count > 0:
                             eob_bits = encode_eob(eob_count)
-                            scan_data.extend(encoder.encode(len(eob_bits) << 4 | 0))
+                            scan_data.extend(
+                                encode_symbol(
+                                    encoder,
+                                    len(eob_bits) << 4 | 0,
+                                )
+                            )
                             scan_data.extend(eob_bits)
                             scan_data.extend(eob_correction_bits)
                             eob_count = 0
@@ -220,13 +230,13 @@ class Encoder:
 
                         while run_length > 15:
                             # ZRL
-                            scan_data.extend(encoder.encode(15 << 4 | 0))
+                            scan_data.extend(encode_symbol(encoder, 15 << 4 | 0))
                             scan_data.extend(correction_bits[0])
                             run_length -= 16
                             correction_bits = correction_bits[1:]
                         assert len(correction_bits) == 1
 
-                        scan_data.extend(encoder.encode(run_length << 4 | 1))
+                        scan_data.extend(encode_symbol(encoder, run_length << 4 | 1))
                         if transformed_coefficient < 0:
                             scan_data.append(0)
                         else:
@@ -250,7 +260,7 @@ class Encoder:
 
         if eob_count > 0:
             eob_bits = encode_eob(eob_count)
-            scan_data.extend(encoder.encode(len(eob_bits) << 4 | 0))
+            scan_data.extend(encode_symbol(encoder, len(eob_bits) << 4 | 0))
             scan_data.extend(eob_bits)
             scan_data.extend(eob_correction_bits)
 
@@ -947,13 +957,13 @@ def optimize_huffman(segments):
                 ac_symbol_frequencies=scan_ac_symbol_frequencies,
             )
         elif isinstance(segment, HuffmanDCTACSuccessiveScan):
-            scan_symbol_frequencies = []
-            for component in sos.components:
-                scan_symbol_frequencies.append(
-                    symbol_frequencies[ac_huffman_tables[component.ac_table]]
-                )
+            assert len(sos.components) == 1
+            scan_symbol_frequencies = symbol_frequencies[
+                ac_huffman_tables[sos.components[0].ac_table]
+            ]
             encoder.encode_huffman_dct_ac_successive_scan(
-                segment, symbol_frequencies=scan_symbol_frequencies
+                segment,
+                symbol_frequencies=scan_symbol_frequencies,
             )
         elif isinstance(segment, HuffmanLosslessScan):
             scan_symbol_frequencies = []

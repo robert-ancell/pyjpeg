@@ -6,11 +6,11 @@ import math
 import huffman
 import jpeg_dct
 import jpeg_lossless
+from huffman_tables import *
 from jpeg_segments import *
 from pgm import *
 from quantization_tables import *
 
-import jpeg
 import jpeg_encoder
 
 WIDTH = 32
@@ -497,92 +497,87 @@ def make_dct_sequential(
                         )
                     )
         else:
-            scan_data = []
-            for interval in range(n_intervals):
-                huffman_components = []
-                for i in component_indexes:
-                    # MCU is 1 in non-interleaved
-                    if len(component_indexes) == 1:
-                        sampling_factor = (1, 1)
-                    else:
-                        _, sampling_factor = components[i]
-                    interval_length = len(data_units[i]) // n_intervals
-                    interval_start = interval * interval_length
-                    mcu_data_units = jpeg_dct.order_mcu_dct_data_units(
-                        component_sizes[i][0],
-                        component_sizes[i][1],
-                        data_units[i][
-                            interval_start : interval_start + interval_length
-                        ],
-                        sampling_factor,
-                    )
-                    huffman_components.append(
-                        jpeg.HuffmanDCTComponent(
-                            dc_table=scan_components[i].dc_table,
-                            ac_table=scan_components[i].ac_table,
-                            data_units=mcu_data_units,
-                            sampling_factor=sampling_factor,
+            if successive:
+                assert len(component_indexes) == 1
+                if start == 0:
+                    scan_data = [
+                        HuffmanDCTDCSuccessiveScan(
+                            data_units[component_indexes[0]],
+                            point_transform=point_transform,
                         )
-                    )
-                if successive:
-                    assert len(component_indexes) == 1
-                    if start == 0:
-                        scan_data = [
-                            jpeg.huffman_dct_dc_scan_successive_data(
-                                data_units=data_units[component_indexes[0]],
-                                point_transform=point_transform,
-                            )
-                        ]
-                    else:
-                        scan_data = [
-                            jpeg.huffman_dct_ac_scan_successive_data(
-                                data_units=data_units[component_indexes[0]],
-                                selection=selection,
-                                point_transform=point_transform,
-                            )
-                        ]
+                    ]
                 else:
+                    table = huffman.make_huffman_table([1] * 256)
+                    scan_data = [
+                        HuffmanDCTACSuccessiveScan(
+                            data_units[component_indexes[0]],
+                            table,
+                            spectral_selection=selection,
+                            point_transform=point_transform,
+                        )
+                    ]
+            else:
+                scan_data = []
+                for interval in range(n_intervals):
+                    huffman_components = []
+                    mcu_data_units = []
+                    for i in component_indexes:
+                        # MCU is 1 in non-interleaved
+                        if len(component_indexes) == 1:
+                            sampling_factor = (1, 1)
+                        else:
+                            _, sampling_factor = components[i]
+                        interval_length = len(data_units[i]) // n_intervals
+                        interval_start = interval * interval_length
+                        mcu_data_units.append(
+                            jpeg_dct.order_mcu_dct_data_units(
+                                component_sizes[i][0],
+                                component_sizes[i][1] // n_intervals,
+                                data_units[i][
+                                    interval_start : interval_start + interval_length
+                                ],
+                                sampling_factor,
+                            )
+                        )
+                        if precision > 8:
+                            dc_table = huffman.make_huffman_table([1] * 256)
+                            ac_table = huffman.make_huffman_table([1] * 256)
+                        elif i == 0 or not use_chrominance:
+                            dc_table = standard_luminance_dc_huffman_table
+                            ac_table = standard_luminance_ac_huffman_table
+                        else:
+                            dc_table = standard_chrominance_dc_huffman_table
+                            ac_table = standard_chrominance_ac_huffman_table
+                        huffman_components.append(
+                            HuffmanDCTScanComponent(
+                                sampling_factor=sampling_factor,
+                                dc_table=dc_table,
+                                ac_table=ac_table,
+                            )
+                        )
                     if interval != 0:
                         scan_data.append(Restart((interval - 1) % 8))
+                    # FIXME: Don't zig zag in the first place
+                    # FIXME: Interleave earlier
+                    data_units_ = []
+                    while len(mcu_data_units[0]) > 0:
+                        for i, scan_component in enumerate(huffman_components):
+                            for _ in range(
+                                scan_component.sampling_factor[0]
+                                * scan_component.sampling_factor[1]
+                            ):
+                                data_units_.append(
+                                    jpeg_dct.unzig_zag(mcu_data_units[i].pop(0))
+                                )
                     scan_data.append(
-                        jpeg.huffman_dct_scan_data(
+                        HuffmanDCTScan(
+                            data_units_,
                             components=huffman_components,
-                            selection=selection,
+                            spectral_selection=selection,
                             point_transform=point_transform,
                         )
                     )
         jpeg_scans.append((sos, scan_data))
-
-    # Generate Huffman tables and encode scans.
-    if not arithmetic:
-        all_huffman_bits = []
-        for _, scan_data in jpeg_scans:
-            for d in scan_data:
-                if not isinstance(d, Restart):
-                    all_huffman_bits.extend(d)
-        dc_table = jpeg.make_dct_huffman_dc_table(all_huffman_bits, 0)
-        ac_table = jpeg.make_dct_huffman_ac_table(all_huffman_bits, 0)
-        huffman_tables = [
-            HuffmanTable.dc(0, dc_table),
-            HuffmanTable.ac(0, ac_table),
-        ]
-        if use_chrominance:
-            dc_table = jpeg.make_dct_huffman_dc_table(all_huffman_bits, 1)
-            huffman_tables.append(HuffmanTable.dc(1, dc_table))
-            ac_table = jpeg.make_dct_huffman_ac_table(all_huffman_bits, 1)
-            huffman_tables.append(HuffmanTable.ac(1, ac_table))
-
-        for i, (sos, scan_data) in enumerate(jpeg_scans):
-            scan_data_ = []
-            for d in scan_data:
-                if isinstance(d, Restart):
-                    scan_data_.append(d)
-                else:
-                    scan_data_.append(jpeg.huffman_dct_scan(huffman_tables, d))
-            jpeg_scans[i] = (
-                sos,
-                scan_data_,
-            )
 
     segments = [StartOfImage()]
     for comment in comments:
@@ -629,7 +624,14 @@ def make_dct_sequential(
         if len(conditioning) > 0:
             segments.append(DefineArithmeticConditioning(conditioning))
     else:
-        segments.append(DefineHuffmanTables(huffman_tables))
+        tables = [
+            HuffmanTable.dc(0, standard_luminance_dc_huffman_table),
+            HuffmanTable.ac(0, standard_luminance_ac_huffman_table),
+        ]
+        if use_chrominance:
+            tables.append(HuffmanTable.dc(1, standard_chrominance_dc_huffman_table))
+            tables.append(HuffmanTable.ac(1, standard_chrominance_ac_huffman_table))
+        segments.append(DefineHuffmanTables(tables))
     if restart_interval != 0:
         segments.append(DefineRestartInterval(restart_interval))
     for i, (sos, scan_data) in enumerate(jpeg_scans):
@@ -793,7 +795,8 @@ def generate_dct(
         arithmetic_conditioning_bounds=arithmetic_conditioning_bounds,
         arithmetic_conditioning_kx=arithmetic_conditioning_kx,
     )
-    encoder = jpeg_encoder.Encoder(segments)
+    print(width, height, precision, description)
+    encoder = jpeg_encoder.Encoder(jpeg_encoder.optimize_huffman(segments))
     encoder.encode()
     basename = "../jpeg/%s/%dx%dx%d_%s" % (
         section,

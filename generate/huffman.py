@@ -66,7 +66,6 @@ def _code_to_bits(code, length):
 class HuffmanEncoder:
     def __init__(self, table):
         self.codes = {}
-        self.symbol_frequencies = [0] * 256
 
         code = 0
         for i, symbols_by_length in enumerate(table):
@@ -81,7 +80,6 @@ class HuffmanEncoder:
         code = self.codes.get(symbol)
         if code is None:
             raise Exception("Unknown Huffman symbol")
-        self.symbol_frequencies[symbol] += 1
         return code
 
 
