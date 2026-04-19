@@ -821,16 +821,16 @@ class HuffmanScanEncoder:
         self.write_magnitude(dc_diff, length)
 
     # Zero AC coefficients until end of block.
-    def write_eob(self, encoder, block_count=1):
+    def write_eob(self, encoder, block_count=1, symbol_frequencies=None):
         assert 1 <= block_count <= 32767
         length = self.get_magnitude_length(block_count)
-        self.write_ac(length - 1, 0, encoder)
+        self.write_ac(length - 1, 0, encoder, symbol_frequencies)
         if block_count > 1:
             self.write_magnitude(block_count, length - 1)
 
     # Run of 16 zero AC coefficients.
-    def write_zrl(self, encoder):
-        self.write_ac(15, 0, encoder)
+    def write_zrl(self, encoder, symbol_frequencies=None):
+        self.write_ac(15, 0, encoder, symbol_frequencies)
 
     # AC Coefficient after [run_length] zero coefficients.
     def write_ac(self, run_length, ac, encoder, symbol_frequencies=None):
@@ -922,7 +922,9 @@ class HuffmanDCTScanEncoder(HuffmanScanEncoder):
                 dc = _transform_coefficient(zz_data_unit[k], self.point_transform)
                 dc_diff = dc - self.prev_dc.get(component_index, 0)
                 self.prev_dc[component_index] = dc
-                self.write_dc(dc_diff, dc_encoder, dc_symbol_frequencies)
+                self.write_dc(
+                    dc_diff, dc_encoder, symbol_frequencies=dc_symbol_frequencies
+                )
                 k += 1
             else:
                 run_length = 0
@@ -935,10 +937,10 @@ class HuffmanDCTScanEncoder(HuffmanScanEncoder):
                 ):
                     run_length += 1
                 if k + run_length > self.spectral_selection[1]:
-                    self.write_eob(ac_encoder)
+                    self.write_eob(ac_encoder, symbol_frequencies=ac_symbol_frequencies)
                     k = self.spectral_selection[1] + 1
                 elif run_length >= 16:
-                    self.write_zrl(ac_encoder)
+                    self.write_zrl(ac_encoder, symbol_frequencies=ac_symbol_frequencies)
                     k += 16
                 else:
                     k += run_length
@@ -946,7 +948,7 @@ class HuffmanDCTScanEncoder(HuffmanScanEncoder):
                         run_length,
                         _transform_coefficient(zz_data_unit[k], self.point_transform),
                         ac_encoder,
-                        ac_symbol_frequencies,
+                        symbol_frequencies=ac_symbol_frequencies,
                     )
                     k += 1
 
@@ -968,53 +970,79 @@ class HuffmanLosslessScanEncoder(HuffmanScanEncoder):
 
 def optimize_huffman(segments):
     encoder = Encoder([])
-    lossless = False
     dc_huffman_tables = [None, None, None, None]
     ac_huffman_tables = [None, None, None, None]
-    dc_symbol_frequencies = {}
-    ac_symbol_frequencies = {}
-    scan_dc_symbol_frequencies = []
-    scan_ac_symbol_frequencies = []
+    symbol_frequencies = {}
+    symbol_frequencies = {}
+    sos = None
     for segment in segments:
         if isinstance(segment, DefineHuffmanTables):
             for table in segment.tables:
                 if table.table_class == 0:
                     dc_huffman_tables[table.destination] = table
-                    dc_symbol_frequencies[table] = [0] * 256
+                    symbol_frequencies[table] = [0] * 256
                 else:
                     ac_huffman_tables[table.destination] = table
-                    ac_symbol_frequencies[table] = [0] * 256
+                    symbol_frequencies[table] = [0] * 256
             # FIXME: Remove
             encoder.encode_dht(segment)
-        elif isinstance(segment, StartOfFrame):
-            if segment.n in (3, 11):
-                lossless = True
         elif isinstance(segment, StartOfScan):
+            sos = segment
+        elif isinstance(segment, HuffmanDCTScan):
             scan_dc_symbol_frequencies = []
             scan_ac_symbol_frequencies = []
-            for component in segment.components:
+            for component in sos.components:
                 scan_dc_symbol_frequencies.append(
-                    dc_symbol_frequencies[dc_huffman_tables[component.dc_table]]
+                    symbol_frequencies[dc_huffman_tables[component.dc_table]]
                 )
-                if not lossless:
-                    scan_ac_symbol_frequencies.append(
-                        ac_symbol_frequencies[ac_huffman_tables[component.ac_table]]
-                    )
-        elif isinstance(segment, HuffmanDCTScan):
+                scan_ac_symbol_frequencies.append(
+                    symbol_frequencies[ac_huffman_tables[component.ac_table]]
+                )
             encoder.encode_huffman_dct_scan(
                 segment,
                 dc_symbol_frequencies=scan_dc_symbol_frequencies,
                 ac_symbol_frequencies=scan_ac_symbol_frequencies,
             )
         elif isinstance(segment, HuffmanDCTACSuccessiveScan):
+            scan_symbol_frequencies = []
+            for component in sos.components:
+                scan_symbol_frequencies.append(
+                    symbol_frequencies[ac_huffman_tables[component.ac_table]]
+                )
             encoder.encode_huffman_dct_ac_successive_scan(
-                segment, symbol_frequencies=scan_ac_symbol_frequencies
+                segment, symbol_frequencies=scan_symbol_frequencies
             )
         elif isinstance(segment, HuffmanLosslessScan):
+            scan_symbol_frequencies = []
+            for component in sos.components:
+                scan_symbol_frequencies.append(
+                    symbol_frequencies[dc_huffman_tables[component.ac_table]]
+                )
             encoder.encode_huffman_lossless_scan(
-                segment, symbol_frequencies=scan_dc_symbol_frequencies
+                segment, symbol_frequencies=scan_symbol_frequencies
             )
-        else:
+
+    dc_huffman_tables = [None, None, None, None]
+    ac_huffman_tables = [None, None, None, None]
+    sos = None
+    for segment in segments:
+        if isinstance(segment, DefineHuffmanTables):
+            for table in segment.tables:
+                table.table = huffman.make_huffman_table(symbol_frequencies[table])
+                if table.table_class == 0:
+                    dc_huffman_tables[table.destination] = table
+                else:
+                    ac_huffman_tables[table.destination] = table
+        elif isinstance(segment, StartOfScan):
+            sos = segment
+        elif isinstance(segment, HuffmanDCTScan):
+            for i, component in enumerate(segment.components):
+                component.dc_table = dc_huffman_tables[sos.components[i].dc_table].table
+                component.ac_table = ac_huffman_tables[sos.components[i].ac_table].table
+        elif isinstance(segment, HuffmanDCTACSuccessiveScan):
+            segment.table = ac_huffman_tables[sos.components[0].ac_table].table
+        elif isinstance(segment, HuffmanLosslessScan):
+            # FIXME: Change when table not index
             pass
 
     return segments
