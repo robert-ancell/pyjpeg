@@ -13,6 +13,10 @@ from app import (
 from arithmetic_dct_ac_successive_scan import ArithmeticDCTACSuccessiveScan
 from arithmetic_dct_dc_successive_scan import ArithmeticDCTDCSuccessiveScan
 from arithmetic_dct_scan import ArithmeticDCTScan, ArithmeticDCTScanComponent
+from arithmetic_lossless_scan import (
+    ArithmeticLosslessScan,
+    ArithmeticLosslessScanComponent,
+)
 from com import Comment
 from dac import ArithmeticConditioning, DefineArithmeticConditioning
 from dht import DefineHuffmanTables, HuffmanTable
@@ -23,8 +27,8 @@ from eoi import EndOfImage
 from huffman_dct_ac_successive_scan import HuffmanDCTACSuccessiveScan
 from huffman_dct_dc_successive_scan import HuffmanDCTDCSuccessiveScan
 from huffman_dct_scan import HuffmanDCTScan, HuffmanDCTScanComponent
+from huffman_lossless_scan import HuffmanLosslessScan, HuffmanLosslessScanComponent
 from huffman_tables import *
-from jpeg_segments import *
 from pgm import *
 from quantization_tables import *
 from rst import Restart

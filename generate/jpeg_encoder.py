@@ -7,6 +7,10 @@ import lossless
 from arithmetic_dct_ac_successive_scan import ArithmeticDCTACSuccessiveScan
 from arithmetic_dct_dc_successive_scan import ArithmeticDCTDCSuccessiveScan
 from arithmetic_dct_scan import ArithmeticDCTScan, ArithmeticDCTScanComponent
+from arithmetic_lossless_scan import (
+    ArithmeticLosslessScan,
+    ArithmeticLosslessScanComponent,
+)
 from arithmetic_scan_encoder import ArithmeticScanEncoder
 from dht import DefineHuffmanTables, HuffmanTable
 from dqt import DefineQuantizationTables, QuantizationTable
@@ -14,8 +18,8 @@ from eoi import EndOfImage
 from huffman_dct_ac_successive_scan import HuffmanDCTACSuccessiveScan
 from huffman_dct_dc_successive_scan import HuffmanDCTDCSuccessiveScan
 from huffman_dct_scan import HuffmanDCTScan, HuffmanDCTScanComponent
+from huffman_lossless_scan import HuffmanLosslessScan, HuffmanLosslessScanComponent
 from huffman_scan_encoder import HuffmanScanEncoder
-from jpeg_segments import *
 from sof import FrameComponent, StartOfFrame
 from soi import StartOfImage
 from sos import ScanComponent, StartOfScan

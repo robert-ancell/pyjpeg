@@ -4,7 +4,6 @@ import struct
 import sys
 
 from jpeg_decoder import *
-from jpeg_segments import *
 
 
 def print_data_unit(data_unit):

@@ -3,7 +3,6 @@ import struct
 import arithmetic
 import dct
 import lossless
-from jpeg_segments import *
 from marker import *
 
 # https://www.w3.org/Graphics/JPEG/itu-t81.pdf
