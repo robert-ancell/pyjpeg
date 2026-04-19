@@ -3,7 +3,24 @@ import struct
 import arithmetic
 import dct
 import lossless
+from app import ApplicationSpecificData
+from arithmetic_dct_scan import ArithmeticDCTScan
+from arithmetic_lossless_scan import ArithmeticLosslessScan
+from com import Comment
+from dac import DefineArithmeticConditioning
+from dht import DefineHuffmanTables, HuffmanTable
+from dnl import DefineNumberOfLines
+from dqt import DefineQuantizationTables
+from dri import DefineRestartInterval
+from eoi import EndOfImage
+from exp import ExpandReferenceComponents
+from huffman_dct_scan import HuffmanDCTScan
+from huffman_lossless_scan import HuffmanLosslessScan
 from marker import *
+from rst import Restart
+from sof import FrameComponent, StartOfFrame
+from soi import StartOfImage
+from sos import ScanComponent, StartOfScan
 
 # https://www.w3.org/Graphics/JPEG/itu-t81.pdf
 # https://www.w3.org/Graphics/JPEG/jfif3.pdf
@@ -369,7 +386,10 @@ class Decoder:
                     samples.append(p + diff)
             above_diffs = diffs
             diffs = [0] * self.samples_per_line
-        self.segments.append(LosslessScan(samples))
+        if self.arithmetic:
+            self.segments.append(ArithmeticLosslessScan(samples))
+        else:
+            self.segments.append(HuffmanLosslessScan(samples))
 
     def parse_app(self, n):
         data = self.parse_segment()

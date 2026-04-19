@@ -130,15 +130,13 @@ for segment in decoder.segments:
         print(" Spectral Selection: %d-%d" % (segment.ss, segment.se))
         print(" Previous Point Transform: %d" % segment.ah)
         print(" Point Transform: %d" % segment.al)
-    elif isinstance(segment, HuffmanDCTScan):
+    elif isinstance(segment, HuffmanDCTScan) or isinstance(segment, ArithmeticDCTScan):
         for data_unit in segment.data_units:
             print(" DCT Data Unit:")
             print_data_unit(data_unit)
-    elif isinstance(segment, ArithmeticDCTScan):
-        for data_unit in segment.data_units:
-            print(" DCT Data Unit:")
-            print_data_unit(data_unit)
-    elif isinstance(segment, LosslessScan):
+    elif isinstance(segment, HuffmanLosslessScan) or isinstance(
+        segment, ArithmeticLosslessScan
+    ):
         print(" Lossless Values:")
         s = ""
         for sample in segment.samples:
