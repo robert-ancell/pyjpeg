@@ -1,6 +1,6 @@
 import struct
 
-from jpeg_marker import MARKER_DAC
+from marker import MARKER_DAC
 
 
 class ArithmeticConditioning:

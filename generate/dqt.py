@@ -1,7 +1,7 @@
 import struct
 
 import dct  # FIXME: Remmove and require in zig zag order
-from jpeg_marker import MARKER_DQT
+from marker import MARKER_DQT
 
 
 class QuantizationTable:

@@ -1,6 +1,6 @@
 import struct
 
-from jpeg_marker import MARKER_EXP
+from marker import MARKER_EXP
 
 
 class ExpandReferenceComponents:

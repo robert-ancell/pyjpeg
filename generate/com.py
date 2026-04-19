@@ -1,6 +1,6 @@
 import struct
 
-from jpeg_marker import MARKER_COM
+from marker import MARKER_COM
 
 
 class Comment:

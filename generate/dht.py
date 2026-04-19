@@ -1,6 +1,6 @@
 import struct
 
-from jpeg_marker import MARKER_DHT
+from marker import MARKER_DHT
 
 
 class HuffmanTable:

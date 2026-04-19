@@ -1,6 +1,6 @@
 import struct
 
-from jpeg_marker import MARKER_RST0
+from marker import MARKER_RST0
 
 
 class Restart:

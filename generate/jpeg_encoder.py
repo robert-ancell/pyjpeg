@@ -15,7 +15,6 @@ from huffman_dct_ac_successive_scan import HuffmanDCTACSuccessiveScan
 from huffman_dct_dc_successive_scan import HuffmanDCTDCSuccessiveScan
 from huffman_dct_scan import HuffmanDCTScan, HuffmanDCTScanComponent
 from huffman_scan_encoder import HuffmanScanEncoder
-from jpeg_marker import *
 from jpeg_segments import *
 from sof import FrameComponent, StartOfFrame
 from soi import StartOfImage
