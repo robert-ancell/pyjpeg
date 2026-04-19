@@ -3,8 +3,8 @@
 import json
 import math
 
+import dct
 import huffman
-import jpeg_dct
 import jpeg_lossless
 from app import (
     ADOBE_COLOR_SPACE_RGB_OR_CMYK,
@@ -291,9 +291,7 @@ def make_dct_data_units(width, height, depth, samples, quantization_table):
                     p = samples[py * width + px]
                     values.append(p - offset)
 
-            data_unit = jpeg_dct.zig_zag(
-                jpeg_dct.quantize(jpeg_dct.fdct(values), quantization_table)
-            )
+            data_unit = dct.zig_zag(dct.quantize(dct.fdct(values), quantization_table))
             data_units.append(data_unit)
 
     return data_units
@@ -476,7 +474,7 @@ def make_dct_sequential(
                         interval_length = len(data_units[i]) // n_intervals
                         interval_start = interval * interval_length
                         mcu_data_units.append(
-                            jpeg_dct.order_mcu_dct_data_units(
+                            dct.order_mcu_dct_data_units(
                                 component_sizes[i][0],
                                 component_sizes[i][1] // n_intervals,
                                 data_units[i][
@@ -508,7 +506,7 @@ def make_dct_sequential(
                                 * scan_component.sampling_factor[1]
                             ):
                                 data_units_.append(
-                                    jpeg_dct.unzig_zag(mcu_data_units[i].pop(0))
+                                    dct.unzig_zag(mcu_data_units[i].pop(0))
                                 )
                     scan_data.append(
                         ArithmeticDCTScan(
@@ -552,7 +550,7 @@ def make_dct_sequential(
                         interval_length = len(data_units[i]) // n_intervals
                         interval_start = interval * interval_length
                         mcu_data_units.append(
-                            jpeg_dct.order_mcu_dct_data_units(
+                            dct.order_mcu_dct_data_units(
                                 component_sizes[i][0],
                                 component_sizes[i][1] // n_intervals,
                                 data_units[i][
@@ -589,7 +587,7 @@ def make_dct_sequential(
                                 * scan_component.sampling_factor[1]
                             ):
                                 data_units_.append(
-                                    jpeg_dct.unzig_zag(mcu_data_units[i].pop(0))
+                                    dct.unzig_zag(mcu_data_units[i].pop(0))
                                 )
                     scan_data.append(
                         HuffmanDCTScan(

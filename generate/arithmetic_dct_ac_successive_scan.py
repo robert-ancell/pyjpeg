@@ -1,5 +1,5 @@
 import arithmetic
-import jpeg_dct
+import dct
 
 
 class ArithmeticDCTACSuccessiveScan:
@@ -22,9 +22,7 @@ class ArithmeticDCTACSuccessiveScan:
             eob = self.spectral_selection[1] + 1
             while eob > self.spectral_selection[0]:
                 if (
-                    jpeg_dct.transform_coefficient(
-                        data_unit[eob - 1], self.point_transform
-                    )
+                    dct.transform_coefficient(data_unit[eob - 1], self.point_transform)
                     != 0
                 ):
                     break
@@ -33,7 +31,7 @@ class ArithmeticDCTACSuccessiveScan:
             eob_prev = eob
             while eob_prev > self.spectral_selection[0]:
                 if (
-                    jpeg_dct.transform_coefficient(
+                    dct.transform_coefficient(
                         data_unit[eob_prev - 1], self.point_transform + 1
                     )
                     != 0
@@ -51,13 +49,12 @@ class ArithmeticDCTACSuccessiveScan:
 
                 # Encode run of zeros
                 while (
-                    jpeg_dct.transform_coefficient(data_unit[k], self.point_transform)
-                    == 0
+                    dct.transform_coefficient(data_unit[k], self.point_transform) == 0
                 ):
                     encoder.write_bit(nonzero_states[k - 1], 0)
                     k += 1
 
-                transformed_coefficient = jpeg_dct.transform_coefficient(
+                transformed_coefficient = dct.transform_coefficient(
                     data_unit[k], self.point_transform
                 )
                 if transformed_coefficient < -1 or transformed_coefficient > 1:

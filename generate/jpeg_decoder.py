@@ -1,7 +1,7 @@
 import struct
 
 import arithmetic
-import jpeg_dct
+import dct
 import jpeg_lossless
 from jpeg_marker import *
 from jpeg_segments import *
@@ -72,7 +72,7 @@ class Decoder:
                     (q,) = struct.unpack(">H", dqt[:2])
                     values.append(q)
                     dqt = dqt[2:]
-            values = jpeg_dct.unzig_zag(values)
+            values = dct.unzig_zag(values)
             tables.append((precision, destination, values))
             self.quantization_tables[destination] = values
 
@@ -620,7 +620,7 @@ class ArithmeticDCTScanDecoder(ArithmeticScanDecoder):
                         self.ac_sn_sp_x1[k - 1], xstates, mstates
                     )
                     k += 1
-        return jpeg_dct.unzig_zag(data_unit)
+        return dct.unzig_zag(data_unit)
 
 
 class ArithmeticLosslessScanDecoder(ArithmeticScanDecoder):
@@ -751,7 +751,7 @@ class HuffmanDCTScanDecoder(HuffmanScanDecoder):
                     k += run_length
                     data_unit[k] = ac
                     k += 1
-        return jpeg_dct.unzig_zag(data_unit)
+        return dct.unzig_zag(data_unit)
 
 
 class HuffmanLosslessScanDecoder(HuffmanScanDecoder):

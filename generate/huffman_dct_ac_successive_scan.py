@@ -1,5 +1,5 @@
+import dct
 import huffman
-import jpeg_dct
 
 
 class HuffmanDCTACSuccessiveScan:
@@ -51,10 +51,10 @@ class HuffmanDCTACSuccessiveScan:
             run_length = 0
             for k in range(self.spectral_selection[0], self.spectral_selection[1] + 1):
                 coefficient = data_unit[k]
-                old_transformed_coefficient = jpeg_dct.transform_coefficient(
+                old_transformed_coefficient = dct.transform_coefficient(
                     coefficient, self.point_transform + 1
                 )
-                transformed_coefficient = jpeg_dct.transform_coefficient(
+                transformed_coefficient = dct.transform_coefficient(
                     coefficient, self.point_transform
                 )
 

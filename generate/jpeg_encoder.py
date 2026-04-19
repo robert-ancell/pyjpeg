@@ -1,8 +1,8 @@
 import struct
 
 import arithmetic
+import dct
 import huffman
-import jpeg_dct
 import jpeg_lossless
 from arithmetic_dct_ac_successive_scan import ArithmeticDCTACSuccessiveScan
 from arithmetic_dct_dc_successive_scan import ArithmeticDCTDCSuccessiveScan
@@ -345,7 +345,7 @@ if __name__ == "__main__":
         255,
     ]
 
-    from jpeg_dct import *
+    from dct import *
 
     quantization_table = [1] * 64
     offset_samples = []

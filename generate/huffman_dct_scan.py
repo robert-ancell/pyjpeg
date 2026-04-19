@@ -1,5 +1,5 @@
+import dct
 import huffman
-import jpeg_dct
 from huffman_scan_encoder import HuffmanScanEncoder
 
 
@@ -80,14 +80,12 @@ class HuffmanDCTScanEncoder(HuffmanScanEncoder):
         dc_symbol_frequencies=None,
         ac_symbol_frequencies=None,
     ):
-        zz_data_unit = jpeg_dct.zig_zag(data_unit)
+        zz_data_unit = dct.zig_zag(data_unit)
 
         k = self.spectral_selection[0]
         while k <= self.spectral_selection[1]:
             if k == 0:
-                dc = jpeg_dct.transform_coefficient(
-                    zz_data_unit[k], self.point_transform
-                )
+                dc = dct.transform_coefficient(zz_data_unit[k], self.point_transform)
                 dc_diff = dc - self.prev_dc.get(component_index, 0)
                 self.prev_dc[component_index] = dc
                 self.write_dc(
@@ -98,7 +96,7 @@ class HuffmanDCTScanEncoder(HuffmanScanEncoder):
                 run_length = 0
                 while (
                     k + run_length <= self.spectral_selection[1]
-                    and jpeg_dct.transform_coefficient(
+                    and dct.transform_coefficient(
                         zz_data_unit[k + run_length], self.point_transform
                     )
                     == 0
@@ -114,7 +112,7 @@ class HuffmanDCTScanEncoder(HuffmanScanEncoder):
                     k += run_length
                     self.write_ac(
                         run_length,
-                        jpeg_dct.transform_coefficient(
+                        dct.transform_coefficient(
                             zz_data_unit[k], self.point_transform
                         ),
                         ac_encoder,
