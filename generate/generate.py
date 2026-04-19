@@ -71,7 +71,7 @@ def rgb_to_cmyk(r, g, b, precision):
 
 
 def make_grayscale(precision):
-    width, height, max_value, raw_samples = read_pgm("32x32x16_grayscale.pgm")
+    width, height, max_value, raw_samples = read_pgm("data/32x32x16_grayscale.pgm")
     assert width == WIDTH
     assert height == HEIGHT
     samples = []
@@ -1040,7 +1040,9 @@ for mode, encoding in [
         arithmetic=arithmetic,
     )
     for size in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16):
-        (width, height, _, samples) = read_pgm("%dx%dx8_grayscale.pgm" % (size, size))
+        (width, height, _, samples) = read_pgm(
+            "data/%dx%dx8_grayscale.pgm" % (size, size)
+        )
         assert width == height == size
         generate_dct(
             section,
@@ -1342,7 +1344,9 @@ for encoding in ["huffman", "arithmetic"]:
             arithmetic=arithmetic,
         )
     for size in (1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16):
-        (width, height, _, samples) = read_pgm("%dx%dx8_grayscale.pgm" % (size, size))
+        (width, height, _, samples) = read_pgm(
+            "data/%dx%dx8_grayscale.pgm" % (size, size)
+        )
         assert width == height == size
         generate_lossless(
             section,
