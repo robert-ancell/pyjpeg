@@ -1,26 +1,6 @@
 import struct
 
 
-class HuffmanDCTDCSuccessiveScan:
-    def __init__(self, data_units, point_transform=0):
-        self.data_units = data_units
-        self.point_transform = point_transform
-
-
-class HuffmanDCTACSuccessiveScan:
-    def __init__(
-        self,
-        data_units,
-        table,
-        spectral_selection=(1, 63),
-        point_transform=0,
-    ):
-        self.data_units = data_units
-        self.table = table
-        self.spectral_selection = spectral_selection
-        self.point_transform = point_transform
-
-
 class ArithmeticDCTDCSuccessiveScan:
     def __init__(self, data_units, point_transform=0):
         self.data_units = data_units

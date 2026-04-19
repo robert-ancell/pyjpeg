@@ -19,6 +19,8 @@ from dnl import DefineNumberOfLines
 from dqt import DefineQuantizationTables, QuantizationTable
 from dri import DefineRestartInterval
 from eoi import EndOfImage
+from huffman_dct_ac_successive_scan import HuffmanDCTACSuccessiveScan
+from huffman_dct_dc_successive_scan import HuffmanDCTDCSuccessiveScan
 from huffman_dct_scan import HuffmanDCTScan, HuffmanDCTScanComponent
 from huffman_tables import *
 from jpeg_segments import *
