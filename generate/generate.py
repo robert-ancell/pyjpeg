@@ -833,8 +833,8 @@ def generate_lossless(
         predictor=predictor,
         arithmetic=arithmetic,
     )
-    encoder = jpeg_encoder.Encoder(segments)
-    encoder.encode(optimize_huffman=True)
+    encoder = jpeg_encoder.Encoder(jpeg_encoder.optimize_huffman(segments))
+    encoder.encode()
     basename = "../jpeg/%s/%dx%dx%d_%s" % (
         section,
         width,

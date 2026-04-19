@@ -21,7 +21,6 @@ def _transform_coefficient(coefficient, point_transform):
 class Encoder:
     def __init__(self, segments):
         self.segments = segments
-        self.optimized_segments = []
         self.data = b""
         # FIXME: Remove when fix lossless
         self.dc_huffman_encoders = [
@@ -30,8 +29,6 @@ class Encoder:
             huffman.HuffmanEncoder([]),
             huffman.HuffmanEncoder([]),
         ]
-        self._huffman_symbol_frequencies = {}
-        self._dht_to_encoders = {}
 
     def encode_marker(self, value):
         self.data += struct.pack("BB", 0xFF, value)
@@ -63,7 +60,6 @@ class Encoder:
     def encode_dht(self, dht):
         self.encode_marker(MARKER_DHT)
         data = b""
-        self._dht_to_encoders[dht] = []
         for table in dht.tables:
             data += struct.pack("B", table.table_class << 4 | table.destination)
             assert len(table.table) == 16
@@ -72,8 +68,6 @@ class Encoder:
             for symbols in table.table:
                 data += bytes(symbols)
             encoder = huffman.HuffmanEncoder(table.table)
-            self._huffman_symbol_frequencies[encoder] = [0] * 256
-            self._dht_to_encoders[dht].append(encoder)
             # FIXME: Remove when fix lossless
             if table.table_class == 0:
                 self.dc_huffman_encoders[table.destination] = encoder
@@ -391,9 +385,7 @@ class Encoder:
         if isinstance(scan, ArithmeticLosslessScan):
             encoder = ArithmeticLosslessScanEncoder()
         else:
-            encoder = HuffmanLosslessScanEncoder(
-                symbol_frequencies=self._huffman_symbol_frequencies,
-            )
+            encoder = HuffmanLosslessScanEncoder()
 
         samples_per_line = scan.samples_per_line
         n_components = len(scan.components)
@@ -486,13 +478,8 @@ class Encoder:
     def encode_eoi(self):
         self.encode_marker(MARKER_EOI)
 
-    def encode(self, optimize_huffman=False):
-        if optimize_huffman:
-            encoder = Encoder(self.segments)
-            encoder.encode()
-            self._encode_segments(encoder.optimized_segments)
-        else:
-            self._encode_segments(self.segments)
+    def encode(self):
+        self._encode_segments(self.segments)
 
     def _encode_segments(self, segments):
         for segment in segments:
@@ -543,25 +530,6 @@ class Encoder:
                 self.data += segment
             else:
                 raise Exception("Unknown segment")
-
-        # Regenerate Huffman tables
-        for segment in segments:
-            if isinstance(segment, DefineHuffmanTables):
-                dht = segment
-                encoders = self._dht_to_encoders[dht]
-                optimized_tables = []
-                for i, table in enumerate(dht.tables):
-                    symbol_frequencies = self._huffman_symbol_frequencies[encoders[i]]
-                    optimized_tables.append(
-                        HuffmanTable(
-                            table.table_class,
-                            table.destination,
-                            huffman.make_huffman_table(symbol_frequencies),
-                        )
-                    )
-                self.optimized_segments.append(DefineHuffmanTables(optimized_tables))
-            else:
-                self.optimized_segments.append(segment)
 
 
 ARITHMETIC_CLASSIFICATION_ZERO = 0
@@ -805,12 +773,7 @@ class ArithmeticLosslessScanEncoder(ArithmeticScanEncoder):
 
 
 class HuffmanScanEncoder:
-    def __init__(
-        self,
-        symbol_frequencies={},
-    ):
-        # FIXME: Remove
-        self.symbol_frequencies = symbol_frequencies
+    def __init__(self):
         self.bits = []
 
     # DC coefficient, written as a change from previous DC coefficient.
@@ -843,9 +806,6 @@ class HuffmanScanEncoder:
     def write_symbol(self, symbol, encoder, symbol_frequencies=None):
         if symbol_frequencies is not None:
             symbol_frequencies[symbol] += 1
-        # FIXME: Remove
-        if encoder in self.symbol_frequencies:
-            self.symbol_frequencies[encoder][symbol] += 1
         if encoder is not None:
             self.bits.extend(encoder.encode(symbol))
 
@@ -954,13 +914,8 @@ class HuffmanDCTScanEncoder(HuffmanScanEncoder):
 
 
 class HuffmanLosslessScanEncoder(HuffmanScanEncoder):
-    def __init__(
-        self,
-        symbol_frequencies={},
-    ):
-        super().__init__(
-            symbol_frequencies=symbol_frequencies,
-        )
+    def __init__(self):
+        super().__init__()
 
     def write_data_unit(
         self, encoder, left_diff, above_diff, data_unit, symbol_frequencies=None
@@ -1016,7 +971,7 @@ def optimize_huffman(segments):
             scan_symbol_frequencies = []
             for component in sos.components:
                 scan_symbol_frequencies.append(
-                    symbol_frequencies[dc_huffman_tables[component.ac_table]]
+                    symbol_frequencies[dc_huffman_tables[component.dc_table]]
                 )
             encoder.encode_huffman_lossless_scan(
                 segment, symbol_frequencies=scan_symbol_frequencies
