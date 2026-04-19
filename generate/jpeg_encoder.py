@@ -1,8 +1,10 @@
 import struct
 
 import arithmetic
+import arithmetic_scan
 import dct
 import huffman
+import huffman_scan
 import lossless
 from arithmetic_dct_ac_successive_scan import ArithmeticDCTACSuccessiveScan
 from arithmetic_dct_dc_successive_scan import ArithmeticDCTDCSuccessiveScan
@@ -11,7 +13,6 @@ from arithmetic_lossless_scan import (
     ArithmeticLosslessScan,
     ArithmeticLosslessScanComponent,
 )
-from arithmetic_scan_encoder import ArithmeticScanEncoder
 from dht import DefineHuffmanTables, HuffmanTable
 from dqt import DefineQuantizationTables, QuantizationTable
 from eoi import EndOfImage
@@ -19,7 +20,6 @@ from huffman_dct_ac_successive_scan import HuffmanDCTACSuccessiveScan
 from huffman_dct_dc_successive_scan import HuffmanDCTDCSuccessiveScan
 from huffman_dct_scan import HuffmanDCTScan, HuffmanDCTScanComponent
 from huffman_lossless_scan import HuffmanLosslessScan, HuffmanLosslessScanComponent
-from huffman_scan import HuffmanScanEncoder
 from sof import FrameComponent, StartOfFrame
 from soi import StartOfImage
 from sos import ScanComponent, StartOfScan
@@ -109,7 +109,7 @@ class Encoder:
                         ]
                     else:
                         component_symbol_frequencies = None
-                    dc_encoder = huffman.HuffmanEncoder(scan_component.table)
+                    dc_encoder = huffman.Encoder(scan_component.table)
                     encoder.write_data_unit(
                         dc_encoder,
                         left_diff,
@@ -147,7 +147,7 @@ ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE = 3
 ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE = 4
 
 
-class ArithmeticLosslessScanEncoder(ArithmeticScanEncoder):
+class ArithmeticLosslessScanEncoder(arithmetic_scan.Encoder):
     def __init__(self):
         super().__init__()
 
@@ -191,7 +191,7 @@ class ArithmeticLosslessScanEncoder(ArithmeticScanEncoder):
         )
 
 
-class HuffmanLosslessScanEncoder(HuffmanScanEncoder):
+class HuffmanLosslessScanEncoder(huffman_scan.Encoder):
     def __init__(self):
         super().__init__()
 

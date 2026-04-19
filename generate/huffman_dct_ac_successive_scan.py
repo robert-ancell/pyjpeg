@@ -42,7 +42,7 @@ class HuffmanDCTACSuccessiveScan:
                 symbol_frequencies[symbol] += 1
             return encoder.encode(symbol)
 
-        encoder = huffman.HuffmanEncoder(self.table)
+        encoder = huffman.Encoder(self.table)
         scan_data = []
         correction_bits = [[]]
         eob_count = 0

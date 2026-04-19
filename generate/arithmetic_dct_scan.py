@@ -1,6 +1,6 @@
 import arithmetic
+import arithmetic_scan
 import dct
-from arithmetic_scan_encoder import ArithmeticScanEncoder
 
 # FIXME: Duplicated
 ARITHMETIC_CLASSIFICATION_ZERO = 0
@@ -31,7 +31,7 @@ class ArithmeticDCTScan:
         self.point_transform = point_transform
 
     def encode(self):
-        encoder = ArithmeticDCTScanEncoder(
+        encoder = Encoder(
             spectral_selection=self.spectral_selection,
             point_transform=self.point_transform,
         )
@@ -54,7 +54,7 @@ class ArithmeticDCTScan:
         return encoder.get_data()
 
 
-class ArithmeticDCTScanEncoder(ArithmeticScanEncoder):
+class Encoder(arithmetic_scan.Encoder):
     def __init__(
         self,
         spectral_selection=(0, 63),

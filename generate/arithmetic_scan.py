@@ -8,7 +8,7 @@ ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE = 3
 ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE = 4
 
 
-class ArithmeticScanEncoder:
+class Encoder:
     def __init__(
         self,
     ):

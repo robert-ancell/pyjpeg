@@ -1,6 +1,6 @@
 import dct
 import huffman
-from huffman_scan import HuffmanScanEncoder
+import huffman_scan
 
 
 class HuffmanDCTScanComponent:
@@ -24,7 +24,7 @@ class HuffmanDCTScan:
         self.point_transform = point_transform
 
     def encode(self, dc_symbol_frequencies=None, ac_symbol_frequencies=None):
-        scan_encoder = HuffmanDCTScanEncoder(
+        scan_encoder = Encoder(
             spectral_selection=self.spectral_selection,
             point_transform=self.point_transform,
         )
@@ -32,8 +32,8 @@ class HuffmanDCTScan:
         i = 0
         while i < len(self.data_units):
             for component_index, scan_component in enumerate(self.components):
-                dc_encoder = huffman.HuffmanEncoder(scan_component.dc_table)
-                ac_encoder = huffman.HuffmanEncoder(scan_component.ac_table)
+                dc_encoder = huffman.Encoder(scan_component.dc_table)
+                ac_encoder = huffman.Encoder(scan_component.ac_table)
 
                 for _ in range(
                     scan_component.sampling_factor[0]
@@ -60,7 +60,7 @@ class HuffmanDCTScan:
         return scan_encoder.get_data()
 
 
-class HuffmanDCTScanEncoder(HuffmanScanEncoder):
+class Encoder(huffman_scan.Encoder):
     def __init__(
         self,
         spectral_selection=(0, 63),

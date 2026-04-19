@@ -63,7 +63,7 @@ def _code_to_bits(code, length):
     return bits
 
 
-class HuffmanEncoder:
+class Encoder:
     def __init__(self, table):
         self.codes = {}
 
@@ -83,7 +83,7 @@ class HuffmanEncoder:
         return code
 
 
-class HuffmanDecoder:
+class Decoder:
     def __init__(self, table):
         self.symbol_tree = [None, None]
         self.symbol_frequencies = [0] * 256
@@ -266,8 +266,8 @@ if __name__ == "__main__":
             250,
         ],
     ]
-    encoder = HuffmanEncoder(table)
+    encoder = Encoder(table)
     assert encoder.encode(34) == [1, 1, 1, 1, 1, 0, 0, 1]
 
-    decoder = HuffmanDecoder(table)
+    decoder = Decoder(table)
     assert decoder.decode([1, 1, 1, 1, 1, 0, 0, 1]) == 34
