@@ -5,6 +5,8 @@ import huffman
 import jpeg_dct
 import jpeg_lossless
 from dht import DefineHuffmanTables
+from huffman_dct_scan import HuffmanDCTScan
+from huffman_scan_encoder import HuffmanScanEncoder
 from jpeg_marker import *
 from jpeg_segments import *
 from sos import StartOfScan
@@ -13,55 +15,10 @@ from sos import StartOfScan
 # https://www.w3.org/Graphics/JPEG/jfif3.pdf
 
 
-def _transform_coefficient(coefficient, point_transform):
-    if coefficient > 0:
-        return coefficient >> point_transform
-    else:
-        return -(-coefficient >> point_transform)
-
-
 class Encoder:
     def __init__(self, segments):
         self.segments = segments
         self.data = b""
-
-    def encode_huffman_dct_scan(
-        self, scan, dc_symbol_frequencies=None, ac_symbol_frequencies=None
-    ):
-        scan_encoder = HuffmanDCTScanEncoder(
-            spectral_selection=scan.spectral_selection,
-            point_transform=scan.point_transform,
-        )
-
-        i = 0
-        while i < len(scan.data_units):
-            for component_index, scan_component in enumerate(scan.components):
-                dc_encoder = huffman.HuffmanEncoder(scan_component.dc_table)
-                ac_encoder = huffman.HuffmanEncoder(scan_component.ac_table)
-
-                for _ in range(
-                    scan_component.sampling_factor[0]
-                    * scan_component.sampling_factor[1]
-                ):
-                    assert i < len(scan.data_units)
-                    if dc_symbol_frequencies is not None:
-                        dc_frequencies = dc_symbol_frequencies[component_index]
-                    else:
-                        dc_frequencies = None
-                    if ac_symbol_frequencies is not None:
-                        ac_frequencies = ac_symbol_frequencies[component_index]
-                    else:
-                        ac_frequencies = None
-                    scan_encoder.write_data_unit(
-                        component_index,
-                        scan.data_units[i],
-                        dc_encoder,
-                        ac_encoder,
-                        dc_symbol_frequencies=dc_frequencies,
-                        ac_symbol_frequencies=ac_frequencies,
-                    )
-                    i += 1
-        self.data += scan_encoder.get_data()
 
     def encode_huffman_dct_dc_successive_scan(self, scan):
         scan_data = []
@@ -115,10 +72,10 @@ class Encoder:
             run_length = 0
             for k in range(scan.spectral_selection[0], scan.spectral_selection[1] + 1):
                 coefficient = data_unit[k]
-                old_transformed_coefficient = _transform_coefficient(
+                old_transformed_coefficient = jpeg_dct.transform_coefficient(
                     coefficient, scan.point_transform + 1
                 )
-                transformed_coefficient = _transform_coefficient(
+                transformed_coefficient = jpeg_dct.transform_coefficient(
                     coefficient, scan.point_transform
                 )
 
@@ -241,7 +198,9 @@ class Encoder:
             eob = scan.spectral_selection[1] + 1
             while eob > scan.spectral_selection[0]:
                 if (
-                    _transform_coefficient(data_unit[eob - 1], scan.point_transform)
+                    jpeg_dct.transform_coefficient(
+                        data_unit[eob - 1], scan.point_transform
+                    )
                     != 0
                 ):
                     break
@@ -250,7 +209,7 @@ class Encoder:
             eob_prev = eob
             while eob_prev > scan.spectral_selection[0]:
                 if (
-                    _transform_coefficient(
+                    jpeg_dct.transform_coefficient(
                         data_unit[eob_prev - 1], scan.point_transform + 1
                     )
                     != 0
@@ -267,11 +226,14 @@ class Encoder:
                     encoder.write_bit(eob_states[k - 1], 0)
 
                 # Encode run of zeros
-                while _transform_coefficient(data_unit[k], scan.point_transform) == 0:
+                while (
+                    jpeg_dct.transform_coefficient(data_unit[k], scan.point_transform)
+                    == 0
+                ):
                     encoder.write_bit(nonzero_states[k - 1], 0)
                     k += 1
 
-                transformed_coefficient = _transform_coefficient(
+                transformed_coefficient = jpeg_dct.transform_coefficient(
                     data_unit[k], scan.point_transform
                 )
                 if transformed_coefficient < -1 or transformed_coefficient > 1:
@@ -387,9 +349,7 @@ class Encoder:
 
     def _encode_segments(self, segments):
         for segment in segments:
-            if isinstance(segment, HuffmanDCTScan):
-                self.encode_huffman_dct_scan(segment)
-            elif isinstance(segment, HuffmanDCTDCSuccessiveScan):
+            if isinstance(segment, HuffmanDCTDCSuccessiveScan):
                 self.encode_huffman_dct_dc_successive_scan(segment)
             elif isinstance(segment, HuffmanDCTACSuccessiveScan):
                 self.encode_huffman_dct_ac_successive_scan(segment)
@@ -552,7 +512,9 @@ class ArithmeticDCTScanEncoder(ArithmeticScanEncoder):
         k = self.spectral_selection[0]
         while k <= self.spectral_selection[1]:
             if k == 0:
-                dc = _transform_coefficient(zz_data_unit[k], self.point_transform)
+                dc = jpeg_dct.transform_coefficient(
+                    zz_data_unit[k], self.point_transform
+                )
                 dc_diff = dc - self.prev_dc.get(component_index, 0)
                 prev_dc_diff = self.prev_dc_diff.get(component_index, 0)
                 lower, upper = conditioning_bounds
@@ -573,7 +535,7 @@ class ArithmeticDCTScanEncoder(ArithmeticScanEncoder):
                 run_length = 0
                 while (
                     k + run_length <= self.spectral_selection[1]
-                    and _transform_coefficient(
+                    and jpeg_dct.transform_coefficient(
                         zz_data_unit[k + run_length], self.point_transform
                     )
                     == 0
@@ -598,7 +560,9 @@ class ArithmeticDCTScanEncoder(ArithmeticScanEncoder):
                         self.ac_sn_sp_x1[k - 1],
                         xstates,
                         mstates,
-                        _transform_coefficient(zz_data_unit[k], self.point_transform),
+                        jpeg_dct.transform_coefficient(
+                            zz_data_unit[k], self.point_transform
+                        ),
                     )
                     k += 1
 
@@ -647,147 +611,6 @@ class ArithmeticLosslessScanEncoder(ArithmeticScanEncoder):
         )
 
 
-class HuffmanScanEncoder:
-    def __init__(self):
-        self.bits = []
-
-    # DC coefficient, written as a change from previous DC coefficient.
-    def write_dc(self, dc_diff, encoder, symbol_frequencies=None):
-        length = self.get_magnitude_length(dc_diff)
-        symbol = length
-        self.write_symbol(symbol, encoder, symbol_frequencies)
-        self.write_magnitude(dc_diff, length)
-
-    # Zero AC coefficients until end of block.
-    def write_eob(self, encoder, block_count=1, symbol_frequencies=None):
-        assert 1 <= block_count <= 32767
-        length = self.get_magnitude_length(block_count)
-        self.write_ac(length - 1, 0, encoder, symbol_frequencies)
-        if block_count > 1:
-            self.write_magnitude(block_count, length - 1)
-
-    # Run of 16 zero AC coefficients.
-    def write_zrl(self, encoder, symbol_frequencies=None):
-        self.write_ac(15, 0, encoder, symbol_frequencies)
-
-    # AC Coefficient after [run_length] zero coefficients.
-    def write_ac(self, run_length, ac, encoder, symbol_frequencies=None):
-        length = self.get_magnitude_length(ac)
-        symbol = run_length << 4 | length
-        self.write_symbol(symbol, encoder, symbol_frequencies)
-        self.write_magnitude(ac, length)
-
-    # Write a Huffman symbol
-    def write_symbol(self, symbol, encoder, symbol_frequencies=None):
-        if symbol_frequencies is not None:
-            symbol_frequencies[symbol] += 1
-        if encoder is not None:
-            self.bits.extend(encoder.encode(symbol))
-
-    # Get the number of bits required to write the magnitude
-    def get_magnitude_length(self, magnitude):
-        magnitude = abs(magnitude)
-        length = 0
-        while magnitude > ((1 << length) - 1):
-            length += 1
-        return length
-
-    # Write AC/DC mangnitude bits
-    def write_magnitude(self, magnitude, length):
-        if length == 0:
-            return
-        if magnitude < 0:
-            value = magnitude + ((1 << length) - 1)
-        else:
-            value = magnitude
-        for i in range(length):
-            self.bits.append((value >> (length - i - 1)) & 0x1)
-
-    def get_data(self):
-        # Pad with 1 bits
-        if len(self.bits) % 8 != 0:
-            self.bits.extend([1] * (8 - len(self.bits) % 8))
-
-        data = []
-        for i in range(0, len(self.bits), 8):
-            b = (
-                self.bits[i] << 7
-                | self.bits[i + 1] << 6
-                | self.bits[i + 2] << 5
-                | self.bits[i + 3] << 4
-                | self.bits[i + 4] << 3
-                | self.bits[i + 5] << 2
-                | self.bits[i + 6] << 1
-                | self.bits[i + 7]
-            )
-            data.append(b)
-
-            # Byte stuff so ff doesn't look like a marker
-            if b == 0xFF:
-                data.append(0)
-
-        return bytes(data)
-
-
-class HuffmanDCTScanEncoder(HuffmanScanEncoder):
-    def __init__(
-        self,
-        spectral_selection=(0, 63),
-        point_transform=0,
-    ):
-        super().__init__()
-        self.spectral_selection = spectral_selection
-        self.point_transform = point_transform
-        self.prev_dc = {}
-
-    def write_data_unit(
-        self,
-        component_index,
-        data_unit,
-        dc_encoder,
-        ac_encoder,
-        dc_symbol_frequencies=None,
-        ac_symbol_frequencies=None,
-    ):
-        zz_data_unit = jpeg_dct.zig_zag(data_unit)
-
-        k = self.spectral_selection[0]
-        while k <= self.spectral_selection[1]:
-            if k == 0:
-                dc = _transform_coefficient(zz_data_unit[k], self.point_transform)
-                dc_diff = dc - self.prev_dc.get(component_index, 0)
-                self.prev_dc[component_index] = dc
-                self.write_dc(
-                    dc_diff, dc_encoder, symbol_frequencies=dc_symbol_frequencies
-                )
-                k += 1
-            else:
-                run_length = 0
-                while (
-                    k + run_length <= self.spectral_selection[1]
-                    and _transform_coefficient(
-                        zz_data_unit[k + run_length], self.point_transform
-                    )
-                    == 0
-                ):
-                    run_length += 1
-                if k + run_length > self.spectral_selection[1]:
-                    self.write_eob(ac_encoder, symbol_frequencies=ac_symbol_frequencies)
-                    k = self.spectral_selection[1] + 1
-                elif run_length >= 16:
-                    self.write_zrl(ac_encoder, symbol_frequencies=ac_symbol_frequencies)
-                    k += 16
-                else:
-                    k += run_length
-                    self.write_ac(
-                        run_length,
-                        _transform_coefficient(zz_data_unit[k], self.point_transform),
-                        ac_encoder,
-                        symbol_frequencies=ac_symbol_frequencies,
-                    )
-                    k += 1
-
-
 class HuffmanLosslessScanEncoder(HuffmanScanEncoder):
     def __init__(self):
         super().__init__()
@@ -799,7 +622,7 @@ class HuffmanLosslessScanEncoder(HuffmanScanEncoder):
 
 
 def optimize_huffman(segments):
-    encoder = Encoder([])
+    encoder = Encoder([])  # FIXME: Remove
     dc_huffman_tables = [None, None, None, None]
     ac_huffman_tables = [None, None, None, None]
     symbol_frequencies = {}
@@ -826,8 +649,7 @@ def optimize_huffman(segments):
                 scan_ac_symbol_frequencies.append(
                     symbol_frequencies[ac_huffman_tables[component.ac_table]]
                 )
-            encoder.encode_huffman_dct_scan(
-                segment,
+            segment.encode(
                 dc_symbol_frequencies=scan_dc_symbol_frequencies,
                 ac_symbol_frequencies=scan_ac_symbol_frequencies,
             )

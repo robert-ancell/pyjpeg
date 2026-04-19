@@ -1,6 +1,13 @@
 import math
 
 
+def transform_coefficient(coefficient, point_transform):
+    if coefficient > 0:
+        return coefficient >> point_transform
+    else:
+        return -(-coefficient >> point_transform)
+
+
 def zig_zag_coordinates():
     x = 0
     y = 0

@@ -1,27 +1,6 @@
 import struct
 
 
-class HuffmanDCTScanComponent:
-    def __init__(self, dc_table, ac_table, sampling_factor=(1, 1)):
-        self.dc_table = dc_table
-        self.ac_table = ac_table
-        self.sampling_factor = sampling_factor
-
-
-class HuffmanDCTScan:
-    def __init__(
-        self,
-        data_units,
-        components,
-        spectral_selection=(0, 63),
-        point_transform=0,
-    ):
-        self.data_units = data_units
-        self.components = components
-        self.spectral_selection = spectral_selection
-        self.point_transform = point_transform
-
-
 class HuffmanDCTDCSuccessiveScan:
     def __init__(self, data_units, point_transform=0):
         self.data_units = data_units
