@@ -4,6 +4,8 @@ import arithmetic
 import huffman
 import jpeg_dct
 import jpeg_lossless
+from arithmetic_dct_ac_successive_scan import ArithmeticDCTACSuccessiveScan
+from arithmetic_dct_dc_successive_scan import ArithmeticDCTDCSuccessiveScan
 from arithmetic_dct_scan import ArithmeticDCTScan, ArithmeticDCTScanComponent
 from arithmetic_scan_encoder import ArithmeticScanEncoder
 from dht import DefineHuffmanTables, HuffmanTable
@@ -27,87 +29,6 @@ class Encoder:
     def __init__(self, segments):
         self.segments = segments
         self.data = b""
-
-    def encode_arithmetic_dct_dc_successive_scan(self, scan):
-        encoder = arithmetic.Encoder()
-        prev_dc = 0
-        for data_unit in scan.data_units:
-            dc = data_unit[0]
-            dc_diff = dc - prev_dc
-            prev_dc = dc
-            if dc_diff < 0:
-                dc_diff = -dc_diff
-            encoder.write_fixed_bit((dc_diff >> scan.point_transform) & 0x1)
-
-        encoder.flush()
-        self.data += bytes(encoder.data)
-
-    def encode_arithmetic_dct_ac_successive_scan(self, scan):
-        eob_states = []
-        nonzero_states = []
-        additional_states = []
-        for _ in range(63):
-            eob_states.append(arithmetic.State())
-            nonzero_states.append(arithmetic.State())
-            additional_states.append(arithmetic.State())
-
-        encoder = arithmetic.Encoder()
-        for data_unit in scan.data_units:
-            eob = scan.spectral_selection[1] + 1
-            while eob > scan.spectral_selection[0]:
-                if (
-                    jpeg_dct.transform_coefficient(
-                        data_unit[eob - 1], scan.point_transform
-                    )
-                    != 0
-                ):
-                    break
-                eob -= 1
-
-            eob_prev = eob
-            while eob_prev > scan.spectral_selection[0]:
-                if (
-                    jpeg_dct.transform_coefficient(
-                        data_unit[eob_prev - 1], scan.point_transform + 1
-                    )
-                    != 0
-                ):
-                    break
-                eob_prev -= 1
-
-            k = scan.spectral_selection[0]
-            while k <= scan.spectral_selection[1]:
-                if k >= eob_prev:
-                    if k == eob:
-                        encoder.write_bit(eob_states[k - 1], 1)
-                        break
-                    encoder.write_bit(eob_states[k - 1], 0)
-
-                # Encode run of zeros
-                while (
-                    jpeg_dct.transform_coefficient(data_unit[k], scan.point_transform)
-                    == 0
-                ):
-                    encoder.write_bit(nonzero_states[k - 1], 0)
-                    k += 1
-
-                transformed_coefficient = jpeg_dct.transform_coefficient(
-                    data_unit[k], scan.point_transform
-                )
-                if transformed_coefficient < -1 or transformed_coefficient > 1:
-                    encoder.write_bit(
-                        additional_states[k - 1], transformed_coefficient & 0x1
-                    )
-                else:
-                    encoder.write_bit(nonzero_states[k - 1], 1)
-                    if transformed_coefficient < 0:
-                        encoder.write_fixed_bit(1)
-                    else:
-                        encoder.write_fixed_bit(0)
-                k += 1
-
-        encoder.flush()
-        self.data += bytes(encoder.data)
 
     def encode_huffman_lossless_scan(self, scan, symbol_frequencies=None):
         return self._encode_lossless_scan(scan, symbol_frequencies=symbol_frequencies)
@@ -207,11 +128,7 @@ class Encoder:
 
     def _encode_segments(self, segments):
         for segment in segments:
-            if isinstance(segment, ArithmeticDCTDCSuccessiveScan):
-                self.encode_arithmetic_dct_dc_successive_scan(segment)
-            elif isinstance(segment, ArithmeticDCTACSuccessiveScan):
-                self.encode_arithmetic_dct_ac_successive_scan(segment)
-            elif isinstance(segment, HuffmanLosslessScan):
+            if isinstance(segment, HuffmanLosslessScan):
                 self.encode_huffman_lossless_scan(segment)
             elif isinstance(segment, ArithmeticLosslessScan):
                 self.encode_arithmetic_lossless_scan(segment)
