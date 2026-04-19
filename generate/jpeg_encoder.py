@@ -382,7 +382,7 @@ class Encoder:
         self.data += bytes(encoder.data)
 
     def encode_huffman_lossless_scan(self, scan, symbol_frequencies=None):
-        return self._encode_lossless_scan(scan, symbol_frequencies)
+        return self._encode_lossless_scan(scan, symbol_frequencies=symbol_frequencies)
 
     def encode_arithmetic_lossless_scan(self, scan):
         self._encode_lossless_scan(scan)
@@ -452,12 +452,18 @@ class Encoder:
                         diff,
                     )
                 else:
+                    if symbol_frequencies is not None:
+                        component_symbol_frequencies = symbol_frequencies[
+                            component_index
+                        ]
+                    else:
+                        component_symbol_frequencies = None
                     encoder.write_data_unit(
                         self.dc_huffman_encoders[scan_component.table],
                         left_diff,
                         above_diffs[component_index][x],
                         diff,
-                        symbol_frequencies=symbol_frequencies,
+                        symbol_frequencies=component_symbol_frequencies,
                     )
                 diffs[component_index][x] = diff
             x += 1
@@ -961,7 +967,56 @@ class HuffmanLosslessScanEncoder(HuffmanScanEncoder):
 
 
 def optimize_huffman(segments):
-    # FIXME
+    encoder = Encoder([])
+    lossless = False
+    dc_huffman_tables = [None, None, None, None]
+    ac_huffman_tables = [None, None, None, None]
+    dc_symbol_frequencies = {}
+    ac_symbol_frequencies = {}
+    scan_dc_symbol_frequencies = []
+    scan_ac_symbol_frequencies = []
+    for segment in segments:
+        if isinstance(segment, DefineHuffmanTables):
+            for table in segment.tables:
+                if table.table_class == 0:
+                    dc_huffman_tables[table.destination] = table
+                    dc_symbol_frequencies[table] = [0] * 256
+                else:
+                    ac_huffman_tables[table.destination] = table
+                    ac_symbol_frequencies[table] = [0] * 256
+            # FIXME: Remove
+            encoder.encode_dht(segment)
+        elif isinstance(segment, StartOfFrame):
+            if segment.n in (3, 11):
+                lossless = True
+        elif isinstance(segment, StartOfScan):
+            scan_dc_symbol_frequencies = []
+            scan_ac_symbol_frequencies = []
+            for component in segment.components:
+                scan_dc_symbol_frequencies.append(
+                    dc_symbol_frequencies[dc_huffman_tables[component.dc_table]]
+                )
+                if not lossless:
+                    scan_ac_symbol_frequencies.append(
+                        ac_symbol_frequencies[ac_huffman_tables[component.ac_table]]
+                    )
+        elif isinstance(segment, HuffmanDCTScan):
+            encoder.encode_huffman_dct_scan(
+                segment,
+                dc_symbol_frequencies=scan_dc_symbol_frequencies,
+                ac_symbol_frequencies=scan_ac_symbol_frequencies,
+            )
+        elif isinstance(segment, HuffmanDCTACSuccessiveScan):
+            encoder.encode_huffman_dct_ac_successive_scan(
+                segment, symbol_frequencies=scan_ac_symbol_frequencies
+            )
+        elif isinstance(segment, HuffmanLosslessScan):
+            encoder.encode_huffman_lossless_scan(
+                segment, symbol_frequencies=scan_dc_symbol_frequencies
+            )
+        else:
+            pass
+
     return segments
 
 
