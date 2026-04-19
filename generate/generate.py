@@ -87,7 +87,7 @@ grayscale_components12 = [(grayscale_samples12, (1, 1))]
 
 
 def make_rgb(precision):
-    width, height, max_value, raw_samples = read_pgm("32x32x16_rgb.ppm")
+    width, height, max_value, raw_samples = read_pgm("data/32x32x16_rgb.ppm")
     assert width == WIDTH
     assert height == HEIGHT
     r_samples = []
