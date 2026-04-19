@@ -36,6 +36,7 @@ class Encoder:
     def encode_arithmetic_lossless_scan(self, scan):
         self._encode_lossless_scan(scan)
 
+    # FIXME: Move common code into lossless.py
     def _encode_lossless_scan(self, scan, symbol_frequencies=None):
         if isinstance(scan, ArithmeticLosslessScan):
             encoder = ArithmeticLosslessScanEncoder()
