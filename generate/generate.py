@@ -5,7 +5,6 @@ import math
 
 import dct
 import huffman
-import jpeg_lossless
 from app import (
     ADOBE_COLOR_SPACE_RGB_OR_CMYK,
     ADOBE_COLOR_SPACE_Y_CB_CR,

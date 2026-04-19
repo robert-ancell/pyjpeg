@@ -2,7 +2,7 @@ import struct
 
 import arithmetic
 import dct
-import jpeg_lossless
+import lossless
 from jpeg_marker import *
 from jpeg_segments import *
 
@@ -355,7 +355,7 @@ class Decoder:
                         else:
                             a = samples[-1]
                             c = samples[-self.samples_per_line - 1]
-                        p = jpeg_lossless.predictor(predictor, a, b, c)
+                        p = lossless.predictor(predictor, a, b, c)
 
                     if x == 0:
                         left_diff = 0

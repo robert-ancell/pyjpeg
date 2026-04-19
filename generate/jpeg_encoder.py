@@ -3,7 +3,7 @@ import struct
 import arithmetic
 import dct
 import huffman
-import jpeg_lossless
+import lossless
 from arithmetic_dct_ac_successive_scan import ArithmeticDCTACSuccessiveScan
 from arithmetic_dct_dc_successive_scan import ArithmeticDCTDCSuccessiveScan
 from arithmetic_dct_scan import ArithmeticDCTScan, ArithmeticDCTScanComponent
@@ -80,7 +80,7 @@ class Encoder:
                     else:
                         a = get_sample(x - 1, y, component_index)
                         c = get_sample(x - 1, y - 1, component_index)
-                    p = jpeg_lossless.predictor(scan.predictor, a, b, c)
+                    p = lossless.predictor(scan.predictor, a, b, c)
 
                 if x == 0:
                     left_diff = 0
