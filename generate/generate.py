@@ -706,7 +706,10 @@ def make_lossless(
                     )
                 )
             else:
-                scan_components.append(HuffmanLosslessScanComponent(None))  # FIXME
+                # FIXME: Replace table index with table
+                scan_components.append(
+                    HuffmanLosslessScanComponent(all_scan_components[c].dc_table)
+                )
         segments.append(
             StartOfScan.lossless(
                 components=sos_components,

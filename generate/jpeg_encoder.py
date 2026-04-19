@@ -32,8 +32,6 @@ class Encoder:
         ]
         self._huffman_symbol_frequencies = {}
         self._dht_to_encoders = {}
-        # FIXME: Remove when fix lossless
-        self.sos = None
 
     def encode_marker(self, value):
         self.data += struct.pack("BB", 0xFF, value)
@@ -120,7 +118,6 @@ class Encoder:
         self.encode_segment(data)
 
     def encode_sos(self, sos):
-        self.sos = sos
         self.encode_marker(MARKER_SOS)
         data = struct.pack("B", len(sos.components))
         for component in sos.components:
@@ -391,7 +388,6 @@ class Encoder:
         self._encode_lossless_scan(scan)
 
     def _encode_lossless_scan(self, scan, symbol_frequencies=None):
-        assert self.sos is not None
         if isinstance(scan, ArithmeticLosslessScan):
             encoder = ArithmeticLosslessScanEncoder()
         else:
@@ -400,7 +396,7 @@ class Encoder:
             )
 
         samples_per_line = scan.samples_per_line
-        n_components = len(self.sos.components)
+        n_components = len(scan.components)
         diffs = []
         above_diffs = []
         for i in range(n_components):
@@ -413,7 +409,7 @@ class Encoder:
             return scan.samples[(y * samples_per_line + x) * n_components + component]
 
         while i < len(scan.samples):
-            for component_index, scan_component in enumerate(self.sos.components):
+            for component_index, scan_component in enumerate(scan.components):
                 # FIXME: component dimensions?
                 # component = self.sof.components[scan_component.component_selector]
 
@@ -457,7 +453,7 @@ class Encoder:
                     )
                 else:
                     encoder.write_data_unit(
-                        self.dc_huffman_encoders[scan_component.dc_table],
+                        self.dc_huffman_encoders[scan_component.table],
                         left_diff,
                         above_diffs[component_index][x],
                         diff,
@@ -1104,7 +1100,7 @@ if __name__ == "__main__":
             samples,
             [
                 HuffmanLosslessScanComponent(
-                    standard_luminance_dc_huffman_table,
+                    0  # FIXME standard_luminance_dc_huffman_table,
                 )
             ],
         ),
