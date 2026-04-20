@@ -87,12 +87,10 @@ class Encoder(arithmetic_scan.Encoder):
         self.ac_high_mstates = make_states(14)
 
     def write_data_unit(self, component_index, data_unit, conditioning_bounds, kx):
-        zz_data_unit = dct.zig_zag(data_unit)
-
         k = self.spectral_selection[0]
         while k <= self.spectral_selection[1]:
             if k == 0:
-                dc = dct.transform_coefficient(zz_data_unit[k], self.point_transform)
+                dc = dct.transform_coefficient(data_unit[k], self.point_transform)
                 dc_diff = dc - self.prev_dc.get(component_index, 0)
                 prev_dc_diff = self.prev_dc_diff.get(component_index, 0)
                 lower, upper = conditioning_bounds
@@ -114,7 +112,7 @@ class Encoder(arithmetic_scan.Encoder):
                 while (
                     k + run_length <= self.spectral_selection[1]
                     and dct.transform_coefficient(
-                        zz_data_unit[k + run_length], self.point_transform
+                        data_unit[k + run_length], self.point_transform
                     )
                     == 0
                 ):
@@ -138,8 +136,6 @@ class Encoder(arithmetic_scan.Encoder):
                         self.ac_sn_sp_x1[k - 1],
                         xstates,
                         mstates,
-                        dct.transform_coefficient(
-                            zz_data_unit[k], self.point_transform
-                        ),
+                        dct.transform_coefficient(data_unit[k], self.point_transform),
                     )
                     k += 1

@@ -5,6 +5,7 @@ import math
 
 import dct
 import huffman
+import jpeg_encoder
 from app import (
     ADOBE_COLOR_SPACE_RGB_OR_CMYK,
     ADOBE_COLOR_SPACE_Y_CB_CR,
@@ -35,8 +36,6 @@ from rst import Restart
 from sof import FrameComponent, StartOfFrame
 from soi import StartOfImage
 from sos import ScanComponent, StartOfScan
-
-import jpeg_encoder
 
 WIDTH = 32
 HEIGHT = 32
@@ -499,7 +498,6 @@ def make_dct_sequential(
                         )
                     if interval != 0:
                         scan_data.append(Restart((interval - 1) % 8))
-                    # FIXME: Don't zig zag in the first place
                     # FIXME: Interleave earlier
                     data_units_ = []
                     while len(mcu_data_units[0]) > 0:
@@ -508,9 +506,7 @@ def make_dct_sequential(
                                 scan_component.sampling_factor[0]
                                 * scan_component.sampling_factor[1]
                             ):
-                                data_units_.append(
-                                    dct.unzig_zag(mcu_data_units[i].pop(0))
-                                )
+                                data_units_.append(mcu_data_units[i].pop(0))
                     scan_data.append(
                         ArithmeticDCTScan(
                             data_units_,
@@ -580,7 +576,6 @@ def make_dct_sequential(
                         )
                     if interval != 0:
                         scan_data.append(Restart((interval - 1) % 8))
-                    # FIXME: Don't zig zag in the first place
                     # FIXME: Interleave earlier
                     data_units_ = []
                     while len(mcu_data_units[0]) > 0:
@@ -589,9 +584,7 @@ def make_dct_sequential(
                                 scan_component.sampling_factor[0]
                                 * scan_component.sampling_factor[1]
                             ):
-                                data_units_.append(
-                                    dct.unzig_zag(mcu_data_units[i].pop(0))
-                                )
+                                data_units_.append(mcu_data_units[i].pop(0))
                     scan_data.append(
                         HuffmanDCTScan(
                             data_units_,

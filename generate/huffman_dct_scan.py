@@ -80,12 +80,10 @@ class Encoder(huffman_scan.Encoder):
         dc_symbol_frequencies=None,
         ac_symbol_frequencies=None,
     ):
-        zz_data_unit = dct.zig_zag(data_unit)
-
         k = self.spectral_selection[0]
         while k <= self.spectral_selection[1]:
             if k == 0:
-                dc = dct.transform_coefficient(zz_data_unit[k], self.point_transform)
+                dc = dct.transform_coefficient(data_unit[k], self.point_transform)
                 dc_diff = dc - self.prev_dc.get(component_index, 0)
                 self.prev_dc[component_index] = dc
                 self.write_dc(
@@ -97,7 +95,7 @@ class Encoder(huffman_scan.Encoder):
                 while (
                     k + run_length <= self.spectral_selection[1]
                     and dct.transform_coefficient(
-                        zz_data_unit[k + run_length], self.point_transform
+                        data_unit[k + run_length], self.point_transform
                     )
                     == 0
                 ):
@@ -112,9 +110,7 @@ class Encoder(huffman_scan.Encoder):
                     k += run_length
                     self.write_ac(
                         run_length,
-                        dct.transform_coefficient(
-                            zz_data_unit[k], self.point_transform
-                        ),
+                        dct.transform_coefficient(data_unit[k], self.point_transform),
                         ac_encoder,
                         symbol_frequencies=ac_symbol_frequencies,
                     )
