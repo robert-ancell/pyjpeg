@@ -103,19 +103,15 @@ class Encoder:
                         diff,
                     )
                 else:
-                    if symbol_frequencies is not None:
-                        component_symbol_frequencies = symbol_frequencies[
-                            component_index
-                        ]
-                    else:
-                        component_symbol_frequencies = None
                     dc_encoder = huffman.Encoder(scan_component.table)
                     encoder.write_data_unit(
                         dc_encoder,
                         left_diff,
                         above_diffs[component_index][x],
                         diff,
-                        symbol_frequencies=component_symbol_frequencies,
+                        symbol_frequencies=symbol_frequencies[component_index]
+                        if symbol_frequencies is not None
+                        else None,
                     )
                 diffs[component_index][x] = diff
             x += 1
