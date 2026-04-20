@@ -83,7 +83,7 @@ class Encoder:
                     else:
                         a = get_sample(x - 1, y, component_index)
                         c = get_sample(x - 1, y - 1, component_index)
-                    p = lossless.predictor(scan.predictor, a, b, c)
+                    p = lossless.predict(scan.predictor, a, b, c)
 
                 if x == 0:
                     left_diff = 0

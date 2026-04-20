@@ -1,17 +1,24 @@
-def predictor(n, a, b, c):
-    if n == 1:
+def predict(predictor, a, b, c):
+    if predictor == 1:
         return a
-    elif n == 2:
+    elif predictor == 2:
         return b
-    elif n == 3:
+    elif predictor == 3:
         return c
-    elif n == 4:
+    elif predictor == 4:
         return a + (b - c)
-    elif n == 5:
+    elif predictor == 5:
         return a + (b - c) // 2
-    elif n == 6:
+    elif predictor == 6:
         return b + (a - c) // 2
-    elif n == 7:
+    elif predictor == 7:
         return (a + b) // 2
     else:
         raise Exception("Unknown predictor")
+
+
+def make_data_units(width, components, precision=8, predictor=1):
+    data_units = []
+    for component in components:
+        pass
+    return data_units
