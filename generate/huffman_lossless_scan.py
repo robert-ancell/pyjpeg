@@ -11,5 +11,5 @@ class HuffmanLosslessScan:
         self.precision = precision
         self.predictor = predictor
 
-    def encode(self):
+    def encode(self, symbol_frequencies=None):
         return b""  # FIXME
