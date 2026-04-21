@@ -5,7 +5,6 @@ import math
 
 import dct
 import huffman
-import jpeg_encoder
 from app import (
     ADOBE_COLOR_SPACE_RGB_OR_CMYK,
     ADOBE_COLOR_SPACE_Y_CB_CR,
@@ -36,6 +35,8 @@ from rst import Restart
 from sof import FrameComponent, StartOfFrame
 from soi import StartOfImage
 from sos import ScanComponent, StartOfScan
+
+import jpeg_encoder
 
 WIDTH = 32
 HEIGHT = 32
@@ -811,9 +812,10 @@ def generate_dct(
         arithmetic_conditioning_bounds=arithmetic_conditioning_bounds,
         arithmetic_conditioning_kx=arithmetic_conditioning_kx,
     )
-    print(width, height, precision, description)
-    encoder = jpeg_encoder.Encoder(jpeg_encoder.optimize_huffman(segments))
-    encoder.encode()
+    segments = jpeg_encoder.optimize_huffman(segments)
+    data = b""
+    for segment in segments:
+        data += segment.encode()
     basename = "../jpeg/%s/%dx%dx%d_%s" % (
         section,
         width,
@@ -821,7 +823,7 @@ def generate_dct(
         precision,
         description,
     )
-    open(basename + ".jpg", "wb").write(encoder.data)
+    open(basename + ".jpg", "wb").write(data)
     j = {"width": width, "height": height, "segments": segments_to_json(segments)}
     open(basename + ".json", "w").write(json.dumps(j, indent=2))
 
@@ -852,8 +854,10 @@ def generate_lossless(
         predictor=predictor,
         arithmetic=arithmetic,
     )
-    encoder = jpeg_encoder.Encoder(jpeg_encoder.optimize_huffman(segments))
-    encoder.encode()
+    segments = jpeg_encoder.optimize_huffman(segments)
+    data = b""
+    for segment in segments:
+        data += segment.encode()
     basename = "../jpeg/%s/%dx%dx%d_%s" % (
         section,
         width,
@@ -861,7 +865,7 @@ def generate_lossless(
         precision,
         description,
     )
-    open(basename + ".jpg", "wb").write(encoder.data)
+    open(basename + ".jpg", "wb").write(data)
     j = {"width": width, "height": height, "segments": segments_to_json(segments)}
     open(basename + ".json", "w").write(json.dumps(j, indent=2))
 
