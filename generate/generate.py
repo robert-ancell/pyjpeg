@@ -205,7 +205,7 @@ def segments_to_json(segments):
                     {
                         "class": {0: "dc", 1: "ac"}[table.table_class],
                         "destination": table.destination,
-                        # FIXME
+                        "symbols": table.table,
                     }
                 )
             s.append({"type": "DHT", "tables": tables})
