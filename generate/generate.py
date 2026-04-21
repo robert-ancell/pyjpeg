@@ -212,13 +212,16 @@ def segments_to_json(segments):
         elif isinstance(segment, DefineArithmeticConditioning):
             tables = []
             for table in segment.tables:
-                tables.append(
-                    {
-                        "class": {0: "dc", 1: "ac"}[table.table_class],
-                        "destination": table.destination,
-                        # FIXME
-                    }
-                )
+                value = {
+                    "class": {0: "dc", 1: "ac"}[table.table_class],
+                    "destination": table.destination,
+                }
+                if table.table_class == 0:
+                    value["lower"] = table.value & 0xF
+                    value["upper"] = table.value >> 4
+                else:
+                    value["kx"] = table.value
+                tables.append(value)
             s.append({"type": "DAC", "tables": tables})
         elif isinstance(segment, DefineRestartInterval):
             s.append({"type": "DRI", "restart_interval": segment.restart_interval})
