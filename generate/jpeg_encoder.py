@@ -34,17 +34,52 @@ class Encoder:
         self.data = b""
 
     def encode_huffman_lossless_scan(self, scan, symbol_frequencies=None):
-        return self._encode_lossless_scan(scan, symbol_frequencies=symbol_frequencies)
+        encoder = HuffmanLosslessScanEncoder()
+
+        # FIXME: Store samples per component
+        data_units = []
+        for component_index, _ in enumerate(scan.components):
+            component_samples = []
+            for i in range(len(scan.samples) // len(scan.components)):
+                component_samples.append(
+                    scan.samples[i * len(scan.components) + component_index]
+                )
+            data_units.append(
+                lossless.make_data_units(
+                    scan.samples_per_line,
+                    component_samples,
+                    precision=scan.precision,
+                    predictor=scan.predictor,
+                )
+            )
+
+        dc_encoders = []
+        for component_index, scan_component in enumerate(scan.components):
+            dc_encoders.append(huffman.Encoder(scan_component.table))
+        for i in range(len(scan.samples) // len(scan.components)):
+            for component_index, scan_component in enumerate(scan.components):
+                component_data_units = data_units[component_index]
+                data_unit = component_data_units[i]
+                x = i % scan.samples_per_line
+                y = i // scan.samples_per_line
+                left_data_unit = component_data_units[i - 1] if x > 0 else 0
+                above_data_unit = (
+                    component_data_units[i - scan.samples_per_line] if y > 0 else 0
+                )
+
+                encoder.write_data_unit(
+                    dc_encoders[component_index],
+                    left_data_unit,
+                    above_data_unit,
+                    data_unit,
+                    symbol_frequencies=symbol_frequencies[component_index]
+                    if symbol_frequencies is not None
+                    else None,
+                )
+        self.data += encoder.get_data()
 
     def encode_arithmetic_lossless_scan(self, scan):
-        self._encode_lossless_scan(scan)
-
-    # FIXME: Move common code into lossless.py
-    def _encode_lossless_scan(self, scan, symbol_frequencies=None):
-        if isinstance(scan, ArithmeticLosslessScan):
-            encoder = ArithmeticLosslessScanEncoder()
-        else:
-            encoder = HuffmanLosslessScanEncoder()
+        encoder = ArithmeticLosslessScanEncoder()
 
         # FIXME: Store samples per component
         data_units = []
@@ -74,24 +109,12 @@ class Encoder:
                     component_data_units[i - scan.samples_per_line] if y > 0 else 0
                 )
 
-                if isinstance(scan, ArithmeticLosslessScan):
-                    encoder.write_data_unit(
-                        scan.components[component_index].conditioning_bounds,
-                        left_data_unit,
-                        above_data_unit,
-                        data_unit,
-                    )
-                else:
-                    dc_encoder = huffman.Encoder(scan_component.table)
-                    encoder.write_data_unit(
-                        dc_encoder,
-                        left_data_unit,
-                        above_data_unit,
-                        data_unit,
-                        symbol_frequencies=symbol_frequencies[component_index]
-                        if symbol_frequencies is not None
-                        else None,
-                    )
+                encoder.write_data_unit(
+                    scan.components[component_index].conditioning_bounds,
+                    left_data_unit,
+                    above_data_unit,
+                    data_unit,
+                )
         self.data += encoder.get_data()
 
     def encode(self):
