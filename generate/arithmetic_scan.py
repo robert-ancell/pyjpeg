@@ -1,11 +1,12 @@
 import arithmetic
 
-# FIXME: Duplicated, move classification into own module
-ARITHMETIC_CLASSIFICATION_ZERO = 0
-ARITHMETIC_CLASSIFICATION_SMALL_POSITIVE = 1
-ARITHMETIC_CLASSIFICATION_SMALL_NEGATIVE = 2
-ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE = 3
-ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE = 4
+
+class Classification:
+    ZERO = 0
+    SMALL_POSITIVE = 1
+    SMALL_NEGATIVE = 2
+    LARGE_POSITIVE = 3
+    LARGE_NEGATIVE = 4
 
 
 def classify_dc(conditioning_bounds, value):
@@ -15,18 +16,18 @@ def classify_dc(conditioning_bounds, value):
     upper = 1 << upper
     if value >= 0:
         if value <= lower:
-            return ARITHMETIC_CLASSIFICATION_ZERO
+            return Classification.ZERO
         elif value <= upper:
-            return ARITHMETIC_CLASSIFICATION_SMALL_POSITIVE
+            return Classification.SMALL_POSITIVE
         else:
-            return ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE
+            return Classification.LARGE_POSITIVE
     else:
         if value >= -lower:
-            return ARITHMETIC_CLASSIFICATION_ZERO
+            return Classification.ZERO
         elif value >= -upper:
-            return ARITHMETIC_CLASSIFICATION_SMALL_NEGATIVE
+            return Classification.SMALL_NEGATIVE
         else:
-            return ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE
+            return Classification.LARGE_NEGATIVE
 
 
 class Encoder:

@@ -80,8 +80,8 @@ class ArithmeticLosslessScanEncoder(arithmetic_scan.Encoder):
         cb = arithmetic_scan.classify_dc(conditioning_bounds, above_diff)
         c = ca * 5 + cb
         if (
-            cb == arithmetic_scan.ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE
-            or cb == arithmetic_scan.ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE
+            cb == arithmetic_scan.Classification.LARGE_POSITIVE
+            or cb == arithmetic_scan.Classification.LARGE_NEGATIVE
         ):
             xstates = self.large_xstates
             mstates = self.large_mstates
