@@ -33,20 +33,20 @@ decoder = Decoder(data)
 decoder.decode()
 
 for segment in decoder.segments:
-    if isinstance(segment, StartOfImage):
+    if isinstance(segment, jpeg.StartOfImage):
         print("SOI Start of Image")
-    elif isinstance(segment, ApplicationSpecificData):
+    elif isinstance(segment, jpeg.ApplicationSpecificData):
         print("APP%d Application Specific Data" % segment.n)
-    elif isinstance(segment, Comment):
+    elif isinstance(segment, jpeg.Comment):
         print("COM Comment")
         print(" Data: %s" % repr(segment.data))
-    elif isinstance(segment, DefineQuantizationTables):
+    elif isinstance(segment, jpeg.DefineQuantizationTables):
         print("DQT Define Quantization Tables")
         for precision, destination, values in segment.tables:
             print(" Table %d:" % destination)
             print("  Precision: %d bits" % {0: 8, 1: 16}[precision])
             print_data_unit(values)
-    elif isinstance(segment, DefineHuffmanTables):
+    elif isinstance(segment, jpeg.DefineHuffmanTables):
         print("DHT Define Huffman Tables")
         for table in segment.tables:
             print(
@@ -62,7 +62,7 @@ for segment in decoder.segments:
 
             for code in table.table.keys():
                 print("  %02x: %s" % (table.table[code], tobitstring(code)))
-    elif isinstance(segment, DefineArithmeticConditioning):
+    elif isinstance(segment, jpeg.DefineArithmeticConditioning):
         print("DAC Define Arithmetic Conditioning")
         for conditioning in segment.tables:
             print(
@@ -73,10 +73,10 @@ for segment in decoder.segments:
                     repr(conditioning.value),
                 )
             )
-    elif isinstance(segment, DefineRestartInterval):
+    elif isinstance(segment, jpeg.DefineRestartInterval):
         print("DRI Define Restart Interval")
         print(" Restart interval: %d" % segment.restart_interval)
-    elif isinstance(segment, ExpandReferenceComponents):
+    elif isinstance(segment, jpeg.ExpandReferenceComponents):
         print("EXP Expand Reference Components")
         print(
             " Expand Horizontal: %s"
@@ -86,7 +86,7 @@ for segment in decoder.segments:
             " Expand Vertical: %s"
             % {False: "No", True: "Yes"}[segment.expand_vertical != 0]
         )
-    elif isinstance(segment, StartOfFrame):
+    elif isinstance(segment, jpeg.StartOfFrame):
         print(
             "SOF%d Start of Frame, %s"
             % (
@@ -120,7 +120,7 @@ for segment in decoder.segments:
                 % (component.sampling_factor[0], component.sampling_factor[1])
             )
             print("  Quantization Table: %d" % component.quantization_table_index)
-    elif isinstance(segment, StartOfScan):
+    elif isinstance(segment, jpeg.StartOfScan):
         print("SOS Start of Scan")
         for component in segment.components:
             print(" Component %d:" % component.component_selector)
@@ -130,24 +130,26 @@ for segment in decoder.segments:
         print(" Spectral Selection: %d-%d" % (segment.ss, segment.se))
         print(" Previous Point Transform: %d" % segment.ah)
         print(" Point Transform: %d" % segment.al)
-    elif isinstance(segment, HuffmanDCTScan) or isinstance(segment, ArithmeticDCTScan):
+    elif isinstance(segment, jpeg.HuffmanDCTScan) or isinstance(
+        segment, jpeg.ArithmeticDCTScan
+    ):
         for data_unit in segment.data_units:
             print(" DCT Data Unit:")
             print_data_unit(data_unit)
-    elif isinstance(segment, HuffmanLosslessScan) or isinstance(
-        segment, ArithmeticLosslessScan
+    elif isinstance(segment, jpeg.HuffmanLosslessScan) or isinstance(
+        segment, jpeg.ArithmeticLosslessScan
     ):
         print(" Lossless Values:")
         s = ""
         for sample in segment.samples:
             s += " %d" % sample
         print(s)
-    elif isinstance(segment, Restart):
+    elif isinstance(segment, jpeg.Restart):
         print("RST%d Restart" % segment.n)
-    elif isinstance(segment, DefineNumberOfLines):
+    elif isinstance(segment, jpeg.DefineNumberOfLines):
         print("DNL Define Number of Lines")
         print(" Number of lines: %d" % segment.number_of_lines)
-    elif isinstance(segment, EndOfImage):
+    elif isinstance(segment, jpeg.EndOfImage):
         print("EOI End of Image")
     else:
         print(segment)

@@ -1,6 +1,6 @@
-import arithmetic
-import arithmetic_scan
-import lossless
+import jpeg.arithmetic
+import jpeg.arithmetic_scan
+import jpeg.lossless
 
 
 class ArithmeticLosslessScanComponent:
@@ -28,7 +28,7 @@ class ArithmeticLosslessScan:
                     self.samples[i * len(self.components) + component_index]
                 )
             data_units.append(
-                lossless.make_data_units(
+                jpeg.lossless.make_data_units(
                     self.samples_per_line,
                     component_samples,
                     precision=self.precision,
@@ -56,14 +56,14 @@ class ArithmeticLosslessScan:
         return encoder.get_data()
 
 
-class ArithmeticLosslessScanEncoder(arithmetic_scan.Encoder):
+class ArithmeticLosslessScanEncoder(jpeg.arithmetic_scan.Encoder):
     def __init__(self):
         super().__init__()
 
         def make_states(count):
             states = []
             for _ in range(count):
-                states.append(arithmetic.State())
+                states.append(jpeg.arithmetic.State())
             return states
 
         self.non_zero = make_states(25)
@@ -76,12 +76,12 @@ class ArithmeticLosslessScanEncoder(arithmetic_scan.Encoder):
         self.large_mstates = make_states(14)
 
     def write_data_unit(self, conditioning_bounds, left_diff, above_diff, data_unit):
-        ca = arithmetic_scan.classify_dc(conditioning_bounds, left_diff)
-        cb = arithmetic_scan.classify_dc(conditioning_bounds, above_diff)
+        ca = jpeg.arithmetic_scan.classify_dc(conditioning_bounds, left_diff)
+        cb = jpeg.arithmetic_scan.classify_dc(conditioning_bounds, above_diff)
         c = ca * 5 + cb
         if (
-            cb == arithmetic_scan.Classification.LARGE_POSITIVE
-            or cb == arithmetic_scan.Classification.LARGE_NEGATIVE
+            cb == jpeg.arithmetic_scan.Classification.LARGE_POSITIVE
+            or cb == jpeg.arithmetic_scan.Classification.LARGE_NEGATIVE
         ):
             xstates = self.large_xstates
             mstates = self.large_mstates

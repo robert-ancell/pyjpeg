@@ -1,6 +1,6 @@
 import struct
 
-from marker import MARKER_SOS
+from jpeg.marker import MARKER_SOS
 
 
 class ScanComponent:

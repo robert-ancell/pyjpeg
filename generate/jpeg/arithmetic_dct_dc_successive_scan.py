@@ -1,4 +1,4 @@
-import arithmetic
+import jpeg.arithmetic
 
 
 class ArithmeticDCTDCSuccessiveScan:
@@ -7,7 +7,7 @@ class ArithmeticDCTDCSuccessiveScan:
         self.point_transform = point_transform
 
     def encode(self):
-        encoder = arithmetic.Encoder()
+        encoder = jpeg.arithmetic.Encoder()
         prev_dc = 0
         for data_unit in self.data_units:
             dc = data_unit[0]

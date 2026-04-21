@@ -1,6 +1,6 @@
 import struct
 
-from marker import MARKER_DRI
+from jpeg.marker import MARKER_DRI
 
 
 class DefineRestartInterval:

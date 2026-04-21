@@ -1,6 +1,6 @@
 import struct
 
-from marker import MARKER_DQT
+from jpeg.marker import MARKER_DQT
 
 
 class QuantizationTable:

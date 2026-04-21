@@ -1,6 +1,6 @@
-import huffman
-import huffman_scan
-import lossless
+import jpeg.huffman
+import jpeg.huffman_scan
+import jpeg.lossless
 
 
 class HuffmanLosslessScanComponent:
@@ -17,7 +17,7 @@ class HuffmanLosslessScan:
         self.predictor = predictor
 
     def encode(self, symbol_frequencies=None):
-        encoder = huffman_scan.Encoder()
+        encoder = jpeg.huffman_scan.Encoder()
 
         # FIXME: Store samples per component
         data_units = []
@@ -28,7 +28,7 @@ class HuffmanLosslessScan:
                     self.samples[i * len(self.components) + component_index]
                 )
             data_units.append(
-                lossless.make_data_units(
+                jpeg.lossless.make_data_units(
                     self.samples_per_line,
                     component_samples,
                     precision=self.precision,
@@ -38,7 +38,7 @@ class HuffmanLosslessScan:
 
         dc_encoders = []
         for component_index, scan_component in enumerate(self.components):
-            dc_encoders.append(huffman.Encoder(scan_component.table))
+            dc_encoders.append(jpeg.huffman.Encoder(scan_component.table))
         for i in range(len(self.samples) // len(self.components)):
             for component_index, scan_component in enumerate(self.components):
                 component_data_units = data_units[component_index]

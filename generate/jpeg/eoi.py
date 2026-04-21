@@ -1,6 +1,6 @@
 import struct
 
-from marker import MARKER_EOI
+from jpeg.marker import MARKER_EOI
 
 
 class EndOfImage:

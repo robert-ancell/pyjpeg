@@ -1,5 +1,5 @@
-import arithmetic
-import dct
+import jpeg.arithmetic
+import jpeg.dct
 
 
 class ArithmeticDCTACSuccessiveScan:
@@ -13,16 +13,18 @@ class ArithmeticDCTACSuccessiveScan:
         nonzero_states = []
         additional_states = []
         for _ in range(63):
-            eob_states.append(arithmetic.State())
-            nonzero_states.append(arithmetic.State())
-            additional_states.append(arithmetic.State())
+            eob_states.append(jpeg.arithmetic.State())
+            nonzero_states.append(jpeg.arithmetic.State())
+            additional_states.append(jpeg.arithmetic.State())
 
-        encoder = arithmetic.Encoder()
+        encoder = jpeg.arithmetic.Encoder()
         for data_unit in self.data_units:
             eob = self.spectral_selection[1] + 1
             while eob > self.spectral_selection[0]:
                 if (
-                    dct.transform_coefficient(data_unit[eob - 1], self.point_transform)
+                    jpeg.dct.transform_coefficient(
+                        data_unit[eob - 1], self.point_transform
+                    )
                     != 0
                 ):
                     break
@@ -31,7 +33,7 @@ class ArithmeticDCTACSuccessiveScan:
             eob_prev = eob
             while eob_prev > self.spectral_selection[0]:
                 if (
-                    dct.transform_coefficient(
+                    jpeg.dct.transform_coefficient(
                         data_unit[eob_prev - 1], self.point_transform + 1
                     )
                     != 0
@@ -49,12 +51,13 @@ class ArithmeticDCTACSuccessiveScan:
 
                 # Encode run of zeros
                 while (
-                    dct.transform_coefficient(data_unit[k], self.point_transform) == 0
+                    jpeg.dct.transform_coefficient(data_unit[k], self.point_transform)
+                    == 0
                 ):
                     encoder.write_bit(nonzero_states[k - 1], 0)
                     k += 1
 
-                transformed_coefficient = dct.transform_coefficient(
+                transformed_coefficient = jpeg.dct.transform_coefficient(
                     data_unit[k], self.point_transform
                 )
                 if transformed_coefficient < -1 or transformed_coefficient > 1:

@@ -1,4 +1,4 @@
-import arithmetic
+import jpeg.arithmetic
 
 
 class Classification:
@@ -34,7 +34,7 @@ class Encoder:
     def __init__(
         self,
     ):
-        self.encoder = arithmetic.Encoder()
+        self.encoder = jpeg.arithmetic.Encoder()
 
     def write_dc(self, non_zero, sign, sp, sn, xstates, mstates, value):
         if value == 0:

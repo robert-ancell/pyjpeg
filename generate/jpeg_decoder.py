@@ -1,27 +1,8 @@
 import struct
 
-import arithmetic
-import arithmetic_scan
-import dct
-import lossless
-from app import ApplicationSpecificData
-from arithmetic_dct_scan import ArithmeticDCTScan, ArithmeticDCTScanComponent
-from arithmetic_lossless_scan import ArithmeticLosslessScan
-from com import Comment
-from dac import DefineArithmeticConditioning
-from dht import DefineHuffmanTables, HuffmanTable
-from dnl import DefineNumberOfLines
-from dqt import DefineQuantizationTables
-from dri import DefineRestartInterval
-from eoi import EndOfImage
-from exp import ExpandReferenceComponents
-from huffman_dct_scan import HuffmanDCTScan, HuffmanDCTScanComponent
-from huffman_lossless_scan import HuffmanLosslessScan
-from marker import *
-from rst import Restart
-from sof import FrameComponent, StartOfFrame
-from soi import StartOfImage
-from sos import ScanComponent, StartOfScan
+from jpeg.marker import *
+
+import jpeg
 
 # https://www.w3.org/Graphics/JPEG/itu-t81.pdf
 # https://www.w3.org/Graphics/JPEG/jfif3.pdf
@@ -59,14 +40,14 @@ class Decoder:
         return segment
 
     def parse_rst(self, index):
-        self.segments.append(Restart(index))
+        self.segments.append(jpeg.Restart(index))
         scan = self.parse_scan()
 
     def parse_soi(self):
-        self.segments.append(StartOfImage())
+        self.segments.append(jpeg.StartOfImage())
 
     def parse_eoi(self):
-        self.segments.append(EndOfImage())
+        self.segments.append(jpeg.EndOfImage())
 
     def parse_dqt(self):
         dqt = self.parse_segment()
@@ -89,23 +70,23 @@ class Decoder:
                     (q,) = struct.unpack(">H", dqt[:2])
                     values.append(q)
                     dqt = dqt[2:]
-            values = dct.unzig_zag(values)
+            values = jpeg.dct.unzig_zag(values)
             tables.append((precision, destination, values))
             self.quantization_tables[destination] = values
 
-        self.segments.append(DefineQuantizationTables(tables))
+        self.segments.append(jpeg.DefineQuantizationTables(tables))
 
     def parse_dnl(self):
         dnl = self.parse_segment()
         assert len(dnl) == 2
         (number_of_lines,) = struct.unpack(">H", dnl)
-        self.segments.append(DefineNumberOfLines(number_of_lines))
+        self.segments.append(jpeg.DefineNumberOfLines(number_of_lines))
 
     def parse_dri(self):
         dri = self.parse_segment()
         assert len(dri) == 2
         (restart_interval,) = struct.unpack(">H", dri)
-        self.segments.append(DefineRestartInterval(resart_interval))
+        self.segments.append(jpeg.DefineRestartInterval(resart_interval))
 
     def parse_exp(self):
         exp = self.parse_segment()
@@ -113,7 +94,7 @@ class Decoder:
         expand_horizontal = exp >> 4
         expand_vertical = exp & 0xF
         self.segments.append(
-            ExpandReferenceComponents(expand_horizontal, expand_vertical)
+            jpeg.ExpandReferenceComponents(expand_horizontal, expand_vertical)
         )
 
     def parse_sof(self, n):
@@ -133,7 +114,7 @@ class Decoder:
             sampling_factor_v = sampling_factor & 0xF
             sof = sof[3:]
             self.components.append(
-                FrameComponent(
+                jpeg.FrameComponent(
                     id, (sampling_factor_h, sampling_factor_v), quantization_table_index
                 )
             )
@@ -142,7 +123,7 @@ class Decoder:
         self.arithmetic = n >= 8
         self.lossless = n in (SOF_LOSSLESS_HUFFMAN, SOF_LOSSLESS_ARITHMETIC)
 
-        segment = StartOfFrame(
+        segment = jpeg.StartOfFrame(
             n,
             precision,
             self.number_of_lines,
@@ -192,9 +173,9 @@ class Decoder:
                 self.ac_huffman_tables[destination] = table
 
             tables.append(
-                HuffmanTable(table_class, destination, table)
+                jpeg.HuffmanTable(table_class, destination, table)
             )  # FIXME: Don't translate table to map
-        self.segments.append(DefineHuffmanTables(tables))
+        self.segments.append(jpeg.DefineHuffmanTables(tables))
 
     def parse_dac(self):
         dac = self.parse_segment()
@@ -207,8 +188,8 @@ class Decoder:
             if table_class == 0:
                 value = (value & 0xF, value >> 4)
             dac = dac[2:]
-            tables.append(ArithmeticConditioning(table_class, destination, value))
-        self.segments.append(DefineArithmeticConditioning(tables))
+            tables.append(jpeg.ArithmeticConditioning(table_class, destination, value))
+        self.segments.append(jpeg.DefineArithmeticConditioning(tables))
 
     def parse_sos(self):
         sos = self.parse_segment()
@@ -223,13 +204,13 @@ class Decoder:
             ac_table = tables & 0xF
             sos = sos[2:]
             scan_components.append(
-                ScanComponent(component_selector, dc_table, ac_table)
+                jpeg.ScanComponent(component_selector, dc_table, ac_table)
             )
         assert len(sos) == 3
         (ss, se, a) = struct.unpack("BBB", sos)
         ah = a >> 4
         al = a & 0xF
-        segment = StartOfScan(scan_components, ss, se, ah, al)
+        segment = jpeg.StartOfScan(scan_components, ss, se, ah, al)
         self.segments.append(segment)
         self.sos = segment
 
@@ -302,7 +283,7 @@ class Decoder:
                     component.component_selector
                 )
                 components.append(
-                    ArithmeticDCTScanComponent(
+                    jpeg.ArithmeticDCTScanComponent(
                         sampling_factor=sampling_factor,
                         conditioning_bounds=self.dc_arithmetic_conditioning_bounds[
                             component.dc_table
@@ -323,11 +304,11 @@ class Decoder:
                         data_units.append(data_unit)
 
         if self.arithmetic:
-            segment = ArithmeticDCTScan(
+            segment = jpeg.ArithmeticDCTScan(
                 data_units, components=components, spectral_selection=spectral_selection
             )
         else:
-            segment = HuffmanDCTScan(
+            segment = jpeg.HuffmanDCTScan(
                 data_units, components=components, spectral_selection=spectral_selection
             )
         self.segments.append(segment)
@@ -390,17 +371,17 @@ class Decoder:
             above_diffs = diffs
             diffs = [0] * self.samples_per_line
         if self.arithmetic:
-            self.segments.append(ArithmeticLosslessScan(samples))
+            self.segments.append(jpeg.ArithmeticLosslessScan(samples))
         else:
-            self.segments.append(HuffmanLosslessScan(samples))
+            self.segments.append(jpeg.HuffmanLosslessScan(samples))
 
     def parse_app(self, n):
         data = self.parse_segment()
-        self.segments.append(ApplicationSpecificData(n, data))
+        self.segments.append(jpeg.ApplicationSpecificData(n, data))
 
     def parse_comment(self):
         data = self.parse_segment()
-        self.segments.append(Comment(data))
+        self.segments.append(jpeg.Comment(data))
 
     def decode(self):
         while len(self.data) > 0:
@@ -489,7 +470,7 @@ class ArithmeticScanDecoder(ScanDecoder):
         scan_data,
     ):
         super().__init__(frame_components, scan_components)
-        self.decoder = arithmetic.Decoder(scan_data)
+        self.decoder = jpeg.arithmetic.Decoder(scan_data)
 
     def read_dc(self, non_zero, sign, sp, sn, xstates, mstates):
         if self.decoder.read_bit(non_zero) == 0:
@@ -563,7 +544,7 @@ class ArithmeticDCTScanDecoder(ArithmeticScanDecoder):
         def make_states(count):
             states = []
             for _ in range(count):
-                states.append(arithmetic.State())
+                states.append(jpeg.arithmetic.State())
             return states
 
         self.dc_non_zero = make_states(5)
@@ -586,7 +567,7 @@ class ArithmeticDCTScanDecoder(ArithmeticScanDecoder):
         k = self.spectral_selection[0]
         while k <= self.spectral_selection[1]:
             if k == 0:
-                c = arithmetic_scan.classify_dc(
+                c = jpeg.arithmetic_scan.classify_dc(
                     self.conditioning_bounds[dc_table], self.prev_dc_diff
                 )
                 dc_diff = self.read_dc(
@@ -617,7 +598,7 @@ class ArithmeticDCTScanDecoder(ArithmeticScanDecoder):
                         self.ac_sn_sp_x1[k - 1], xstates, mstates
                     )
                     k += 1
-        return dct.unzig_zag(data_unit)
+        return jpeg.dct.unzig_zag(data_unit)
 
 
 class ArithmeticLosslessScanDecoder(ArithmeticScanDecoder):
@@ -748,7 +729,7 @@ class HuffmanDCTScanDecoder(HuffmanScanDecoder):
                     k += run_length
                     data_unit[k] = ac
                     k += 1
-        return dct.unzig_zag(data_unit)
+        return jpeg.dct.unzig_zag(data_unit)
 
 
 class HuffmanLosslessScanDecoder(HuffmanScanDecoder):

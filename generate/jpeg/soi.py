@@ -1,6 +1,6 @@
 import struct
 
-from marker import MARKER_SOI
+from jpeg.marker import MARKER_SOI
 
 
 class StartOfImage:

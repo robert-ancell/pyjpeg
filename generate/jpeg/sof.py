@@ -1,6 +1,6 @@
 import struct
 
-from marker import MARKER_SOF0
+from jpeg.marker import MARKER_SOF0
 
 
 class FrameComponent:

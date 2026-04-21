@@ -1,6 +1,6 @@
-import dct
-import huffman
-import huffman_scan
+import jpeg.dct
+import jpeg.huffman
+import jpeg.huffman_scan
 
 
 class HuffmanDCTScanComponent:
@@ -32,8 +32,8 @@ class HuffmanDCTScan:
         i = 0
         while i < len(self.data_units):
             for component_index, scan_component in enumerate(self.components):
-                dc_encoder = huffman.Encoder(scan_component.dc_table)
-                ac_encoder = huffman.Encoder(scan_component.ac_table)
+                dc_encoder = jpeg.huffman.Encoder(scan_component.dc_table)
+                ac_encoder = jpeg.huffman.Encoder(scan_component.ac_table)
 
                 for _ in range(
                     scan_component.sampling_factor[0]
@@ -60,7 +60,7 @@ class HuffmanDCTScan:
         return scan_encoder.get_data()
 
 
-class Encoder(huffman_scan.Encoder):
+class Encoder(jpeg.huffman_scan.Encoder):
     def __init__(
         self,
         spectral_selection=(0, 63),
@@ -83,7 +83,7 @@ class Encoder(huffman_scan.Encoder):
         k = self.spectral_selection[0]
         while k <= self.spectral_selection[1]:
             if k == 0:
-                dc = dct.transform_coefficient(data_unit[k], self.point_transform)
+                dc = jpeg.dct.transform_coefficient(data_unit[k], self.point_transform)
                 dc_diff = dc - self.prev_dc.get(component_index, 0)
                 self.prev_dc[component_index] = dc
                 self.write_dc(
@@ -94,7 +94,7 @@ class Encoder(huffman_scan.Encoder):
                 run_length = 0
                 while (
                     k + run_length <= self.spectral_selection[1]
-                    and dct.transform_coefficient(
+                    and jpeg.dct.transform_coefficient(
                         data_unit[k + run_length], self.point_transform
                     )
                     == 0
@@ -110,7 +110,9 @@ class Encoder(huffman_scan.Encoder):
                     k += run_length
                     self.write_ac(
                         run_length,
-                        dct.transform_coefficient(data_unit[k], self.point_transform),
+                        jpeg.dct.transform_coefficient(
+                            data_unit[k], self.point_transform
+                        ),
                         ac_encoder,
                         symbol_frequencies=ac_symbol_frequencies,
                     )

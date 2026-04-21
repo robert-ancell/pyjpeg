@@ -1,6 +1,6 @@
 import struct
 
-from marker import MARKER_DNL
+from jpeg.marker import MARKER_DNL
 
 
 class DefineNumberOfLines:

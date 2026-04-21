@@ -1,6 +1,6 @@
 import struct
 
-from marker import MARKER_APP0
+from jpeg.marker import MARKER_APP0
 
 
 class Density:
