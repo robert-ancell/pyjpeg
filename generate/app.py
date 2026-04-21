@@ -117,8 +117,10 @@ class ApplicationSpecificData:
 
     def __repr__(self):
         if self.is_jfif():
-            return f"ApplicationSpecificData.jfif(version={version})"
+            (version, density, thumbnail_size, thumbnail_data) = self.get_jfif()
+            return f"ApplicationSpecificData.jfif(version={version}, density={density}, thumbnail_size={thumbnail_size}, thumbnail_data={thumbnail_data})"
         elif self.is_adobe():
-            return f"ApplicationSpecificData.adobe()"
+            (version, flags0, flags1, color_space) = self.get_adobe()
+            return f"ApplicationSpecificData.adobe(version={version}, flags0={flags0}, flags1={flags1}, color_space={color_space})"
         else:
             return f"ApplicationSpecificData({self.n}, {self.data})"
