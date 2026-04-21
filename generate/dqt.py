@@ -1,6 +1,5 @@
 import struct
 
-import dct  # FIXME: Remmove and require in zig zag order
 from marker import MARKER_DQT
 
 
@@ -23,7 +22,7 @@ class DefineQuantizationTables:
         for table in self.tables:
             precision = {8: 0, 16: 1}[table.precision]
             data += struct.pack("B", precision << 4 | table.destination) + bytes(
-                dct.zig_zag(table.values)
+                table.values
             )
         return struct.pack(">BBH", 0xFF, MARKER_DQT, 2 + len(data)) + data
 

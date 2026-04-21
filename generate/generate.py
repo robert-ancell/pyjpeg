@@ -183,12 +183,13 @@ def segments_to_json(segments):
         elif isinstance(segment, DefineQuantizationTables):
             tables = []
             for table in segment.tables:
+                quantization_table = dct.unzig_zag(table.values)
                 values = []
                 for y in range(8):
                     row = []
                     values.append(row)
                     for x in range(8):
-                        row.append(table.values[y * 8 + x])
+                        row.append(quantization_table[y * 8 + x])
                 tables.append(
                     {
                         "destination": table.destination,
@@ -294,7 +295,7 @@ def make_dct_data_units(width, height, depth, samples, quantization_table):
                     p = samples[py * width + px]
                     values.append(p - offset)
 
-            data_unit = dct.zig_zag(dct.quantize(dct.fdct(values), quantization_table))
+            data_unit = dct.quantize(dct.zig_zag(dct.fdct(values)), quantization_table)
             data_units.append(data_unit)
 
     return data_units
@@ -901,7 +902,7 @@ for mode, encoding in [
         WIDTH,
         HEIGHT,
         grayscale_components8,
-        luminance_quantization_table=standard_luminance_quantization_table,
+        luminance_quantization_table=dct.zig_zag(standard_luminance_quantization_table),
         scans=[([0], 0, 63, 0)],
         extended=extended,
         progressive=progressive,
@@ -924,8 +925,10 @@ for mode, encoding in [
         WIDTH,
         HEIGHT,
         ycbcr_components8,
-        luminance_quantization_table=standard_luminance_quantization_table,
-        chrominance_quantization_table=standard_chrominance_quantization_table,
+        luminance_quantization_table=dct.zig_zag(standard_luminance_quantization_table),
+        chrominance_quantization_table=dct.zig_zag(
+            standard_chrominance_quantization_table
+        ),
         scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0)],
         extended=extended,
         progressive=progressive,

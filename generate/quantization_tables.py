@@ -1,4 +1,5 @@
-# Quantization tables defined in JPEG standard
+# Quantization tables defined in JPEG standard Annex K
+# The tables are not in zig-zag order
 standard_luminance_quantization_table = [
     16,
     11,
