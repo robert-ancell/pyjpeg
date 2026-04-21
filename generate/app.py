@@ -19,9 +19,10 @@ class Density:
         return Density(1, x, y)
 
 
-ADOBE_COLOR_SPACE_RGB_OR_CMYK = 0
-ADOBE_COLOR_SPACE_Y_CB_CR = 1
-ADOBE_COLOR_SPACE_Y_CB_CR_K = 2
+class AdobeColorSpace:
+    RGB_OR_CMYK = 0
+    Y_CB_CR = 1
+    Y_CB_CR_K = 2
 
 
 class ApplicationSpecificData:
@@ -57,7 +58,7 @@ class ApplicationSpecificData:
         data = struct.pack(">4sB", bytes("JFXX", "utf-8"), extension_code)
         return ApplicationSpecificData(0, data)
 
-    def adobe(version=101, flags0=0, flags1=0, color_space=ADOBE_COLOR_SPACE_Y_CB_CR):
+    def adobe(version=101, flags0=0, flags1=0, color_space=AdobeColorSpace.Y_CB_CR):
         data = struct.pack(
             ">5sHHHB",
             bytes("Adobe", "utf-8"),
@@ -67,6 +68,46 @@ class ApplicationSpecificData:
             color_space,
         )
         return ApplicationSpecificData(14, data)
+
+    def is_jfif(self):
+        return self.n == 0 and len(self.data) >= 14 and self.data.startswith(b"JFIF")
+
+    def get_jfif(self):
+        assert self.is_jfif()
+        (
+            version_major,
+            version_minor,
+            density_unit,
+            density_x,
+            density_y,
+            thumbnail_size_x,
+            thumbnail_size_y,
+        ) = struct.unpack(">xxxxxBBBHHBB", self.data[:14])
+        version = (version_major, version_minor)
+        density = Density(density_unit, density_x, density_y)
+        thumbnail_size = (thumbnail_size_x, thumbnail_size_y)
+        thumbnail_data = self.data[14:]
+        return (
+            version,
+            density,
+            thumbnail_size,
+            thumbnail_data,
+        )
+
+    def is_adobe(self):
+        return self.n == 14 and len(self.data) >= 12 and self.data.startswith(b"Adobe")
+
+    def get_adobe(self):
+        assert self.is_adobe()
+        (version, flags0, flags1, color_space) = struct.unpack(
+            ">xxxxxHHHB", self.data[:12]
+        )
+        return (
+            version,
+            flags0,
+            flags1,
+            color_space,
+        )
 
     def encode(self):
         return (

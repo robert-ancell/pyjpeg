@@ -6,8 +6,7 @@ import math
 import dct
 import huffman
 from app import (
-    ADOBE_COLOR_SPACE_RGB_OR_CMYK,
-    ADOBE_COLOR_SPACE_Y_CB_CR,
+    AdobeColorSpace,
     ApplicationSpecificData,
 )
 from arithmetic_dct_ac_successive_scan import ArithmeticDCTACSuccessiveScan
@@ -177,7 +176,51 @@ def segments_to_json(segments):
         if isinstance(segment, StartOfImage):
             s.append({"type": "SOI"})
         elif isinstance(segment, ApplicationSpecificData):
-            s.append({"type": "APP%d" % segment.n, "data": list(segment.data)})
+            value = {"type": "APP%d" % segment.n}
+            if segment.is_jfif():
+                (version, density, thumbnail_size, thumbnail_data) = segment.get_jfif()
+                value.update(
+                    {
+                        "format": "JFIF",
+                        "version": "%d.%d" % (version[0], version[1]),
+                    }
+                )
+                if density.unit == 0:
+                    value["aspect-ratio"] = "%dx%d" % (density.x, density.y)
+                elif density.unit == 1:
+                    value["dpi"] = "%dx%d" % (density.x, density.y)
+                elif density.unit == 2:
+                    value["dpcm"] = "%dx%d" % (density.x, density.y)
+                else:
+                    value["density"] = {
+                        "unit": density.unit,
+                        "x": density.x,
+                        "y": density.y,
+                    }
+                if thumbnail_size != (0, 0) or len(thumbnail_data) != 0:
+                    value["thumbnail"] = {
+                        "size": thumbnail_size,
+                        "data": list(thumbnail_data),
+                    }
+            elif segment.is_adobe():
+                value["format"] = "Adobe"
+                (version, flags0, flags1, color_space) = segment.get_adobe()
+                color_space_value = {
+                    AdobeColorSpace.RGB_OR_CMYK: "RGB or CMYK",
+                    AdobeColorSpace.Y_CB_CR: "YCbCr",
+                    AdobeColorSpace.Y_CB_CR_K: "YCbCrK",
+                }.get(color_space, color_space)
+                value.update(
+                    {
+                        "version": version,
+                        "flags0": flags0,
+                        "flags1": flags1,
+                        "color-space": color_space_value,
+                    }
+                )
+            else:
+                value["data"] = list(segment.data)
+            s.append(value)
         elif isinstance(segment, Comment):
             s.append({"type": "COM", "data": str(segment.data, "ascii")})
         elif isinstance(segment, DefineQuantizationTables):
@@ -354,16 +397,16 @@ def make_dct_sequential(
 
     if color_space is None:
         assert n_components in (1, 3)
-    elif color_space == ADOBE_COLOR_SPACE_RGB_OR_CMYK:
+    elif color_space == AdobeColorSpace.RGB_OR_CMYK:
         assert n_components in (3, 4)
-    elif color_space == ADOBE_COLOR_SPACE_Y_CB_CR:
+    elif color_space == AdobeColorSpace.Y_CB_CR:
         assert n_components == 3
-    elif color_space == ADOBE_COLOR_SPACE_Y_CB_CR_K:
+    elif color_space == AdobeColorSpace.Y_CB_CR_K:
         assert n_components == 4
 
     if (
         color_space is None and n_components == 3
-    ) or color_space == ADOBE_COLOR_SPACE_Y_CB_CR:
+    ) or color_space == AdobeColorSpace.Y_CB_CR:
         use_chrominance = True
     else:
         use_chrominance = False
@@ -1089,7 +1132,7 @@ for mode, encoding in [
         HEIGHT,
         rgb_components8,
         scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0)],
-        color_space=ADOBE_COLOR_SPACE_RGB_OR_CMYK,
+        color_space=AdobeColorSpace.RGB_OR_CMYK,
         extended=extended,
         progressive=progressive,
         arithmetic=arithmetic,
@@ -1101,7 +1144,7 @@ for mode, encoding in [
         HEIGHT,
         rgb_components8,
         scans=[([0, 1, 2], 0, 63, 0)],
-        color_space=ADOBE_COLOR_SPACE_RGB_OR_CMYK,
+        color_space=AdobeColorSpace.RGB_OR_CMYK,
         extended=extended,
         progressive=progressive,
         arithmetic=arithmetic,
@@ -1113,7 +1156,7 @@ for mode, encoding in [
         HEIGHT,
         cmyk_components8,
         scans=[([0], 0, 63, 0), ([1], 0, 63, 0), ([2], 0, 63, 0), ([3], 0, 63, 0)],
-        color_space=ADOBE_COLOR_SPACE_RGB_OR_CMYK,
+        color_space=AdobeColorSpace.RGB_OR_CMYK,
         extended=extended,
         progressive=progressive,
         arithmetic=arithmetic,
@@ -1125,7 +1168,7 @@ for mode, encoding in [
         HEIGHT,
         cmyk_components8,
         scans=[([0, 1, 2, 3], 0, 63, 0)],
-        color_space=ADOBE_COLOR_SPACE_RGB_OR_CMYK,
+        color_space=AdobeColorSpace.RGB_OR_CMYK,
         extended=extended,
         progressive=progressive,
         arithmetic=arithmetic,
@@ -1389,7 +1432,7 @@ for encoding in ["huffman", "arithmetic"]:
         HEIGHT,
         rgb_samples8,
         scans=[[0], [1], [2]],
-        color_space=ADOBE_COLOR_SPACE_RGB_OR_CMYK,
+        color_space=AdobeColorSpace.RGB_OR_CMYK,
         predictor=1,
         arithmetic=arithmetic,
     )
@@ -1400,7 +1443,7 @@ for encoding in ["huffman", "arithmetic"]:
         HEIGHT,
         rgb_samples8,
         scans=[[0, 1, 2]],
-        color_space=ADOBE_COLOR_SPACE_RGB_OR_CMYK,
+        color_space=AdobeColorSpace.RGB_OR_CMYK,
         predictor=1,
         arithmetic=arithmetic,
     )
