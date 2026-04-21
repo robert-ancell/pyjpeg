@@ -1,6 +1,7 @@
 import struct
 
 import arithmetic
+import arithmetic_scan
 import dct
 import lossless
 from app import ApplicationSpecificData
@@ -474,13 +475,6 @@ class Decoder:
                 raise Exception("Unknown marker %02x" % marker)
 
 
-ARITHMETIC_CLASSIFICATION_ZERO = 0
-ARITHMETIC_CLASSIFICATION_SMALL_POSITIVE = 1
-ARITHMETIC_CLASSIFICATION_SMALL_NEGATIVE = 2
-ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE = 3
-ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE = 4
-
-
 class ScanDecoder:
     def __init__(self, frame_components, scan_components):
         self.frame_components = frame_components
@@ -521,25 +515,6 @@ class ArithmeticScanDecoder(ScanDecoder):
         magnitude += 1
 
         return dc_sign * magnitude
-
-    def classify_value(self, lower, upper, value):
-        if lower > 0:
-            lower = 1 << (lower - 1)
-        upper = 1 << upper
-        if value >= 0:
-            if value <= lower:
-                return ARITHMETIC_CLASSIFICATION_ZERO
-            elif value <= upper:
-                return ARITHMETIC_CLASSIFICATION_SMALL_POSITIVE
-            else:
-                return ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE
-        else:
-            if value >= -lower:
-                return ARITHMETIC_CLASSIFICATION_ZERO
-            elif value >= -upper:
-                return ARITHMETIC_CLASSIFICATION_SMALL_NEGATIVE
-            else:
-                return ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE
 
     def read_ac(self, sn_sp_x1, xstates, mstates):
         if self.decoder.read_fixed_bit() == 0:
@@ -611,8 +586,9 @@ class ArithmeticDCTScanDecoder(ArithmeticScanDecoder):
         k = self.spectral_selection[0]
         while k <= self.spectral_selection[1]:
             if k == 0:
-                lower, upper = self.conditioning_bounds[dc_table]
-                c = self.classify_value(lower, upper, self.prev_dc_diff)
+                c = arithmetic_scan.classify_dc(
+                    self.conditioning_bounds[dc_table], self.prev_dc_diff
+                )
                 dc_diff = self.read_dc(
                     self.dc_non_zero[c],
                     self.dc_sign[c],
@@ -681,8 +657,8 @@ class ArithmeticLosslessScanDecoder(ArithmeticScanDecoder):
         cb = self.classify_value(lower, upper, above_diff)
         c = ca * 5 + cb
         if (
-            cb == ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE
-            or cb == ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE
+            cb == arithmetic_scan.ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE
+            or cb == arithmetic_scan.ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE
         ):
             xstates = self.large_xstates
             mstates = self.large_mstates

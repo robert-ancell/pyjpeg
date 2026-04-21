@@ -8,6 +8,27 @@ ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE = 3
 ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE = 4
 
 
+def classify_dc(conditioning_bounds, value):
+    lower, upper = conditioning_bounds
+    if lower > 0:
+        lower = 1 << (lower - 1)
+    upper = 1 << upper
+    if value >= 0:
+        if value <= lower:
+            return ARITHMETIC_CLASSIFICATION_ZERO
+        elif value <= upper:
+            return ARITHMETIC_CLASSIFICATION_SMALL_POSITIVE
+        else:
+            return ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE
+    else:
+        if value >= -lower:
+            return ARITHMETIC_CLASSIFICATION_ZERO
+        elif value >= -upper:
+            return ARITHMETIC_CLASSIFICATION_SMALL_NEGATIVE
+        else:
+            return ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE
+
+
 class Encoder:
     def __init__(
         self,
@@ -48,25 +69,6 @@ class Encoder:
         for i in range(width - 2, -1, -1):
             bit = (v >> i) & 0x1
             self.encoder.write_bit(mstates[width - 2], bit)
-
-    def classify_value(self, lower, upper, value):
-        if lower > 0:
-            lower = 1 << (lower - 1)
-        upper = 1 << upper
-        if value >= 0:
-            if value <= lower:
-                return ARITHMETIC_CLASSIFICATION_ZERO
-            elif value <= upper:
-                return ARITHMETIC_CLASSIFICATION_SMALL_POSITIVE
-            else:
-                return ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE
-        else:
-            if value >= -lower:
-                return ARITHMETIC_CLASSIFICATION_ZERO
-            elif value >= -upper:
-                return ARITHMETIC_CLASSIFICATION_SMALL_NEGATIVE
-            else:
-                return ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE
 
     def write_ac(self, ac_sn_sp_x1, xstates, mstates, ac):
         assert ac != 0

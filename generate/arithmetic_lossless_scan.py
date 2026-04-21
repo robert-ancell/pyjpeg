@@ -76,9 +76,8 @@ class ArithmeticLosslessScanEncoder(arithmetic_scan.Encoder):
         self.large_mstates = make_states(14)
 
     def write_data_unit(self, conditioning_bounds, left_diff, above_diff, data_unit):
-        lower, upper = conditioning_bounds
-        ca = self.classify_value(lower, upper, left_diff)
-        cb = self.classify_value(lower, upper, above_diff)
+        ca = arithmetic_scan.classify_dc(conditioning_bounds, left_diff)
+        cb = arithmetic_scan.classify_dc(conditioning_bounds, above_diff)
         c = ca * 5 + cb
         if (
             cb == arithmetic_scan.ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE

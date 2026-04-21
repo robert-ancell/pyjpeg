@@ -2,13 +2,6 @@ import arithmetic
 import arithmetic_scan
 import dct
 
-# FIXME: Duplicated
-ARITHMETIC_CLASSIFICATION_ZERO = 0
-ARITHMETIC_CLASSIFICATION_SMALL_POSITIVE = 1
-ARITHMETIC_CLASSIFICATION_SMALL_NEGATIVE = 2
-ARITHMETIC_CLASSIFICATION_LARGE_POSITIVE = 3
-ARITHMETIC_CLASSIFICATION_LARGE_NEGATIVE = 4
-
 
 class ArithmeticDCTScanComponent:
     def __init__(self, sampling_factor=(1, 1), conditioning_bounds=(0, 1), kx=5):
@@ -93,8 +86,7 @@ class Encoder(arithmetic_scan.Encoder):
                 dc = dct.transform_coefficient(data_unit[k], self.point_transform)
                 dc_diff = dc - self.prev_dc.get(component_index, 0)
                 prev_dc_diff = self.prev_dc_diff.get(component_index, 0)
-                lower, upper = conditioning_bounds
-                c = self.classify_value(lower, upper, prev_dc_diff)
+                c = arithmetic_scan.classify_dc(conditioning_bounds, prev_dc_diff)
                 self.write_dc(
                     self.dc_non_zero[c],
                     self.dc_sign[c],
