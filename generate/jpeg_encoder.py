@@ -46,81 +46,52 @@ class Encoder:
         else:
             encoder = HuffmanLosslessScanEncoder()
 
-        samples_per_line = scan.samples_per_line
-        n_components = len(scan.components)
-        diffs = []
-        above_diffs = []
-        for i in range(n_components):
-            diffs.append([0] * samples_per_line)
-            above_diffs.append([0] * samples_per_line)
-        i = 0
-        x = y = 0
+        # FIXME: Store samples per component
+        data_units = []
+        for component_index, _ in enumerate(scan.components):
+            component_samples = []
+            for i in range(len(scan.samples) // len(scan.components)):
+                component_samples.append(
+                    scan.samples[i * len(scan.components) + component_index]
+                )
+            data_units.append(
+                lossless.make_data_units(
+                    scan.samples_per_line,
+                    component_samples,
+                    precision=scan.precision,
+                    predictor=scan.predictor,
+                )
+            )
 
-        def get_sample(x, y, component):
-            return scan.samples[(y * samples_per_line + x) * n_components + component]
-
-        while i < len(scan.samples):
+        for i in range(len(scan.samples) // len(scan.components)):
             for component_index, scan_component in enumerate(scan.components):
-                # FIXME: component dimensions?
-                # component = self.sof.components[scan_component.component_selector]
+                component_data_units = data_units[component_index]
+                data_unit = component_data_units[i]
+                x = i % scan.samples_per_line
+                y = i // scan.samples_per_line
+                left_data_unit = component_data_units[i - 1] if x > 0 else 0
+                above_data_unit = (
+                    component_data_units[i - scan.samples_per_line] if y > 0 else 0
+                )
 
-                sample = scan.samples[i]
-                i += 1
-
-                # First line uses fixed predictor since no samples above
-                if y == 0:
-                    if x == 0:
-                        p = 1 << (scan.precision - 1)
-                    else:
-                        p = get_sample(x - 1, y, component_index)
-                else:
-                    a = b = c = 0
-                    b = get_sample(x, y - 1, component_index)
-                    if x == 0:
-                        # If on left edge, use the above value for prediction
-                        a = b
-                        c = b
-                    else:
-                        a = get_sample(x - 1, y, component_index)
-                        c = get_sample(x - 1, y - 1, component_index)
-                    p = lossless.predict(scan.predictor, a, b, c)
-
-                if x == 0:
-                    left_diff = 0
-                else:
-                    left_diff = diffs[component_index][x - 1]
-
-                diff = sample - p
-                if diff > 32768:
-                    diff -= 65536
-                if diff < -32767:
-                    diff += 65536
                 if isinstance(scan, ArithmeticLosslessScan):
                     encoder.write_data_unit(
                         scan.components[component_index].conditioning_bounds,
-                        left_diff,
-                        above_diffs[component_index][x],
-                        diff,
+                        left_data_unit,
+                        above_data_unit,
+                        data_unit,
                     )
                 else:
                     dc_encoder = huffman.Encoder(scan_component.table)
                     encoder.write_data_unit(
                         dc_encoder,
-                        left_diff,
-                        above_diffs[component_index][x],
-                        diff,
+                        left_data_unit,
+                        above_data_unit,
+                        data_unit,
                         symbol_frequencies=symbol_frequencies[component_index]
                         if symbol_frequencies is not None
                         else None,
                     )
-                diffs[component_index][x] = diff
-            x += 1
-            if x >= scan.samples_per_line:
-                x = 0
-                y += 1
-                for j in range(n_components):
-                    above_diffs[j] = diffs[j]
-                    diffs[j] = [0] * samples_per_line
         self.data += encoder.get_data()
 
     def encode(self):

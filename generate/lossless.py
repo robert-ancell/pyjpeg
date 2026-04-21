@@ -17,8 +17,30 @@ def predict(predictor, a, b, c):
         raise Exception("Unknown predictor")
 
 
-def make_data_units(width, components, precision=8, predictor=1):
+def make_data_units(width, samples, precision=8, predictor=1):
     data_units = []
-    for component in components:
-        pass
+    height = len(samples) // width
+    for y in range(height):
+        for x in range(width):
+            a = samples[y * width + (x - 1)] if x > 0 else 0
+
+            if y == 0:
+                if x == 0 and y == 0:
+                    p = 1 << (precision - 1)
+                else:
+                    p = samples[y * width + x - 1]
+            else:
+                if x == 0:
+                    p = samples[y * width + x - width]
+                else:
+                    a = samples[y * width + x - 1]
+                    b = samples[y * width + x - width]
+                    c = samples[y * width + x - width - 1]
+                    p = predict(predictor, a, b, c)
+            diff = samples[y * width + x] - p
+            if diff > 32768:
+                diff -= 65536
+            if diff < -32767:
+                diff += 65536
+            data_units.append(diff)
     return data_units
