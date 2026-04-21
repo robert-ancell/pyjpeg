@@ -4,7 +4,7 @@ import arithmetic
 import dct
 import lossless
 from app import ApplicationSpecificData
-from arithmetic_dct_scan import ArithmeticDCTScan
+from arithmetic_dct_scan import ArithmeticDCTScan, ArithmeticDCTScanComponent
 from arithmetic_lossless_scan import ArithmeticLosslessScan
 from com import Comment
 from dac import DefineArithmeticConditioning
@@ -14,7 +14,7 @@ from dqt import DefineQuantizationTables
 from dri import DefineRestartInterval
 from eoi import EndOfImage
 from exp import ExpandReferenceComponents
-from huffman_dct_scan import HuffmanDCTScan
+from huffman_dct_scan import HuffmanDCTScan, HuffmanDCTScanComponent
 from huffman_lossless_scan import HuffmanLosslessScan
 from marker import *
 from rst import Restart
@@ -301,7 +301,13 @@ class Decoder:
                     component.component_selector
                 )
                 components.append(
-                    (sampling_factor, component.dc_table, component.ac_table)
+                    ArithmeticDCTScanComponent(
+                        sampling_factor=sampling_factor,
+                        conditioning_bounds=self.dc_arithmetic_conditioning_bounds[
+                            component.dc_table
+                        ],
+                        kx=self.ac_arithmetic_kx[component.ac_table],
+                    )
                 )
                 quantization_table = self.quantization_tables[quantization_table_index]
                 for y in range(sampling_factor[1]):
@@ -317,11 +323,7 @@ class Decoder:
 
         if self.arithmetic:
             segment = ArithmeticDCTScan(
-                data_units,
-                components=components,
-                spectral_selection=spectral_selection,
-                conditioning_bounds=self.dc_arithmetic_conditioning_bounds,
-                kx=self.ac_arithmetic_kx,
+                data_units, components=components, spectral_selection=spectral_selection
             )
         else:
             segment = HuffmanDCTScan(
