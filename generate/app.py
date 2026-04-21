@@ -114,3 +114,11 @@ class ApplicationSpecificData:
             struct.pack(">BBH", 0xFF, MARKER_APP0 + self.n, 2 + len(self.data))
             + self.data
         )
+
+    def __repr__(self):
+        if self.is_jfif():
+            return f"ApplicationSpecificData.jfif(version={version})"
+        elif self.is_adobe():
+            return f"ApplicationSpecificData.adobe()"
+        else:
+            return f"ApplicationSpecificData({self.n}, {self.data})"
