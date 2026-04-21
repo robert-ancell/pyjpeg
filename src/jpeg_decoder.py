@@ -1,8 +1,8 @@
 import struct
-
-from jpeg.marker import *
+from multiprocessing import Condition
 
 import jpeg
+from jpeg.marker import *
 
 # https://www.w3.org/Graphics/JPEG/itu-t81.pdf
 # https://www.w3.org/Graphics/JPEG/jfif3.pdf
@@ -355,7 +355,7 @@ class Decoder:
                         else:
                             a = samples[-1]
                             c = samples[-self.samples_per_line - 1]
-                        p = lossless.predictor(predictor, a, b, c)
+                        p = jpeg.lossless.predict(predictor, a, b, c)
 
                     if x == 0:
                         left_diff = 0
@@ -371,9 +371,29 @@ class Decoder:
             above_diffs = diffs
             diffs = [0] * self.samples_per_line
         if self.arithmetic:
-            self.segments.append(jpeg.ArithmeticLosslessScan(samples))
+            components = []
+            for component in self.sos.components:
+                components.append(
+                    jpeg.ArithmeticLosslessScanComponent(
+                        conditioning_bounds=self.dc_arithmetic_conditioning_bounds[
+                            component.dc_table
+                        ]
+                    )
+                )
+            self.segments.append(
+                jpeg.ArithmeticLosslessScan(self.samples_per_line, samples, components)
+            )
         else:
-            self.segments.append(jpeg.HuffmanLosslessScan(samples))
+            components = []
+            for component in self.sos.components:
+                components.append(
+                    jpeg.HuffmanLosslessScanComponent(
+                        table=self.dc_huffman_tables[component.dc_table]
+                    )
+                )
+            self.segments.append(
+                jpeg.HuffmanLosslessScan(self.samples_per_line, samples, components)
+            )
 
     def parse_app(self, n):
         data = self.parse_segment()
@@ -620,7 +640,7 @@ class ArithmeticLosslessScanDecoder(ArithmeticScanDecoder):
         def make_states(count):
             states = []
             for _ in range(count):
-                states.append(arithmetic.State())
+                states.append(jpeg.arithmetic.State())
             return states
 
         self.non_zero = make_states(25)
@@ -633,13 +653,13 @@ class ArithmeticLosslessScanDecoder(ArithmeticScanDecoder):
         self.large_mstates = make_states(14)
 
     def read_data_unit(self, table, left_diff, above_diff):
-        lower, upper = self.conditioning_bounds[table]
-        ca = self.classify_value(lower, upper, left_diff)
-        cb = self.classify_value(lower, upper, above_diff)
+        conditioning_bounds = self.conditioning_bounds[table]
+        ca = jpeg.arithmetic_scan.classify_dc(conditioning_bounds, left_diff)
+        cb = jpeg.arithmetic_scan.classify_dc(conditioning_bounds, above_diff)
         c = ca * 5 + cb
         if (
-            cb == arithmetic_scan.Classification.LARGE_POSITIVE
-            or cb == arithmetic_scan.Classification.LARGE_NEGATIVE
+            cb == jpeg.arithmetic_scan.Classification.LARGE_POSITIVE
+            or cb == jpeg.arithmetic_scan.Classification.LARGE_NEGATIVE
         ):
             xstates = self.large_xstates
             mstates = self.large_mstates

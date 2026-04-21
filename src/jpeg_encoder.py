@@ -85,7 +85,7 @@ def optimize_huffman(segments):
 
 
 if __name__ == "__main__":
-    from huffman_tables import *
+    from jpeg.huffman_tables import *
 
     # Test image
     samples = [
@@ -155,13 +155,13 @@ if __name__ == "__main__":
         255,
     ]
 
-    from dct import *
-
     quantization_table = [1] * 64
     offset_samples = []
     for s in samples:
         offset_samples.append(s - 128)
-    dct_coefficients = quantize(fdct(offset_samples), quantization_table)
+    dct_coefficients = jpeg.dct.quantize(
+        jpeg.dct.fdct(offset_samples), quantization_table
+    )
 
     segments = [
         jpeg.StartOfImage(),
@@ -172,8 +172,8 @@ if __name__ == "__main__":
                 jpeg.HuffmanTable.ac(0, standard_luminance_ac_huffman_table),
             ]
         ),
-        jpeg.StartOfFrame.baseline(8, 8, [FrameComponent.dct(1)]),
-        jpeg.StartOfScan.dct([ScanComponent.dct(1, 0, 0)]),
+        jpeg.StartOfFrame.baseline(8, 8, [jpeg.FrameComponent.dct(1)]),
+        jpeg.StartOfScan.dct([jpeg.ScanComponent.dct(1, 0, 0)]),
         jpeg.HuffmanDCTScan(
             [dct_coefficients],
             [
@@ -190,14 +190,14 @@ if __name__ == "__main__":
 
     segments = [
         jpeg.StartOfImage(),
-        jpeg.DefineQuantizationTables([QuantizationTable(0, quantization_table)]),
-        jpeg.StartOfFrame.extended(8, 8, [FrameComponent.dct(1)], arithmetic=True),
-        jpeg.StartOfScan.dct([ScanComponent.dct(1, 0, 0)]),
+        jpeg.DefineQuantizationTables([jpeg.QuantizationTable(0, quantization_table)]),
+        jpeg.StartOfFrame.extended(8, 8, [jpeg.FrameComponent.dct(1)], arithmetic=True),
+        jpeg.StartOfScan.dct([jpeg.ScanComponent.dct(1, 0, 0)]),
         jpeg.ArithmeticDCTScan(
             [dct_coefficients],
             [jpeg.ArithmeticDCTScanComponent()],
         ),
-        EndOfImage(),
+        jpeg.EndOfImage(),
     ]
     data = encode_segments(segments)
     open("test-arithmetic.jpg", "wb").write(data)
@@ -209,28 +209,30 @@ if __name__ == "__main__":
                 jpeg.HuffmanTable.dc(0, standard_luminance_dc_huffman_table),
             ]
         ),
-        jpeg.StartOfFrame.lossless(8, 8, [FrameComponent.lossless(1)]),
-        jpeg.StartOfScan.lossless([ScanComponent.lossless(1, 0)]),
+        jpeg.StartOfFrame.lossless(8, 8, [jpeg.FrameComponent.lossless(1)]),
+        jpeg.StartOfScan.lossless([jpeg.ScanComponent.lossless(1, 0)]),
         jpeg.HuffmanLosslessScan(
             8,
             samples,
-            [HuffmanLosslessScanComponent(standard_luminance_dc_huffman_table)],
+            [jpeg.HuffmanLosslessScanComponent(standard_luminance_dc_huffman_table)],
         ),
-        EndOfImage(),
+        jpeg.EndOfImage(),
     ]
     data = encode_segments(optimize_huffman(segments))
     open("test-lossless-huffman.jpg", "wb").write(data)
 
     segments = [
         jpeg.StartOfImage(),
-        jpeg.StartOfFrame.lossless(8, 8, [FrameComponent.lossless(1)], arithmetic=True),
-        jpeg.StartOfScan.lossless([ScanComponent.lossless(1, 0)]),
+        jpeg.StartOfFrame.lossless(
+            8, 8, [jpeg.FrameComponent.lossless(1)], arithmetic=True
+        ),
+        jpeg.StartOfScan.lossless([jpeg.ScanComponent.lossless(1, 0)]),
         jpeg.ArithmeticLosslessScan(
             8,
             samples,
             [jpeg.ArithmeticLosslessScanComponent()],
         ),
-        EndOfImage(),
+        jpeg.EndOfImage(),
     ]
     data = encode_segments(segments)
     open("test-lossless-arithmetic.jpg", "wb").write(data)
@@ -451,17 +453,17 @@ if __name__ == "__main__":
             8,
             8,
             [
-                FrameComponent.lossless(1),
-                FrameComponent.lossless(2),
-                FrameComponent.lossless(3),
+                jpeg.FrameComponent.lossless(1),
+                jpeg.FrameComponent.lossless(2),
+                jpeg.FrameComponent.lossless(3),
             ],
             arithmetic=True,
         ),
         jpeg.StartOfScan.lossless(
             [
-                ScanComponent.lossless(1, 0),
-                ScanComponent.lossless(2, 0),
-                ScanComponent.lossless(3, 0),
+                jpeg.ScanComponent.lossless(1, 0),
+                jpeg.ScanComponent.lossless(2, 0),
+                jpeg.ScanComponent.lossless(3, 0),
             ]
         ),
         jpeg.ArithmeticLosslessScan(
@@ -473,23 +475,23 @@ if __name__ == "__main__":
                 jpeg.ArithmeticLosslessScanComponent(),
             ],
         ),
-        EndOfImage(),
+        jpeg.EndOfImage(),
     ]
     data = encode_segments(segments)
     open("test-lossless-arithmetic-color.jpg", "wb").write(data)
 
     segments = [
         jpeg.StartOfImage(),
-        jpeg.DefineQuantizationTables([QuantizationTable(0, quantization_table)]),
+        jpeg.DefineQuantizationTables([jpeg.QuantizationTable(0, quantization_table)]),
         jpeg.DefineHuffmanTables(
             [
                 jpeg.HuffmanTable.dc(0, standard_luminance_dc_huffman_table),
                 jpeg.HuffmanTable.ac(0, standard_luminance_ac_huffman_table),
             ]
         ),
-        jpeg.StartOfFrame.progressive(8, 8, [FrameComponent.dct(1)]),
+        jpeg.StartOfFrame.progressive(8, 8, [jpeg.FrameComponent.dct(1)]),
         jpeg.StartOfScan.dct(
-            [ScanComponent.dct(1, 0, 0)],
+            [jpeg.ScanComponent.dct(1, 0, 0)],
             spectral_selection=(0, 0),
             point_transform=1,
         ),
@@ -505,14 +507,14 @@ if __name__ == "__main__":
             point_transform=1,
         ),
         jpeg.StartOfScan.dct(
-            [ScanComponent.dct(1, 0, 0)],
+            [jpeg.ScanComponent.dct(1, 0, 0)],
             spectral_selection=(0, 0),
             previous_point_transform=1,
             point_transform=0,
         ),
         jpeg.HuffmanDCTDCSuccessiveScan([dct_coefficients]),
         jpeg.StartOfScan.dct(
-            [ScanComponent.dct(1, 0, 0)],
+            [jpeg.ScanComponent.dct(1, 0, 0)],
             spectral_selection=(1, 63),
         ),
         jpeg.HuffmanDCTScan(
@@ -525,23 +527,25 @@ if __name__ == "__main__":
             ],
             spectral_selection=(1, 63),
         ),
-        EndOfImage(),
+        jpeg.EndOfImage(),
     ]
     data = encode_segments(optimize_huffman(segments))
     open("test-progressive-huffman.jpg", "wb").write(data)
 
     segments = [
         jpeg.StartOfImage(),
-        jpeg.DefineQuantizationTables([QuantizationTable(0, quantization_table)]),
+        jpeg.DefineQuantizationTables([jpeg.QuantizationTable(0, quantization_table)]),
         jpeg.DefineHuffmanTables(
             [
                 jpeg.HuffmanTable.dc(0, standard_luminance_dc_huffman_table),
                 jpeg.HuffmanTable.ac(0, standard_luminance_ac_huffman_table),
             ]
         ),
-        jpeg.StartOfFrame.progressive(8, 8, [FrameComponent.dct(1)], arithmetic=True),
+        jpeg.StartOfFrame.progressive(
+            8, 8, [jpeg.FrameComponent.dct(1)], arithmetic=True
+        ),
         jpeg.StartOfScan.dct(
-            [ScanComponent.dct(1, 0, 0)],
+            [jpeg.ScanComponent.dct(1, 0, 0)],
             spectral_selection=(0, 0),
             point_transform=1,
         ),
@@ -552,14 +556,14 @@ if __name__ == "__main__":
             point_transform=1,
         ),
         jpeg.StartOfScan.dct(
-            [ScanComponent.dct(1, 0, 0)],
+            [jpeg.ScanComponent.dct(1, 0, 0)],
             spectral_selection=(0, 0),
             previous_point_transform=1,
             point_transform=0,
         ),
         jpeg.ArithmeticDCTDCSuccessiveScan([dct_coefficients]),
         jpeg.StartOfScan.dct(
-            [ScanComponent.dct(1, 0, 0)],
+            [jpeg.ScanComponent.dct(1, 0, 0)],
             spectral_selection=(1, 63),
         ),
         jpeg.ArithmeticDCTScan(
@@ -567,7 +571,7 @@ if __name__ == "__main__":
             [jpeg.ArithmeticDCTScanComponent()],
             spectral_selection=(1, 63),
         ),
-        EndOfImage(),
+        jpeg.EndOfImage(),
     ]
     data = encode_segments(segments)
     open("test-progressive-arithmetic.jpg", "wb").write(data)
