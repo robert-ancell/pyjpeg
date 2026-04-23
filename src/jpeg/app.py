@@ -1,6 +1,6 @@
 import struct
 
-from jpeg.marker import MARKER_APP0
+from jpeg.marker import MARKER_APP0, MARKER_APP15
 
 
 class Density:
@@ -113,6 +113,15 @@ class ApplicationSpecificData:
         writer.writeMarker(MARKER_APP0 + self.n)
         writer.writeU16(2 + len(self.data))
         writer.write(self.data)
+
+    def decode(reader):
+        marker = reader.readMarker()
+        assert marker >= MARKER_APP0 and marker <= MARKER_APP15
+        n = marker - MARKER_APP0
+        length = reader.readU16()
+        assert length > 2
+        data = reader.read(length - 2)
+        return ApplicationSpecificData(n, data)
 
     def __repr__(self):
         if self.is_jfif():

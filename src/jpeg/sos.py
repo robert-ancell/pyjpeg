@@ -59,5 +59,26 @@ class StartOfScan:
         writer.writeU8(self.se)
         writer.writeU8(self.ah << 4 | self.al)
 
+    def decode(reader):
+        marker = reader.readMarker()
+        assert marker == MARKER_SOS
+        length = reader.readU16()
+        assert length >= 6
+        num_components = reader.readU8()
+        assert length == 6 + num_components * 2
+        components = []
+        for _ in range(num_components):
+            component_selector = reader.readU8()
+            tables = reader.readU8()
+            dc_table = tables >> 4
+            ac_table = tables & 0x0F
+            components.append(ScanComponent(component_selector, dc_table, ac_table))
+        ss = reader.readU8()
+        se = reader.readU8()
+        a = reader.readU8()
+        ah = a >> 4
+        al = a & 0x0F
+        return StartOfScan(components, ss, se, ah, al)
+
     def __repr__(self):
         return f"StartOfScan({self.components}, {self.ss}, {self.se}, {self.ah}, {self.al})"

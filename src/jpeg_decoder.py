@@ -9,149 +9,35 @@ from jpeg.marker import *
 
 
 class Decoder:
-    def __init__(self, data):
-        self.data = data
-        self.number_of_lines = 0
-        self.samples_per_line = 0
+    def __init__(self):
         self.quantization_tables = [[1] * 64, [1] * 64, [1] * 64, [1] * 64]
         self.dc_arithmetic_conditioning_bounds = [(0, 1), (0, 1), (0, 1), (0, 1)]
         self.ac_arithmetic_kx = [5, 5, 5, 5]
         self.dc_huffman_tables = [{}, {}, {}, {}]
         self.ac_huffman_tables = [{}, {}, {}, {}]
-        self.arithmetic = False
-        self.lossless = False
         self.segments = []
         self.sof = None
         self.sos = None
+        self.dnl = None
 
-    def parse_marker(self):
-        if self.data[0] != 0xFF:
-            raise Exception("Missing marker")
-        marker = self.data[1]
-        self.data = self.data[2:]
-        return marker
+    def is_arithmetic(self):
+        return self.sof is not None and self.sof.n >= 8
 
-    def parse_segment(self):
-        assert len(self.data) >= 2
-        (length,) = struct.unpack(">H", self.data[:2])
-        assert len(self.data) >= length
-        segment = self.data[2:length]
-        self.data = self.data[length:]
-        return segment
-
-    def parse_rst(self, index):
-        self.segments.append(jpeg.Restart(index))
-        scan = self.parse_scan()
-
-    def parse_soi(self):
-        self.segments.append(jpeg.StartOfImage())
-
-    def parse_eoi(self):
-        self.segments.append(jpeg.EndOfImage())
-
-    def parse_dqt(self):
-        dqt = self.parse_segment()
-        tables = []
-        while len(dqt) > 0:
-            assert len(dqt) >= 1
-            precision_and_destination = dqt[0]
-            precision = precision_and_destination >> 4
-            destination = precision_and_destination & 0xF
-            dqt = dqt[1:]
-            values = []
-            if precision == 0:
-                assert len(dqt) >= 64
-                for _ in range(64):
-                    values.append(dqt[0])
-                    dqt = dqt[1:]
-            elif precision == 1:
-                assert len(dqt) >= 128
-                for _ in range(64):
-                    (q,) = struct.unpack(">H", dqt[:2])
-                    values.append(q)
-                    dqt = dqt[2:]
-            values = jpeg.dct.unzig_zag(values)
-            tables.append((precision, destination, values))
-            self.quantization_tables[destination] = values
-
-        self.segments.append(jpeg.DefineQuantizationTables(tables))
-
-    def parse_dnl(self):
-        dnl = self.parse_segment()
-        assert len(dnl) == 2
-        (number_of_lines,) = struct.unpack(">H", dnl)
-        self.segments.append(jpeg.DefineNumberOfLines(number_of_lines))
-
-    def parse_dri(self):
-        dri = self.parse_segment()
-        assert len(dri) == 2
-        (restart_interval,) = struct.unpack(">H", dri)
-        self.segments.append(jpeg.DefineRestartInterval(resart_interval))
-
-    def parse_exp(self):
-        exp = self.parse_segment()
-        assert len(exp) == 1
-        expand_horizontal = exp >> 4
-        expand_vertical = exp & 0xF
-        self.segments.append(
-            jpeg.ExpandReferenceComponents(expand_horizontal, expand_vertical)
+    def is_lossless(self):
+        return self.sof is not None and self.sof.n in (
+            SOF_LOSSLESS_HUFFMAN,
+            SOF_LOSSLESS_ARITHMETIC,
         )
 
-    def parse_sof(self, n):
-        sof = self.parse_segment()
-        assert len(sof) >= 6
-        (precision, self.number_of_lines, self.samples_per_line, n_components) = (
-            struct.unpack(">BHHB", sof[:6])
-        )
-        sof = sof[6:]
-        self.components = []
-        for i in range(n_components):
-            assert len(sof) >= 3
-            (id, sampling_factor, quantization_table_index) = struct.unpack(
-                "BBB", sof[:3]
-            )
-            sampling_factor_h = sampling_factor >> 4
-            sampling_factor_v = sampling_factor & 0xF
-            sof = sof[3:]
-            self.components.append(
-                jpeg.FrameComponent(
-                    id, (sampling_factor_h, sampling_factor_v), quantization_table_index
-                )
-            )
-        assert len(sof) == 0
+    def number_of_lines(self):
+        if self.dnl is not None:
+            return self.dnl.number_of_lines
+        return self.sof.number_of_lines
 
-        self.arithmetic = n >= 8
-        self.lossless = n in (SOF_LOSSLESS_HUFFMAN, SOF_LOSSLESS_ARITHMETIC)
-
-        segment = jpeg.StartOfFrame(
-            n,
-            precision,
-            self.number_of_lines,
-            self.samples_per_line,
-            self.components,
-        )
-        self.segments.append(segment)
-        self.sof = segment
-
-    def parse_dht(self):
-        dht = self.parse_segment()
-        tables = []
-        while len(dht) > 0:
-            assert len(dht) >= 17
-            table_class_and_destination = dht[0]
-            table_class = table_class_and_destination >> 4
-            assert table_class in (0, 1)
-            destination = table_class_and_destination & 0xF
-            assert destination <= 4
-            dht = dht[1:]
-            lengths = dht[:16]
-            dht = dht[16:]
-            symbols_by_length = []
-            for i, count in enumerate(lengths):
-                assert len(dht) >= count
-                symbols = list(dht[:count])
-                dht = dht[count:]
-                symbols_by_length.append(symbols)
+    def parse_dht(self, reader):
+        dht = jpeg.DefineHuffmanTables.decode(reader)
+        self.segments.append(dht)
+        for table in dht.tables:
 
             def bitstring(code, length):
                 s = []
@@ -159,85 +45,41 @@ class Decoder:
                     s.append((code >> (length - i - 1)) & 0x1)
                 return tuple(s)
 
-            table = {}
+            # FIXME: Do this later
+            codes_to_symbol = {}
             code = 0
-            for i, symbols in enumerate(symbols_by_length):
+            for i, symbols in enumerate(table.table):
                 for symbol in symbols:
-                    table[bitstring(code, i + 1)] = symbol
+                    codes_to_symbol[bitstring(code, i + 1)] = symbol
                     code += 1
                 code <<= 1
 
-            if table_class == 0:
-                self.dc_huffman_tables[destination] = table
+            if table.table_class == 0:
+                self.dc_huffman_tables[table.destination] = codes_to_symbol
             else:
-                self.ac_huffman_tables[destination] = table
+                self.ac_huffman_tables[table.destination] = codes_to_symbol
 
-            tables.append(
-                jpeg.HuffmanTable(table_class, destination, table)
-            )  # FIXME: Don't translate table to map
-        self.segments.append(jpeg.DefineHuffmanTables(tables))
-
-    def parse_dac(self):
-        dac = self.parse_segment()
-        tables = []
-        while len(dac) > 0:
-            assert len(dac) >= 2
-            (table_class_and_destination, value) = struct.unpack("BB", dac[:2])
-            table_class = table_class_and_destination >> 4
-            destination = table_class_and_destination & 0xF
-            if table_class == 0:
-                value = (value & 0xF, value >> 4)
-            dac = dac[2:]
-            tables.append(jpeg.ArithmeticConditioning(table_class, destination, value))
-        self.segments.append(jpeg.DefineArithmeticConditioning(tables))
-
-    def parse_sos(self):
-        sos = self.parse_segment()
-        assert len(sos) >= 1
-        n_components = sos[0]
-        sos = sos[1:]
-        scan_components = []
-        for i in range(n_components):
-            assert len(sos) >= 2
-            (component_selector, tables) = struct.unpack("BB", sos[:2])
-            dc_table = tables >> 4
-            ac_table = tables & 0xF
-            sos = sos[2:]
-            scan_components.append(
-                jpeg.ScanComponent(component_selector, dc_table, ac_table)
-            )
-        assert len(sos) == 3
-        (ss, se, a) = struct.unpack("BBB", sos)
-        ah = a >> 4
-        al = a & 0xF
-        segment = jpeg.StartOfScan(scan_components, ss, se, ah, al)
-        self.segments.append(segment)
-        self.sos = segment
-
-        self.parse_scan()
-
-    def parse_scan(self):
-        offset = 0
+    def parse_scan(self, reader):
         scan_data = []
         while True:
-            assert offset < len(self.data)
-            b = self.data[offset]
-            if b == 0xFF and offset + 1 < len(self.data):
-                if self.data[offset + 1] != 0:
-                    self.data = self.data[offset:]
+            b = reader.peek(1)[0]
+            if b == 0xFF:
+                if reader.peek(2)[1] != 0:
                     break
-                offset += 1
-            scan_data.append(b)
-            offset += 1
+                reader.readU8()
+                reader.readU8()
+                scan_data.append(0xFF)
+            else:
+                scan_data.append(reader.readU8())
 
-        if self.lossless:
+        if self.is_lossless():
             self.parse_lossless_scan(scan_data)
         else:
             self.parse_dct_scan(scan_data)
 
     def parse_dct_scan(self, scan_data):
         spectral_selection = (self.sos.ss, self.sos.se)
-        if self.arithmetic:
+        if self.is_arithmetic():
             scan_decoder = ArithmeticDCTScanDecoder(
                 self.sof.components,
                 self.sos.components,
@@ -257,7 +99,7 @@ class Decoder:
             )
 
         def find_component(id):
-            for component in self.components:
+            for component in self.sof.components:
                 if component.id == id:
                     return (
                         component.sampling_factor,
@@ -269,8 +111,8 @@ class Decoder:
         def round_size(size):
             return (size + 7) // 8
 
-        mcu_width = round_size(self.samples_per_line)
-        mcu_height = round_size(self.number_of_lines)
+        mcu_width = round_size(self.sof.samples_per_line)
+        mcu_height = round_size(self.number_of_lines())
 
         n_mcus = mcu_width * mcu_height
         prev_dc = {}
@@ -303,7 +145,7 @@ class Decoder:
                         prev_dc[component.component_selector] = data_unit[0]
                         data_units.append(data_unit)
 
-        if self.arithmetic:
+        if self.is_arithmetic():
             segment = jpeg.ArithmeticDCTScan(
                 data_units, components=components, spectral_selection=spectral_selection
             )
@@ -317,7 +159,7 @@ class Decoder:
         assert self.sof is not None
         assert self.sos is not None
 
-        if self.arithmetic:
+        if self.is_arithmetic():
             scan_decoder = ArithmeticLosslessScanDecoder(
                 self.sof.components,
                 self.sos.components,
@@ -333,10 +175,10 @@ class Decoder:
             )
 
         samples = []
-        diffs = [0] * self.samples_per_line
-        above_diffs = [0] * self.samples_per_line
-        for y in range(self.samples_per_line):
-            for x in range(self.number_of_lines):
+        diffs = [0] * self.sof.samples_per_line
+        above_diffs = [0] * self.sof.samples_per_line
+        for y in range(self.sof.samples_per_line):
+            for x in range(self.number_of_lines()):
                 for component in self.sos.components:
                     # First line uses fixed predictor since no samples above
                     if y == 0:
@@ -347,14 +189,14 @@ class Decoder:
                     else:
                         predictor = self.sos.ss
                         a = b = c = 0
-                        b = samples[-self.samples_per_line]
+                        b = samples[-self.sof.samples_per_line]
                         if x == 0:
                             # If on left edge, use the above value for prediction
                             a = b
                             c = b
                         else:
                             a = samples[-1]
-                            c = samples[-self.samples_per_line - 1]
+                            c = samples[-self.sof.samples_per_line - 1]
                         p = jpeg.lossless.predict(predictor, a, b, c)
 
                     if x == 0:
@@ -369,8 +211,8 @@ class Decoder:
                     diffs[x] = diff
                     samples.append(p + diff)
             above_diffs = diffs
-            diffs = [0] * self.samples_per_line
-        if self.arithmetic:
+            diffs = [0] * self.sof.samples_per_line
+        if self.is_arithmetic():
             components = []
             for component in self.sos.components:
                 components.append(
@@ -381,7 +223,9 @@ class Decoder:
                     )
                 )
             self.segments.append(
-                jpeg.ArithmeticLosslessScan(self.samples_per_line, samples, components)
+                jpeg.ArithmeticLosslessScan(
+                    self.sof.samples_per_line, samples, components
+                )
             )
         else:
             components = []
@@ -392,20 +236,12 @@ class Decoder:
                     )
                 )
             self.segments.append(
-                jpeg.HuffmanLosslessScan(self.samples_per_line, samples, components)
+                jpeg.HuffmanLosslessScan(self.sof.samples_per_line, samples, components)
             )
 
-    def parse_app(self, n):
-        data = self.parse_segment()
-        self.segments.append(jpeg.ApplicationSpecificData(n, data))
-
-    def parse_comment(self):
-        data = self.parse_segment()
-        self.segments.append(jpeg.Comment(data))
-
-    def decode(self):
-        while len(self.data) > 0:
-            marker = self.parse_marker()
+    def decode(self, reader):
+        while True:
+            marker = reader.peekMarker()
             if marker in (
                 MARKER_SOF0,
                 MARKER_SOF1,
@@ -421,11 +257,13 @@ class Decoder:
                 MARKER_SOF14,
                 MARKER_SOF15,
             ):
-                self.parse_sof(marker - MARKER_SOF0)
+                sof = jpeg.StartOfFrame.decode(reader)
+                self.segments.append(sof)
+                self.sof = sof
             elif marker == MARKER_DHT:
-                self.parse_dht()
+                self.parse_dht(reader)
             elif marker == MARKER_DAC:
-                self.parse_dac()
+                self.segments.append(jpeg.DefineArithmeticConditioning.decode(reader))
             elif marker in (
                 MARKER_RST0,
                 MARKER_RST1,
@@ -436,21 +274,31 @@ class Decoder:
                 MARKER_RST6,
                 MARKER_RST7,
             ):
-                self.parse_rst(marker - MARKER_RST0)
+                self.segments.append(jpeg.Restart.decode(reader))
+                self.segments.append(self.parse_scan(reader))
             elif marker == MARKER_SOI:
-                self.parse_soi()
+                self.segments.append(jpeg.StartOfImage.decode(reader))
             elif marker == MARKER_EOI:
-                self.parse_eoi()
+                self.segments.append(jpeg.EndOfImage.decode(reader))
+                break
             elif marker == MARKER_DQT:
-                self.parse_dqt()
+                dqt = jpeg.DefineQuantizationTables.decode(reader)
+                self.segments.append(dqt)
+                for table in dqt.tables:
+                    self.quantization_tables[table.destination] = table.values
             elif marker == MARKER_DNL:
-                self.parse_dnl()
+                dnl = jpeg.DefineNumberOfLines.decode(reader)
+                self.segments.append(dnl)
+                self.dnl = dnl
             elif marker == MARKER_DRI:
-                self.parse_dri()
+                self.segments.append(jpeg.DefineRestartInterval.decode(reader))
             elif marker == MARKER_EXP:
-                self.parse_exp()
+                self.segments.append(jpeg.ExpandReferenceComponents.decode(reader))
             elif marker == MARKER_SOS:
-                self.parse_sos()
+                sos = jpeg.StartOfScan.decode(reader)
+                self.segments.append(sos)
+                self.sos = sos
+                self.parse_scan(reader)
             elif marker in (
                 MARKER_APP0,
                 MARKER_APP1,
@@ -469,9 +317,9 @@ class Decoder:
                 MARKER_APP14,
                 MARKER_APP15,
             ):
-                self.parse_app(marker - MARKER_APP0)
+                self.segments.append(jpeg.ApplicationSpecificData.decode(reader))
             elif marker == MARKER_COM:
-                self.parse_comment()
+                self.segments.append(jpeg.Comment.decode(reader))
             else:
                 raise Exception("Unknown marker %02x" % marker)
 

@@ -10,5 +10,9 @@ class StartOfImage:
     def encode(self, writer):
         writer.writeMarker(MARKER_SOI)
 
+    def decode(reader):
+        assert reader.readMarker() == MARKER_SOI
+        return StartOfImage()
+
     def __repr__(self):
         return f"StartOfImage()"

@@ -33,5 +33,20 @@ class DefineArithmeticConditioning:
             writer.writeU8(table.table_class << 4 | table.destination)
             writer.writeU8(table.value)
 
+    def decode(self, reader):
+        marker = reader.readMarker()
+        assert marker == MARKER_DAC
+        length = reader.readU16()
+        assert length > 2 and (length - 2) % 2 == 0
+        n_tables = (length - 2) // 2
+        tables = []
+        for _ in range(n_tables):
+            table_class_and_destination = reader.readU8()
+            table_class = table_class_and_destination >> 4
+            destination = table_class_and_destination & 0x0F
+            value = reader.readU8()
+            tables.append(ArithmeticConditioning(table_class, destination, value))
+        return DefineArithmeticConditioning(tables)
+
     def __repr__(self):
         return f"DefineArithmeticConditioning({self.tables})"

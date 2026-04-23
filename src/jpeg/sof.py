@@ -1,6 +1,6 @@
 import struct
 
-from jpeg.marker import MARKER_SOF0
+import jpeg.marker
 
 
 class FrameComponent:
@@ -58,7 +58,7 @@ class StartOfFrame:
         return StartOfFrame(n, precision, number_of_lines, samples_per_line, components)
 
     def encode(self, writer):
-        writer.writeMarker(MARKER_SOF0 + self.n)
+        writer.writeMarker(jpeg.marker.MARKER_SOF0 + self.n)
         writer.writeU16(8 + len(self.components) * 3)
         writer.writeU8(self.precision)
         writer.writeU16(self.number_of_lines)
@@ -70,6 +70,53 @@ class StartOfFrame:
                 component.sampling_factor[0] << 4 | component.sampling_factor[1]
             )
             writer.writeU8(component.quantization_table_index)
+
+    def decode(reader):
+        marker = reader.readMarker()
+        assert marker in (
+            jpeg.marker.MARKER_SOF0,
+            jpeg.marker.MARKER_SOF1,
+            jpeg.marker.MARKER_SOF2,
+            jpeg.marker.MARKER_SOF3,
+            jpeg.marker.MARKER_SOF5,
+            jpeg.marker.MARKER_SOF6,
+            jpeg.marker.MARKER_SOF7,
+            jpeg.marker.MARKER_SOF9,
+            jpeg.marker.MARKER_SOF10,
+            jpeg.marker.MARKER_SOF11,
+            jpeg.marker.MARKER_SOF13,
+            jpeg.marker.MARKER_SOF14,
+            jpeg.marker.MARKER_SOF15,
+            jpeg.marker.MARKER_SOF55,
+            jpeg.marker.MARKER_SOF57,
+        )
+        n = marker - jpeg.marker.MARKER_SOF0
+        length = reader.readU16()
+        assert length >= 8
+        precision = reader.readU8()
+        number_of_lines = reader.readU16()
+        samples_per_line = reader.readU16()
+        num_components = reader.readU8()
+        assert length == 8 + num_components * 3
+        components = []
+        for _ in range(num_components):
+            component_id = reader.readU8()
+            sampling_factor = reader.readU8()
+            quantization_table_index = reader.readU8()
+            components.append(
+                FrameComponent(
+                    component_id,
+                    (sampling_factor >> 4, sampling_factor & 0xF),
+                    quantization_table_index,
+                )
+            )
+        return StartOfFrame(
+            n,
+            precision,
+            number_of_lines,
+            samples_per_line,
+            components,
+        )
 
     def __repr__(self):
         if self.n == 0:

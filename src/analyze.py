@@ -3,6 +3,7 @@
 import struct
 import sys
 
+import jpeg
 from jpeg_decoder import *
 
 
@@ -29,8 +30,9 @@ def print_data_unit(data_unit):
 
 
 data = open(sys.argv[1], "rb").read()
-decoder = Decoder(data)
-decoder.decode()
+reader = jpeg.BufferedReader(data)
+decoder = Decoder()
+decoder.decode(reader)
 
 for segment in decoder.segments:
     if isinstance(segment, jpeg.StartOfImage):
@@ -42,10 +44,10 @@ for segment in decoder.segments:
         print(" Data: %s" % repr(segment.data))
     elif isinstance(segment, jpeg.DefineQuantizationTables):
         print("DQT Define Quantization Tables")
-        for precision, destination, values in segment.tables:
-            print(" Table %d:" % destination)
-            print("  Precision: %d bits" % {0: 8, 1: 16}[precision])
-            print_data_unit(values)
+        for table in segment.tables:
+            print(" Table %d:" % table.destination)
+            print("  Precision: %d bits" % table.precision)
+            print_data_unit(table.values)
     elif isinstance(segment, jpeg.DefineHuffmanTables):
         print("DHT Define Huffman Tables")
         for table in segment.tables:
@@ -60,8 +62,8 @@ for segment in decoder.segments:
                     s += str(b)
                 return s
 
-            for code in table.table.keys():
-                print("  %02x: %s" % (table.table[code], tobitstring(code)))
+            # for code in table.table.keys():
+            #    print("  %02x: %s" % (table.table[code], tobitstring(code)))
     elif isinstance(segment, jpeg.DefineArithmeticConditioning):
         print("DAC Define Arithmetic Conditioning")
         for conditioning in segment.tables:

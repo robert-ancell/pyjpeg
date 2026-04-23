@@ -5,8 +5,10 @@ from jpeg.marker import MARKER_DHT
 
 class HuffmanTable:
     def __init__(self, table_class, destination, table):
+        assert len(table) == 16
         self.table_class = table_class
         self.destination = destination
+        # FIXME: Rename to symbols_by_length
         self.table = table
 
     def dc(destination, table):
@@ -27,17 +29,46 @@ class DefineHuffmanTables:
         self.tables = tables
 
     def encode(self, writer):
-        data = b""
-        for table in self.tables:
-            data += struct.pack("B", table.table_class << 4 | table.destination)
-            assert len(table.table) == 16
-            for symbols in table.table:
-                data += struct.pack("B", len(symbols))
-            for symbols in table.table:
-                data += bytes(symbols)
         writer.writeMarker(MARKER_DHT)
-        writer.writeU16(2 + len(data))
-        writer.write(data)
+        length = 2
+        for table in self.tables:
+            length += 1 + len(table.table)
+            for symbols in table.table:
+                length += len(symbols)
+        writer.writeU16(length)
+        for table in self.tables:
+            writer.writeU8(table.table_class << 4 | table.destination)
+            for symbols in table.table:
+                writer.writeU8(len(symbols))
+            for symbols in table.table:
+                for symbol in symbols:
+                    writer.writeU8(symbol)
+
+    def decode(reader):
+        marker = reader.readMarker()
+        assert marker == MARKER_DHT
+        length = reader.readU16()
+        assert length >= 2
+        offset = 2
+        tables = []
+        while offset < length:
+            table_class_and_destination = reader.readU8()
+            table_class = table_class_and_destination >> 4
+            destination = table_class_and_destination & 0x0F
+            table = []
+            lengths = []
+            for _ in range(16):
+                lengths.append(reader.readU8())
+            offset += 17
+            for symbols_length in lengths:
+                symbols = []
+                for _ in range(symbols_length):
+                    symbols.append(reader.readU8())
+                offset += symbols_length
+                table.append(symbols)
+            tables.append(HuffmanTable(table_class, destination, table))
+        assert offset == length
+        return DefineHuffmanTables(tables)
 
     def __repr__(self):
         return f"DefineHuffmanTables({self.tables})"
