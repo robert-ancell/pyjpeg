@@ -1,3 +1,4 @@
+import jpeg.huffman_optimize
 from jpeg.app import (
     AdobeColorSpace,
     ApplicationSpecificData,
