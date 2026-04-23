@@ -24,6 +24,7 @@ from jpeg.huffman_lossless_scan import HuffmanLosslessScan, HuffmanLosslessScanC
 from jpeg.huffman_optimize import optimize
 from jpeg.huffman_tables import *
 from jpeg.quantization_tables import *
+from jpeg.reader import BufferedReader, Reader
 from jpeg.rst import Restart
 from jpeg.sof import FrameComponent, StartOfFrame
 from jpeg.soi import StartOfImage
