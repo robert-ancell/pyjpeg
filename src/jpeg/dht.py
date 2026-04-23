@@ -26,7 +26,7 @@ class DefineHuffmanTables:
     def __init__(self, tables):
         self.tables = tables
 
-    def encode(self):
+    def encode(self, writer):
         data = b""
         for table in self.tables:
             data += struct.pack("B", table.table_class << 4 | table.destination)
@@ -35,7 +35,9 @@ class DefineHuffmanTables:
                 data += struct.pack("B", len(symbols))
             for symbols in table.table:
                 data += bytes(symbols)
-        return struct.pack(">BBH", 0xFF, MARKER_DHT, 2 + len(data)) + data
+        writer.writeMarker(MARKER_DHT)
+        writer.writeU16(2 + len(data))
+        writer.write(data)
 
     def __repr__(self):
         return f"DefineHuffmanTables({self.tables})"

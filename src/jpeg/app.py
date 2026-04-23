@@ -109,11 +109,10 @@ class ApplicationSpecificData:
             color_space,
         )
 
-    def encode(self):
-        return (
-            struct.pack(">BBH", 0xFF, MARKER_APP0 + self.n, 2 + len(self.data))
-            + self.data
-        )
+    def encode(self, writer):
+        writer.writeMarker(MARKER_APP0 + self.n)
+        writer.writeU16(2 + len(self.data))
+        writer.write(self.data)
 
     def __repr__(self):
         if self.is_jfif():

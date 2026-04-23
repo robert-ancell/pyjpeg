@@ -7,9 +7,10 @@ class DefineRestartInterval:
     def __init__(self, restart_interval):
         self.restart_interval = restart_interval
 
-    def encode(self):
-        data = struct.pack(">H", self.restart_interval)
-        return struct.pack(">BBH", 0xFF, MARKER_DRI, len(data) + 2) + data
+    def encode(self, writer):
+        writer.writeMarker(MARKER_DRI)
+        writer.writeU16(4)
+        writer.writeU16(self.restart_interval)
 
     def __repr__(self):
         return f"DefineRestartInterval({self.restart_interval})"

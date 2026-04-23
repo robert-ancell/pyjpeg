@@ -23,7 +23,7 @@ class HuffmanDCTScan:
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
 
-    def encode(self, dc_symbol_frequencies=None, ac_symbol_frequencies=None):
+    def encode(self, writer, dc_symbol_frequencies=None, ac_symbol_frequencies=None):
         scan_encoder = Encoder(
             spectral_selection=self.spectral_selection,
             point_transform=self.point_transform,
@@ -57,7 +57,7 @@ class HuffmanDCTScan:
                         ac_symbol_frequencies=ac_frequencies,
                     )
                     i += 1
-        return scan_encoder.get_data()
+        writer.write(scan_encoder.get_data())
 
 
 class Encoder(jpeg.huffman_scan.Encoder):

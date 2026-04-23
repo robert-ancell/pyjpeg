@@ -17,14 +17,16 @@ class DefineQuantizationTables:
     def __init__(self, tables):
         self.tables = tables
 
-    def encode(self):
+    def encode(self, writer):
         data = b""
         for table in self.tables:
             precision = {8: 0, 16: 1}[table.precision]
             data += struct.pack("B", precision << 4 | table.destination) + bytes(
                 table.values
             )
-        return struct.pack(">BBH", 0xFF, MARKER_DQT, 2 + len(data)) + data
+        writer.writeMarker(MARKER_DQT)
+        writer.writeU16(2 + len(data))
+        writer.write(data)
 
     def __repr__(self):
         return f"DefineQuantizationTables({self.tables})"

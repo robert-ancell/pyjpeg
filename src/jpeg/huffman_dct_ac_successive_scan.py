@@ -15,7 +15,7 @@ class HuffmanDCTACSuccessiveScan:
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
 
-    def encode(self, symbol_frequencies=None):
+    def encode(self, writer, symbol_frequencies=None):
         def get_bits(value, length):
             bits = []
             for i in range(length):
@@ -115,7 +115,7 @@ class HuffmanDCTACSuccessiveScan:
             scan_data.extend(eob_bits)
             scan_data.extend(eob_correction_bits)
 
-        return _encode_scan_data(scan_data)
+        writer.write(_encode_scan_data(scan_data))
 
 
 # FIXME: Make common

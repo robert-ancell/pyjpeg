@@ -3,7 +3,7 @@ class HuffmanDCTDCSuccessiveScan:
         self.data_units = data_units
         self.point_transform = point_transform
 
-    def encode(self):
+    def encode(self, writer):
         scan_data = []
         prev_dc = 0
         for data_unit in self.data_units:
@@ -17,7 +17,7 @@ class HuffmanDCTDCSuccessiveScan:
             else:
                 scan_data.append(0)
 
-        return _encode_scan_data(scan_data)
+        writer.write(bytes(_encode_scan_data(scan_data)))
 
 
 # FIXME: Make common

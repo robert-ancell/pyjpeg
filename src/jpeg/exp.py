@@ -10,9 +10,10 @@ class ExpandReferenceComponents:
         self.expand_horizontal = expand_horizontal
         self.expand_vertical = expand_vertical
 
-    def encode(self):
-        data = struct.pack("B", exp.expand_horizontal << 4 | exp.expand_vertical)
-        return struct.pack("B>HBB", MARKER_EXP, 2 + len(data)) + data
+    def encode(self, writer):
+        writer.writeMarker(MARKER_EXP)
+        writer.writeU16(2)
+        writer.writeU8(self.expand_horizontal << 4 | self.expand_vertical)
 
     def __repr__(self):
         return f"ExpandReferenceComponents({self.expand_horizontal}, {self.expand_vertical})"

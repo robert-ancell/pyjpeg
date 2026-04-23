@@ -6,7 +6,7 @@ class ArithmeticDCTDCSuccessiveScan:
         self.data_units = data_units
         self.point_transform = point_transform
 
-    def encode(self):
+    def encode(self, writer):
         encoder = jpeg.arithmetic.Encoder()
         prev_dc = 0
         for data_unit in self.data_units:
@@ -18,4 +18,4 @@ class ArithmeticDCTDCSuccessiveScan:
             encoder.write_fixed_bit((dc_diff >> self.point_transform) & 0x1)
 
         encoder.flush()
-        return bytes(encoder.data)
+        writer.write(bytes(encoder.data))

@@ -8,7 +8,7 @@ class ArithmeticDCTACSuccessiveScan:
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
 
-    def encode(self):
+    def encode(self, writer):
         eob_states = []
         nonzero_states = []
         additional_states = []
@@ -73,4 +73,4 @@ class ArithmeticDCTACSuccessiveScan:
                 k += 1
 
         encoder.flush()
-        return bytes(encoder.data)
+        writer.write(bytes(encoder.data))

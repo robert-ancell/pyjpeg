@@ -26,13 +26,12 @@ class DefineArithmeticConditioning:
     def __init__(self, tables):
         self.tables = tables
 
-    def encode(self):
-        data = b""
+    def encode(self, writer):
+        writer.writeMarker(MARKER_DAC)
+        writer.writeU16(2 + len(self.tables) * 2)
         for table in self.tables:
-            data += struct.pack(
-                "BB", table.table_class << 4 | table.destination, table.value
-            )
-        return struct.pack(">BBH", 0xFF, MARKER_DAC, 2 + len(data)) + data
+            writer.writeU8(table.table_class << 4 | table.destination)
+            writer.writeU8(table.value)
 
     def __repr__(self):
         return f"DefineArithmeticConditioning({self.tables})"

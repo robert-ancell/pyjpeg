@@ -6,13 +6,6 @@ import jpeg
 # https://www.w3.org/Graphics/JPEG/jfif3.pdf
 
 
-def encode_segments(segments):
-    data = b""
-    for segment in segments:
-        data += segment.encode()
-    return data
-
-
 if __name__ == "__main__":
     from jpeg.huffman_tables import *
 
@@ -114,8 +107,10 @@ if __name__ == "__main__":
         ),
         jpeg.EndOfImage(),
     ]
-    data = encode_segments(huffman.optimize(segments))
-    open("test-huffman.jpg", "wb").write(data)
+    writer = jpeg.BufferedWriter()
+    for segment in jpeg.huffman_optimize.optimize(segments):
+        segment.encode(writer)
+    open("test-huffman.jpg", "wb").write(writer.data)
 
     segments = [
         jpeg.StartOfImage(),
@@ -128,8 +123,10 @@ if __name__ == "__main__":
         ),
         jpeg.EndOfImage(),
     ]
-    data = encode_segments(segments)
-    open("test-arithmetic.jpg", "wb").write(data)
+    writer = jpeg.BufferedWriter()
+    for segment in segments:
+        segment.encode(writer)
+    open("test-arithmetic.jpg", "wb").write(writer.data)
 
     segments = [
         jpeg.StartOfImage(),
@@ -147,8 +144,10 @@ if __name__ == "__main__":
         ),
         jpeg.EndOfImage(),
     ]
-    data = encode_segments(jpeg.huffman_optimize.optimize(segments))
-    open("test-lossless-huffman.jpg", "wb").write(data)
+    writer = jpeg.BufferedWriter()
+    for segment in jpeg.huffman_optimize.optimize(segments):
+        segment.encode(writer)
+    open("test-lossless-huffman.jpg", "wb").write(writer.data)
 
     segments = [
         jpeg.StartOfImage(),
@@ -163,8 +162,10 @@ if __name__ == "__main__":
         ),
         jpeg.EndOfImage(),
     ]
-    data = encode_segments(segments)
-    open("test-lossless-arithmetic.jpg", "wb").write(data)
+    writer = jpeg.BufferedWriter()
+    for segment in segments:
+        segment.encode(writer)
+    open("test-lossless-arithmetic.jpg", "wb").write(writer.data)
 
     rgb_samples = [
         0,
@@ -406,8 +407,10 @@ if __name__ == "__main__":
         ),
         jpeg.EndOfImage(),
     ]
-    data = encode_segments(segments)
-    open("test-lossless-arithmetic-color.jpg", "wb").write(data)
+    writer = jpeg.BufferedWriter()
+    for segment in segments:
+        segment.encode(writer)
+    open("test-lossless-arithmetic-color.jpg", "wb").write(writer.data)
 
     segments = [
         jpeg.StartOfImage(),
@@ -458,8 +461,10 @@ if __name__ == "__main__":
         ),
         jpeg.EndOfImage(),
     ]
-    data = encode_segments(jpeg.huffman_optimize.optimize(segments))
-    open("test-progressive-huffman.jpg", "wb").write(data)
+    writer = jpeg.BufferedWriter()
+    for segment in jpeg.huffman_optimize.optimize(segments):
+        segment.encode(writer)
+    open("test-progressive-huffman.jpg", "wb").write(writer.data)
 
     segments = [
         jpeg.StartOfImage(),
@@ -502,5 +507,7 @@ if __name__ == "__main__":
         ),
         jpeg.EndOfImage(),
     ]
-    data = encode_segments(segments)
-    open("test-progressive-arithmetic.jpg", "wb").write(data)
+    writer = jpeg.BufferedWriter()
+    for segment in segments:
+        segment.encode(writer)
+    open("test-progressive-arithmetic.jpg", "wb").write(writer.data)

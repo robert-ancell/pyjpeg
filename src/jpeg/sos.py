@@ -48,14 +48,16 @@ class StartOfScan:
     def lossless(components, predictor=1, point_transform=0):
         return StartOfScan(components, predictor, 0, 0, point_transform)
 
-    def encode(self):
-        data = struct.pack("B", len(self.components))
+    def encode(self, writer):
+        writer.writeMarker(MARKER_SOS)
+        writer.writeU16(6 + len(self.components) * 2)
+        writer.writeU8(len(self.components))
         for component in self.components:
-            tables = component.dc_table << 4 | component.ac_table
-            data += struct.pack("BB", component.component_selector, tables)
-        a = self.ah << 4 | self.al
-        data += struct.pack("BBB", self.ss, self.se, a)
-        return struct.pack(">BBH", 0xFF, MARKER_SOS, 2 + len(data)) + data
+            writer.writeU8(component.component_selector)
+            writer.writeU8(component.dc_table << 4 | component.ac_table)
+        writer.writeU8(self.ss)
+        writer.writeU8(self.se)
+        writer.writeU8(self.ah << 4 | self.al)
 
     def __repr__(self):
         return f"StartOfScan({self.components}, {self.ss}, {self.se}, {self.ah}, {self.al})"

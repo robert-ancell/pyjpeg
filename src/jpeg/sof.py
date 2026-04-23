@@ -57,22 +57,19 @@ class StartOfFrame:
             n = 3
         return StartOfFrame(n, precision, number_of_lines, samples_per_line, components)
 
-    def encode(self):
-        data = struct.pack(
-            ">BHHB",
-            self.precision,
-            self.number_of_lines,
-            self.samples_per_line,
-            len(self.components),
-        )
+    def encode(self, writer):
+        writer.writeMarker(MARKER_SOF0 + self.n)
+        writer.writeU16(8 + len(self.components) * 3)
+        writer.writeU8(self.precision)
+        writer.writeU16(self.number_of_lines)
+        writer.writeU16(self.samples_per_line)
+        writer.writeU8(len(self.components))
         for component in self.components:
-            sampling_factor = (
+            writer.writeU8(component.id)
+            writer.writeU8(
                 component.sampling_factor[0] << 4 | component.sampling_factor[1]
             )
-            data += struct.pack(
-                "BBB", component.id, sampling_factor, component.quantization_table_index
-            )
-        return struct.pack(">BBH", 0xFF, MARKER_SOF0 + self.n, 2 + len(data)) + data
+            writer.writeU8(component.quantization_table_index)
 
     def __repr__(self):
         if self.n == 0:

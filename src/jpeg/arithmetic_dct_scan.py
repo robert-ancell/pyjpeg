@@ -23,7 +23,7 @@ class ArithmeticDCTScan:
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
 
-    def encode(self):
+    def encode(self, writer):
         encoder = Encoder(
             spectral_selection=self.spectral_selection,
             point_transform=self.point_transform,
@@ -44,7 +44,7 @@ class ArithmeticDCTScan:
                         scan_component.kx,
                     )
                     i += 1
-        return encoder.get_data()
+        writer.write(encoder.get_data())
 
 
 class Encoder(jpeg.arithmetic_scan.Encoder):
