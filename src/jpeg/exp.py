@@ -11,16 +11,16 @@ class ExpandReferenceComponents:
         self.expand_vertical = expand_vertical
 
     def encode(self, writer):
-        writer.writeMarker(MARKER_EXP)
-        writer.writeU16(3)
-        writer.writeU8(self.expand_horizontal << 4 | self.expand_vertical)
+        writer.write_marker(MARKER_EXP)
+        writer.write_u16(3)
+        writer.write_u8(self.expand_horizontal << 4 | self.expand_vertical)
 
     def decode(self, reader):
-        marker = reader.readMarker()
+        marker = reader.read_marker()
         assert marker == MARKER_EXP
-        length = reader.readU16()
+        length = reader.read_u16()
         assert length == 3
-        expand = reader.readU8()
+        expand = reader.read_u8()
         expand_horizontal = expand >> 4
         expand_vertical = expand & 0x0F
         return ExpandReferenceComponents(expand_horizontal, expand_vertical)

@@ -66,11 +66,11 @@ class Decoder:
             if b == 0xFF:
                 if reader.peek(2)[1] != 0:
                     break
-                reader.readU8()
-                reader.readU8()
+                reader.read_u8()
+                reader.read_u8()
                 scan_data.append(0xFF)
             else:
-                scan_data.append(reader.readU8())
+                scan_data.append(reader.read_u8())
 
         if self.is_lossless():
             self.parse_lossless_scan(scan_data)
@@ -241,7 +241,7 @@ class Decoder:
 
     def decode(self, reader):
         while True:
-            marker = reader.peekMarker()
+            marker = reader.peek_marker()
             if marker in (
                 MARKER_SOF0,
                 MARKER_SOF1,

@@ -8,10 +8,10 @@ class EndOfImage:
         pass
 
     def encode(self, writer):
-        writer.writeMarker(MARKER_EOI)
+        writer.write_marker(MARKER_EOI)
 
     def decode(reader):
-        assert reader.readMarker() == MARKER_EOI
+        assert reader.read_marker() == MARKER_EOI
         return EndOfImage()
 
     def __repr__(self):

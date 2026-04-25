@@ -58,21 +58,21 @@ class StartOfFrame:
         return StartOfFrame(n, precision, number_of_lines, samples_per_line, components)
 
     def encode(self, writer):
-        writer.writeMarker(jpeg.marker.MARKER_SOF0 + self.n)
-        writer.writeU16(8 + len(self.components) * 3)
-        writer.writeU8(self.precision)
-        writer.writeU16(self.number_of_lines)
-        writer.writeU16(self.samples_per_line)
-        writer.writeU8(len(self.components))
+        writer.write_marker(jpeg.marker.MARKER_SOF0 + self.n)
+        writer.write_u16(8 + len(self.components) * 3)
+        writer.write_u8(self.precision)
+        writer.write_u16(self.number_of_lines)
+        writer.write_u16(self.samples_per_line)
+        writer.write_u8(len(self.components))
         for component in self.components:
-            writer.writeU8(component.id)
-            writer.writeU8(
+            writer.write_u8(component.id)
+            writer.write_u8(
                 component.sampling_factor[0] << 4 | component.sampling_factor[1]
             )
-            writer.writeU8(component.quantization_table_index)
+            writer.write_u8(component.quantization_table_index)
 
     def decode(reader):
-        marker = reader.readMarker()
+        marker = reader.read_marker()
         assert marker in (
             jpeg.marker.MARKER_SOF0,
             jpeg.marker.MARKER_SOF1,
@@ -91,18 +91,18 @@ class StartOfFrame:
             jpeg.marker.MARKER_SOF57,
         )
         n = marker - jpeg.marker.MARKER_SOF0
-        length = reader.readU16()
+        length = reader.read_u16()
         assert length >= 8
-        precision = reader.readU8()
-        number_of_lines = reader.readU16()
-        samples_per_line = reader.readU16()
-        num_components = reader.readU8()
+        precision = reader.read_u8()
+        number_of_lines = reader.read_u16()
+        samples_per_line = reader.read_u16()
+        num_components = reader.read_u8()
         assert length == 8 + num_components * 3
         components = []
         for _ in range(num_components):
-            component_id = reader.readU8()
-            sampling_factor = reader.readU8()
-            quantization_table_index = reader.readU8()
+            component_id = reader.read_u8()
+            sampling_factor = reader.read_u8()
+            quantization_table_index = reader.read_u8()
             components.append(
                 FrameComponent(
                     component_id,

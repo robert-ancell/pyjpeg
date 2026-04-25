@@ -27,24 +27,24 @@ class DefineArithmeticConditioning:
         self.tables = tables
 
     def encode(self, writer):
-        writer.writeMarker(MARKER_DAC)
-        writer.writeU16(2 + len(self.tables) * 2)
+        writer.write_marker(MARKER_DAC)
+        writer.write_u16(2 + len(self.tables) * 2)
         for table in self.tables:
-            writer.writeU8(table.table_class << 4 | table.destination)
-            writer.writeU8(table.value)
+            writer.write_u8(table.table_class << 4 | table.destination)
+            writer.write_u8(table.value)
 
     def decode(self, reader):
-        marker = reader.readMarker()
+        marker = reader.read_marker()
         assert marker == MARKER_DAC
-        length = reader.readU16()
+        length = reader.read_u16()
         assert length > 2 and (length - 2) % 2 == 0
         n_tables = (length - 2) // 2
         tables = []
         for _ in range(n_tables):
-            table_class_and_destination = reader.readU8()
+            table_class_and_destination = reader.read_u8()
             table_class = table_class_and_destination >> 4
             destination = table_class_and_destination & 0x0F
-            value = reader.readU8()
+            value = reader.read_u8()
             tables.append(ArithmeticConditioning(table_class, destination, value))
         return DefineArithmeticConditioning(tables)
 

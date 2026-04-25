@@ -8,13 +8,13 @@ class Writer:
     def write(self, data):
         raise NotImplementedError
 
-    def writeMarker(self, marker):
+    def write_marker(self, marker):
         self.write(struct.pack("BB", 0xFF, marker))
 
-    def writeU8(self, value):
+    def write_u8(self, value):
         self.write(struct.pack("B", value))
 
-    def writeU16(self, value):
+    def write_u16(self, value):
         self.write(struct.pack(">H", value))
 
 

@@ -29,41 +29,41 @@ class DefineHuffmanTables:
         self.tables = tables
 
     def encode(self, writer):
-        writer.writeMarker(MARKER_DHT)
+        writer.write_marker(MARKER_DHT)
         length = 2
         for table in self.tables:
             length += 1 + len(table.table)
             for symbols in table.table:
                 length += len(symbols)
-        writer.writeU16(length)
+        writer.write_u16(length)
         for table in self.tables:
-            writer.writeU8(table.table_class << 4 | table.destination)
+            writer.write_u8(table.table_class << 4 | table.destination)
             for symbols in table.table:
-                writer.writeU8(len(symbols))
+                writer.write_u8(len(symbols))
             for symbols in table.table:
                 for symbol in symbols:
-                    writer.writeU8(symbol)
+                    writer.write_u8(symbol)
 
     def decode(reader):
-        marker = reader.readMarker()
+        marker = reader.read_marker()
         assert marker == MARKER_DHT
-        length = reader.readU16()
+        length = reader.read_u16()
         assert length >= 2
         offset = 2
         tables = []
         while offset < length:
-            table_class_and_destination = reader.readU8()
+            table_class_and_destination = reader.read_u8()
             table_class = table_class_and_destination >> 4
             destination = table_class_and_destination & 0x0F
             table = []
             lengths = []
             for _ in range(16):
-                lengths.append(reader.readU8())
+                lengths.append(reader.read_u8())
             offset += 17
             for symbols_length in lengths:
                 symbols = []
                 for _ in range(symbols_length):
-                    symbols.append(reader.readU8())
+                    symbols.append(reader.read_u8())
                 offset += symbols_length
                 table.append(symbols)
             tables.append(HuffmanTable(table_class, destination, table))

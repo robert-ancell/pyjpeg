@@ -11,20 +11,20 @@ class Reader:
     def peek(self, n):
         raise NotImplementedError
 
-    def readMarker(self):
+    def read_marker(self):
         (x, marker) = struct.unpack("BB", self.read(2))
         assert x == 0xFF
         return marker
 
-    def peekMarker(self):
+    def peek_marker(self):
         (x, marker) = struct.unpack("BB", self.peek(2))
         assert x == 0xFF
         return marker
 
-    def readU8(self):
+    def read_u8(self):
         return self.read(1)[0]
 
-    def readU16(self):
+    def read_u16(self):
         (value,) = struct.unpack(">H", self.read(2))
         return value
 

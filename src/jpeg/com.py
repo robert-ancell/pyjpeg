@@ -8,14 +8,14 @@ class Comment:
         self.data = data
 
     def encode(self, writer):
-        writer.writeMarker(MARKER_COM)
-        writer.writeU16(2 + len(self.data))
+        writer.write_marker(MARKER_COM)
+        writer.write_u16(2 + len(self.data))
         writer.write(self.data)
 
     def decode(reader):
-        marker = reader.readMarker()
+        marker = reader.read_marker()
         assert marker == MARKER_COM
-        length = reader.readU16()
+        length = reader.read_u16()
         data = reader.read(length - 2)
         return Comment(data)
 

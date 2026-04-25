@@ -49,33 +49,33 @@ class StartOfScan:
         return StartOfScan(components, predictor, 0, 0, point_transform)
 
     def encode(self, writer):
-        writer.writeMarker(MARKER_SOS)
-        writer.writeU16(6 + len(self.components) * 2)
-        writer.writeU8(len(self.components))
+        writer.write_marker(MARKER_SOS)
+        writer.write_u16(6 + len(self.components) * 2)
+        writer.write_u8(len(self.components))
         for component in self.components:
-            writer.writeU8(component.component_selector)
-            writer.writeU8(component.dc_table << 4 | component.ac_table)
-        writer.writeU8(self.ss)
-        writer.writeU8(self.se)
-        writer.writeU8(self.ah << 4 | self.al)
+            writer.write_u8(component.component_selector)
+            writer.write_u8(component.dc_table << 4 | component.ac_table)
+        writer.write_u8(self.ss)
+        writer.write_u8(self.se)
+        writer.write_u8(self.ah << 4 | self.al)
 
     def decode(reader):
-        marker = reader.readMarker()
+        marker = reader.read_marker()
         assert marker == MARKER_SOS
-        length = reader.readU16()
+        length = reader.read_u16()
         assert length >= 6
-        num_components = reader.readU8()
+        num_components = reader.read_u8()
         assert length == 6 + num_components * 2
         components = []
         for _ in range(num_components):
-            component_selector = reader.readU8()
-            tables = reader.readU8()
+            component_selector = reader.read_u8()
+            tables = reader.read_u8()
             dc_table = tables >> 4
             ac_table = tables & 0x0F
             components.append(ScanComponent(component_selector, dc_table, ac_table))
-        ss = reader.readU8()
-        se = reader.readU8()
-        a = reader.readU8()
+        ss = reader.read_u8()
+        se = reader.read_u8()
+        a = reader.read_u8()
         ah = a >> 4
         al = a & 0x0F
         return StartOfScan(components, ss, se, ah, al)

@@ -110,15 +110,15 @@ class ApplicationSpecificData:
         )
 
     def encode(self, writer):
-        writer.writeMarker(MARKER_APP0 + self.n)
-        writer.writeU16(2 + len(self.data))
+        writer.write_marker(MARKER_APP0 + self.n)
+        writer.write_u16(2 + len(self.data))
         writer.write(self.data)
 
     def decode(reader):
-        marker = reader.readMarker()
+        marker = reader.read_marker()
         assert marker >= MARKER_APP0 and marker <= MARKER_APP15
         n = marker - MARKER_APP0
-        length = reader.readU16()
+        length = reader.read_u16()
         assert length > 2
         data = reader.read(length - 2)
         return ApplicationSpecificData(n, data)
