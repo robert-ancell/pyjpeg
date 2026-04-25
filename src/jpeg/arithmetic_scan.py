@@ -31,9 +31,7 @@ def classify_dc(conditioning_bounds, value):
 
 
 class Encoder:
-    def __init__(
-        self,
-    ):
+    def __init__(self):
         self.encoder = jpeg.arithmetic.Encoder()
 
     def write_dc(self, non_zero, sign, sp, sn, xstates, mstates, value):
@@ -71,7 +69,7 @@ class Encoder:
             bit = (v >> i) & 0x1
             self.encoder.write_bit(mstates[width - 2], bit)
 
-    def write_ac(self, ac_sn_sp_x1, xstates, mstates, ac):
+    def write_ac(self, sn_sp_x1, xstates, mstates, ac):
         assert ac != 0
 
         if ac > 0:
@@ -84,9 +82,14 @@ class Encoder:
             self.encoder.write_fixed_bit(1)
 
         if magnitude == 1:
-            self.encoder.write_bit(ac_sn_sp_x1, 0)
+            self.encoder.write_bit(sn_sp_x1, 0)
             return
-        self.encoder.write_bit(ac_sn_sp_x1, 1)
+        self.encoder.write_bit(sn_sp_x1, 1)
+
+        if magnitude == 2:
+            self.encoder.write_bit(sn_sp_x1, 0)
+            return
+        self.encoder.write_bit(sn_sp_x1, 1)
 
         # Encode width of (magnitude - 1) (must be 2+ if above not encoded)
         v = magnitude - 1
@@ -94,13 +97,9 @@ class Encoder:
         while (v >> width) != 0:
             width += 1
 
-        if width == 1:
-            self.encoder.write_bit(ac_sn_sp_x1, 0)
-        else:
-            self.encoder.write_bit(ac_sn_sp_x1, 1)
-            for i in range(1, width - 1):
-                self.encoder.write_bit(xstates[i - 1], 1)
-            self.encoder.write_bit(xstates[width - 2], 0)
+        for i in range(1, width - 1):
+            self.encoder.write_bit(xstates[i - 1], 1)
+        self.encoder.write_bit(xstates[width - 2], 0)
 
         for i in range(width - 2, -1, -1):
             bit = (v >> i) & 0x1
@@ -109,3 +108,86 @@ class Encoder:
     def get_data(self):
         self.encoder.flush()
         return bytes(self.encoder.data)
+
+
+class Decoder:
+    def __init__(self, data):
+        self.decoder = jpeg.arithmetic.Decoder(data)
+
+    def read_dc(self, non_zero, sign, sp, sn, xstates, mstates):
+        if self.decoder.read_bit(non_zero) == 0:
+            return 0
+
+        if self.decoder.read_bit(sign) == 0:
+            sign = 1
+            if self.decoder.read_bit(sp) == 0:
+                return sign
+        else:
+            sign = -1
+            if self.decoder.read_bit(sn) == 0:
+                return sign
+
+        # FIXME: Maximum width
+        width = 2
+        while self.decoder.read_bit(xstates[width - 2]) == 1:
+            width += 1
+
+        magnitude = 1
+        for _ in range(width - 2):
+            magnitude = (magnitude << 1) | self.decoder.read_bit(mstates[width - 2])
+
+        return sign * (magnitude + 1)
+
+    def read_ac(self, sn_sp_x1, xstates, mstates):
+        if self.decoder.read_fixed_bit() == 0:
+            sign = 1
+        else:
+            sign = -1
+
+        if self.decoder.read_bit(sn_sp_x1) == 0:
+            return sign
+
+        if self.decoder.read_bit(sn_sp_x1) == 0:
+            return sign * 2
+
+        # FIXME: Maximum width
+        width = 2
+        while self.decoder.read_bit(xstates[width - 2]) == 1:
+            width += 1
+
+        magnitude = 1
+        for _ in range(width - 1):
+            bit = self.decoder.read_bit(mstates[width - 2])
+            magnitude = (magnitude << 1) | bit
+
+        return sign * (magnitude + 1)
+
+
+if __name__ == "__main__":
+    encoder = Encoder()
+    dc_non_zero = jpeg.arithmetic.State()
+    dc_sign = jpeg.arithmetic.State()
+    dc_sp = jpeg.arithmetic.State()
+    dc_sn = jpeg.arithmetic.State()
+    dc_xstates = [jpeg.arithmetic.State() for _ in range(16)]
+    dc_mstates = [jpeg.arithmetic.State() for _ in range(16)]
+    ac_sn_sp_x1 = jpeg.arithmetic.State()
+    ac_xstates = [jpeg.arithmetic.State() for _ in range(16)]
+    ac_mstates = [jpeg.arithmetic.State() for _ in range(16)]
+    encoder.write_dc(dc_non_zero, dc_sign, dc_sp, dc_sn, dc_xstates, dc_mstates, 123)
+    encoder.write_ac(ac_sn_sp_x1, ac_xstates, ac_mstates, 55)
+
+    dc_non_zero = jpeg.arithmetic.State()
+    dc_sign = jpeg.arithmetic.State()
+    dc_sp = jpeg.arithmetic.State()
+    dc_sn = jpeg.arithmetic.State()
+    dc_xstates = [jpeg.arithmetic.State() for _ in range(16)]
+    dc_mstates = [jpeg.arithmetic.State() for _ in range(16)]
+    ac_sn_sp_x1 = jpeg.arithmetic.State()
+    ac_xstates = [jpeg.arithmetic.State() for _ in range(16)]
+    ac_mstates = [jpeg.arithmetic.State() for _ in range(16)]
+    decoder = Decoder(encoder.get_data())
+    dc = decoder.read_dc(dc_non_zero, dc_sign, dc_sp, dc_sn, dc_xstates, dc_mstates)
+    ac = decoder.read_ac(ac_sn_sp_x1, ac_xstates, ac_mstates)
+    assert dc == 123
+    assert ac == 55
