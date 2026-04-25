@@ -1,5 +1,3 @@
-import struct
-
 from jpeg.marker import MARKER_APP0, MARKER_APP15
 
 

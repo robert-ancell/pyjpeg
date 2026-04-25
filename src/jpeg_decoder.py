@@ -1,6 +1,3 @@
-import struct
-from multiprocessing import Condition
-
 import jpeg
 from jpeg.marker import *
 
