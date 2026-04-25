@@ -109,13 +109,15 @@ class Decoder:
 
     def decode(self, code):
         symbol_tree = self.symbol_tree
+        length = 0
         for bit in code:
             symbol = symbol_tree[bit]
+            length += 1
             if symbol is None:
                 raise Exception("Unknown Huffman Code")
             elif isinstance(symbol, int):
                 # FIXME: Check have used all bits
-                return symbol
+                return (length, symbol)
             else:
                 symbol_tree = symbol
 
@@ -270,4 +272,4 @@ if __name__ == "__main__":
     assert encoder.encode(34) == [1, 1, 1, 1, 1, 0, 0, 1]
 
     decoder = Decoder(table)
-    assert decoder.decode([1, 1, 1, 1, 1, 0, 0, 1]) == 34
+    assert decoder.decode([1, 1, 1, 1, 1, 0, 0, 1]) == (8, 34)
