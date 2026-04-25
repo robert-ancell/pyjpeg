@@ -37,8 +37,14 @@ class HuffmanLosslessScan:
             )
 
         dc_encoders = []
+        component_symbol_frequencies = []
         for component_index, scan_component in enumerate(self.components):
             dc_encoders.append(jpeg.huffman.Encoder(scan_component.table))
+            component_symbol_frequencies.append(
+                symbol_frequencies[component_index]
+                if symbol_frequencies is not None
+                else None
+            )
         for i in range(len(self.samples) // len(self.components)):
             for component_index, scan_component in enumerate(self.components):
                 component_data_units = data_units[component_index]
@@ -47,20 +53,66 @@ class HuffmanLosslessScan:
                 encoder.write_dc(
                     data_unit,
                     dc_encoders[component_index],
-                    symbol_frequencies=symbol_frequencies[component_index]
-                    if symbol_frequencies is not None
-                    else None,
+                    symbol_frequencies=component_symbol_frequencies[component_index],
                 )
+        # FIXME: Use writer directly
         writer.write(encoder.get_data())
 
     def decode(reader, samples_per_line, components, precision=8, predictor=1):
         decoder = jpeg.huffman_scan.Decoder(reader)
-        # FIXME
+        dc_decoders = []
+        for scan_component in components:
+            dc_decoders.append(jpeg.huffman.Decoder(scan_component.table))
         data_units = []
-        return HuffmanLosslessScan(
-            samples_per_line,
-            data_units,
-            components,
-            precision=precision,
-            predictor=predictor,
-        )
+        while True:
+            for component_index, scan_component in enumerate(components):
+                try:
+                    data_unit = decoder.read_dc(dc_decoders[component_index])
+                    data_units.append(data_unit)
+                except EOFError:
+                    samples = jpeg.lossless.decode(
+                        samples_per_line,
+                        data_units,
+                        precision=precision,
+                        predictor=predictor,
+                    )
+                    return HuffmanLosslessScan(
+                        samples_per_line,
+                        samples,
+                        components,
+                        precision=precision,
+                        predictor=predictor,
+                    )
+
+
+if __name__ == "__main__":
+    import random
+
+    import jpeg.huffman_tables
+    import jpeg.reader
+    import jpeg.writer
+
+    samples = [random.randint(0, 255) for _ in range(64)]
+    scan = HuffmanLosslessScan(
+        8,
+        samples,
+        [
+            HuffmanLosslessScanComponent(
+                jpeg.huffman_tables.standard_luminance_dc_huffman_table
+            )
+        ],
+    )
+    writer = jpeg.writer.BufferedWriter()
+    scan.encode(writer)
+
+    reader = jpeg.reader.BufferedReader(writer.data)
+    scan2 = HuffmanLosslessScan.decode(
+        reader,
+        8,
+        [
+            HuffmanLosslessScanComponent(
+                jpeg.huffman_tables.standard_luminance_dc_huffman_table
+            )
+        ],
+    )
+    assert scan2.samples == samples

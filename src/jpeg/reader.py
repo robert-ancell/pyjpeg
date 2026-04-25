@@ -35,10 +35,16 @@ class BufferedReader(Reader):
         self.offset = 0
 
     def read(self, n):
+        if self.offset + n > len(self.data):
+            raise EOFError
+
         data = self.peek(n)
         self.offset += n
         return data
 
     def peek(self, n):
+        if self.offset + n > len(self.data):
+            raise EOFError
+
         data = self.data[self.offset : self.offset + n]
         return data

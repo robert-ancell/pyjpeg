@@ -1,3 +1,6 @@
+import jpeg.scan
+
+
 class Encoder:
     def __init__(self):
         self.bits = []
@@ -52,7 +55,8 @@ class Encoder:
         else:
             value = magnitude
         for i in range(length):
-            self.bits.append((value >> (length - i - 1)) & 0x1)
+            bit = (value >> (length - i - 1)) & 0x1
+            self.bits.append(bit)
 
     def get_data(self):
         # Pad with 1 bits
@@ -81,34 +85,31 @@ class Encoder:
 
 
 class Decoder:
-    def __init__(self, data):
-        self.bits = []
-        for b in data:
-            for i in range(8):
-                self.bits.append((b >> (7 - i)) & 0x1)
+    def __init__(self, reader):
+        self.reader = jpeg.scan.Reader(reader)
 
     def read_dc(self, decoder):
-        length = self._read_symbol(decoder)
+        length = decoder.decode2(self.reader)
         assert length <= 15
-        return self._read_magnitude(length)
+        dc_diff = self._read_magnitude(length)
+        return dc_diff
 
     def read_ac(self, decoder):
-        run_length_and_length = self._read_symbol(decoder)
+        run_length_and_length = decoder.decode2(self.reader)
         run_length = run_length_and_length >> 4
         length = run_length_and_length & 0xF
         return (run_length, self._read_magnitude(length))
 
-    def _read_symbol(self, decoder):
-        (length, symbol) = decoder.decode(self.bits)
-        self.bits = self.bits[length:]
-        return symbol
-
     def _read_magnitude(self, length):
+        if length == 0:
+            return 0
         magnitude = 0
         for i in range(length):
-            magnitude = (magnitude << 1) | self.bits.pop(0)
-        if magnitude < (1 << (length - 1)):
-            return magnitude - (1 << length) - 1
+            bit = self.reader.read_bit()
+            magnitude = (magnitude << 1) | bit
+        min_positive_magnitude = 1 << (length - 1)
+        if magnitude < min_positive_magnitude:
+            return magnitude - ((1 << length) - 1)
         else:
             return magnitude
 
@@ -126,8 +127,10 @@ if __name__ == "__main__":
     )
     encoder.write_dc(123, dc_encoder)
     encoder.write_ac(2, 55, ac_encoder)
+    encoder.write_ac(0, -17, ac_encoder)
 
-    decoder = Decoder(encoder.get_data())
+    reader = jpeg.reader.BufferedReader(encoder.get_data())
+    decoder = Decoder(reader)
     dc_decoder = jpeg.huffman.Decoder(
         jpeg.huffman_tables.standard_luminance_dc_huffman_table
     )
@@ -135,7 +138,10 @@ if __name__ == "__main__":
         jpeg.huffman_tables.standard_luminance_ac_huffman_table
     )
     dc = decoder.read_dc(dc_decoder)
-    (run_length, ac) = decoder.read_ac(ac_decoder)
+    (run_length1, ac1) = decoder.read_ac(ac_decoder)
+    (run_length2, ac2) = decoder.read_ac(ac_decoder)
     assert dc == 123
-    assert run_length == 2
-    assert ac == 55
+    assert run_length1 == 2
+    assert ac1 == 55
+    assert run_length2 == 0
+    assert ac2 == -17

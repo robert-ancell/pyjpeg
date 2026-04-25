@@ -121,8 +121,24 @@ class Decoder:
             else:
                 symbol_tree = symbol
 
+    # FIXME: Replace decode()
+    def decode2(self, reader):
+        symbol_tree = self.symbol_tree
+        while True:
+            bit = reader.read_bit()
+            symbol = symbol_tree[bit]
+            if symbol is None:
+                raise Exception("Unknown Huffman Code")
+            elif isinstance(symbol, int):
+                return symbol
+            else:
+                symbol_tree = symbol
+
 
 if __name__ == "__main__":
+    import jpeg.huffman_tables
+    import jpeg.reader
+
     # Table from ITU T.81 K.3.2
     table = [
         [],
@@ -269,7 +285,12 @@ if __name__ == "__main__":
         ],
     ]
     encoder = Encoder(table)
-    assert encoder.encode(34) == [1, 1, 1, 1, 1, 0, 0, 1]
-
     decoder = Decoder(table)
-    assert decoder.decode([1, 1, 1, 1, 1, 0, 0, 1]) == (8, 34)
+    for length, symbols in enumerate(table):
+        for symbol in symbols:
+            code = encoder.encode(symbol)
+            assert len(code) == length + 1
+            assert decoder.decode(code) == (length + 1, symbol)
+
+    reader = jpeg.scan.Reader(jpeg.reader.BufferedReader(b"\xf9"))
+    assert decoder.decode2(reader) == 34
