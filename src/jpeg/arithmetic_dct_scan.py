@@ -136,26 +136,26 @@ class Encoder(jpeg.arithmetic_scan.Encoder):
                 run_length += 1
             if k + run_length > self.spectral_selection[1]:
                 self.encoder.write_bit(self.ac_end_of_block[k - 1], 1)
-                k += run_length
-            else:
-                self.encoder.write_bit(self.ac_end_of_block[k - 1], 0)
-                for _ in range(run_length):
-                    self.encoder.write_bit(self.ac_non_zero[k - 1], 0)
-                    k += 1
-                self.encoder.write_bit(self.ac_non_zero[k - 1], 1)
-                if k <= kx:
-                    xstates = self.ac_low_xstates
-                    mstates = self.ac_low_mstates
-                else:
-                    xstates = self.ac_high_xstates
-                    mstates = self.ac_high_mstates
-                self.write_ac(
-                    self.ac_sn_sp_x1[k - 1],
-                    xstates,
-                    mstates,
-                    jpeg.dct.transform_coefficient(data_unit[k], self.point_transform),
-                )
+                return
+
+            self.encoder.write_bit(self.ac_end_of_block[k - 1], 0)
+            for _ in range(run_length):
+                self.encoder.write_bit(self.ac_non_zero[k - 1], 0)
                 k += 1
+            self.encoder.write_bit(self.ac_non_zero[k - 1], 1)
+            if k <= kx:
+                xstates = self.ac_low_xstates
+                mstates = self.ac_low_mstates
+            else:
+                xstates = self.ac_high_xstates
+                mstates = self.ac_high_mstates
+            self.write_ac(
+                self.ac_sn_sp_x1[k - 1],
+                xstates,
+                mstates,
+                jpeg.dct.transform_coefficient(data_unit[k], self.point_transform),
+            )
+            k += 1
 
 
 class Decoder(jpeg.arithmetic_scan.Decoder):
