@@ -60,7 +60,7 @@ class ArithmeticLosslessScan:
             # FIXME
             return ArithmeticLosslessScan(
                 decoder.samples_per_line,
-                mponents,
+                components,
                 [],
                 precision=precision,
                 predictor=predictor,
