@@ -40,11 +40,32 @@ class ArithmeticDCTScan:
                     encoder.write_data_unit(
                         component_index,
                         self.data_units[i],
-                        scan_component.conditioning_bounds,
-                        scan_component.kx,
+                        conditioning_bounds=scan_component.conditioning_bounds,
+                        kx=scan_component.kx,
                     )
                     i += 1
         writer.write(encoder.get_data())
+
+    def decode(
+        reader,
+        samples_per_line,
+        components,
+        spectral_selection=(0, 63),
+        point_transform=0,
+    ):
+        decoder = Decoder(
+            reader,
+            spectral_selection=spectral_selection,
+            point_transform=point_transform,
+        )
+        # FIXME
+        return ArithmeticDCTScan(
+            samples_per_line,
+            components,
+            decoder.samples,
+            spectral_selection=spectral_selection,
+            point_transform=point_transform,
+        )
 
 
 class Encoder(jpeg.arithmetic_scan.Encoder):
@@ -56,14 +77,12 @@ class Encoder(jpeg.arithmetic_scan.Encoder):
         super().__init__()
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
+        # FIXME: Get rid of these
         self.prev_dc = {}
         self.prev_dc_diff = {}
 
         def make_states(count):
-            states = []
-            for _ in range(count):
-                states.append(jpeg.arithmetic.State())
-            return states
+            return [jpeg.arithmetic.State() for _ in range(count)]
 
         self.dc_non_zero = make_states(5)
         self.dc_sign = make_states(5)
@@ -79,7 +98,10 @@ class Encoder(jpeg.arithmetic_scan.Encoder):
         self.ac_low_mstates = make_states(14)
         self.ac_high_mstates = make_states(14)
 
-    def write_data_unit(self, component_index, data_unit, conditioning_bounds, kx):
+    # FIXME: Get rid of component_index and instead use last two data_units
+    def write_data_unit(
+        self, component_index, data_unit, conditioning_bounds=(0, 1), kx=5
+    ):
         k = self.spectral_selection[0]
         while k <= self.spectral_selection[1]:
             if k == 0:
@@ -133,3 +155,35 @@ class Encoder(jpeg.arithmetic_scan.Encoder):
                         ),
                     )
                     k += 1
+
+
+class Decoder(jpeg.arithmetic_scan.Decoder):
+    def __init__(
+        self,
+        reader,
+        spectral_selection=(0, 63),
+        point_transform=0,
+    ):
+        super().__init__(reader)
+        self.spectral_selection = spectral_selection
+        self.point_transform = point_transform
+
+        def make_states(count):
+            return [jpeg.arithmetic.State() for _ in range(count)]
+
+        self.dc_non_zero = make_states(5)
+        self.dc_sign = make_states(5)
+        self.dc_sp = make_states(5)
+        self.dc_sn = make_states(5)
+        self.dc_xstates = make_states(15)
+        self.dc_mstates = make_states(14)
+        self.ac_end_of_block = make_states(63)
+        self.ac_non_zero = make_states(63)
+        self.ac_sn_sp_x1 = make_states(63)
+        self.ac_low_xstates = make_states(14)
+        self.ac_high_xstates = make_states(14)
+        self.ac_low_mstates = make_states(14)
+        self.ac_high_mstates = make_states(14)
+
+    def read_data_unit(self, component_index, conditioning_bounds=(0, 1), kx=5):
+        return [0] * 64

@@ -52,3 +52,10 @@ class HuffmanLosslessScan:
                     else None,
                 )
         writer.write(encoder.get_data())
+
+    def decode(reader, samples_per_line, components, precision=8, predictor=1):
+        decoder = jpeg.huffman_scan.Decoder(reader)
+        # FIXME
+        return HuffmanLosslessScan(
+            samples_per_line, [], components, precision=precision, predictor=predictor
+        )

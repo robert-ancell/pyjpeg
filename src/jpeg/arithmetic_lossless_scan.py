@@ -17,7 +17,7 @@ class ArithmeticLosslessScan:
         self.predictor = predictor
 
     def encode(self, writer):
-        encoder = ArithmeticLosslessScanEncoder()
+        encoder = Encoder()
 
         # FIXME: Store samples per component
         data_units = []
@@ -55,16 +55,24 @@ class ArithmeticLosslessScan:
                 )
         writer.write(encoder.get_data())
 
+        def decode(reader, samples_per_line, components, precision=8, predictor=1):
+            decoder = Decoder(reader)
+            # FIXME
+            return ArithmeticLosslessScan(
+                decoder.samples_per_line,
+                mponents,
+                [],
+                precision=precision,
+                predictor=predictor,
+            )
 
-class ArithmeticLosslessScanEncoder(jpeg.arithmetic_scan.Encoder):
+
+class Encoder(jpeg.arithmetic_scan.Encoder):
     def __init__(self):
         super().__init__()
 
         def make_states(count):
-            states = []
-            for _ in range(count):
-                states.append(jpeg.arithmetic.State())
-            return states
+            return [jpeg.arithmetic.State() for _ in range(count)]
 
         self.non_zero = make_states(25)
         self.sign = make_states(25)
@@ -96,4 +104,38 @@ class ArithmeticLosslessScanEncoder(jpeg.arithmetic_scan.Encoder):
             xstates,
             mstates,
             data_unit,
+        )
+
+
+class Decoder(jpeg.arithmetic_scan.Decoder):
+    def __init__(self, reader):
+        super().__init__(reader)
+
+        def make_states(self, count):
+            return [jpeg.arithmetic.State() for _ in range(count)]
+
+        self.non_zero = make_states(25)
+        self.sign = make_states(25)
+        self.sp = make_states(25)
+        self.sn = make_states(25)
+        self.small_xstates = make_states(15)
+        self.large_xstates = make_states(15)
+        self.small_mstates = make_states(14)
+        self.large_mstates = make_states(14)
+
+    def read_data_unit(self, conditioning_bounds, left_diff, above_diff):
+        ca = jpeg.arithmetic_scan.classify_dc(conditioning_bounds, left_diff)
+        cb = jpeg.arithmetic_scan.classify_dc(conditioning_bounds, above_diff)
+        c = ca * 5 + cb
+        if (
+            cb == jpeg.arithmetic_scan.Classification.LARGE_POSITIVE
+            or cb == jpeg.arithmetic_scan.Classification.LARGE_NEGATIVE
+        ):
+            xstates = self.large_xstates
+            mstates = self.large_mstates
+        else:
+            xstates = self.small_xstates
+            mstates = self.small_mstates
+        return self.read_dc(
+            self.non_zero[c], self.sign[c], self.sp[c], self.sn[c], xstates, mstates
         )

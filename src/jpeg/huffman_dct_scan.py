@@ -59,6 +59,15 @@ class HuffmanDCTScan:
                     i += 1
         writer.write(scan_encoder.get_data())
 
+    def decode(reader, components, spectral_selection=(0, 63), point_transform=0):
+        # FIXME
+        return HuffmanDCTScan(
+            [],
+            components,
+            spectral_selection=spectral_selection,
+            point_transform=point_transform,
+        )
+
 
 class Encoder(jpeg.huffman_scan.Encoder):
     def __init__(
