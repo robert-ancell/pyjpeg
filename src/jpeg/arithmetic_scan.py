@@ -34,18 +34,18 @@ class Encoder:
     def __init__(self):
         self.encoder = jpeg.arithmetic.Encoder()
 
-    def write_dc(self, non_zero, sign, sp, sn, xstates, mstates, value):
-        if value == 0:
+    def write_dc(self, non_zero, sign, sp, sn, xstates, mstates, dc_diff):
+        if dc_diff == 0:
             self.encoder.write_bit(non_zero, 0)
             return
         self.encoder.write_bit(non_zero, 1)
 
-        if value > 0:
-            magnitude = value
+        if dc_diff > 0:
+            magnitude = dc_diff
             self.encoder.write_bit(sign, 0)
             mag_state = sp
         else:
-            magnitude = -value
+            magnitude = -dc_diff
             self.encoder.write_bit(sign, 1)
             mag_state = sn
 
