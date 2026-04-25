@@ -125,7 +125,7 @@ if __name__ == "__main__":
         jpeg.huffman_tables.standard_luminance_ac_huffman_table
     )
     encoder.write_dc(123, dc_encoder)
-    encoder.write_ac(0, 55, ac_encoder)
+    encoder.write_ac(2, 55, ac_encoder)
 
     decoder = Decoder(encoder.get_data())
     dc_decoder = jpeg.huffman.Decoder(
@@ -137,5 +137,5 @@ if __name__ == "__main__":
     dc = decoder.read_dc(dc_decoder)
     (run_length, ac) = decoder.read_ac(ac_decoder)
     assert dc == 123
-    assert run_length == 0
+    assert run_length == 2
     assert ac == 55
