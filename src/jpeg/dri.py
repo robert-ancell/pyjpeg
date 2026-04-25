@@ -1,4 +1,4 @@
-from jpeg.marker import MARKER_DRI
+import jpeg.marker
 
 
 class DefineRestartInterval:
@@ -6,13 +6,13 @@ class DefineRestartInterval:
         self.restart_interval = restart_interval
 
     def encode(self, writer):
-        writer.write_marker(MARKER_DRI)
+        writer.write_marker(jpeg.marker.Marker.DRI)
         writer.write_u16(4)
         writer.write_u16(self.restart_interval)
 
     def decode(reader):
         marker = reader.read_marker()
-        assert marker == MARKER_DRI
+        assert marker == jpeg.marker.Marker.DRI
         length = reader.read_u16()
         assert length == 4
         restart_interval = reader.read_u16()

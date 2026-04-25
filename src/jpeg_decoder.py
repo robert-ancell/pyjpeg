@@ -240,82 +240,82 @@ class Decoder:
         while True:
             marker = reader.peek_marker()
             if marker in (
-                MARKER_SOF0,
-                MARKER_SOF1,
-                MARKER_SOF2,
-                MARKER_SOF3,
-                MARKER_SOF5,
-                MARKER_SOF6,
-                MARKER_SOF7,
-                MARKER_SOF9,
-                MARKER_SOF10,
-                MARKER_SOF11,
-                MARKER_SOF13,
-                MARKER_SOF14,
-                MARKER_SOF15,
+                Marker.SOF0,
+                Marker.SOF1,
+                Marker.SOF2,
+                Marker.SOF3,
+                Marker.SOF5,
+                Marker.SOF6,
+                Marker.SOF7,
+                Marker.SOF9,
+                Marker.SOF10,
+                Marker.SOF11,
+                Marker.SOF13,
+                Marker.SOF14,
+                Marker.SOF15,
             ):
                 sof = jpeg.StartOfFrame.decode(reader)
                 self.segments.append(sof)
                 self.sof = sof
-            elif marker == MARKER_DHT:
+            elif marker == Marker.DHT:
                 self.parse_dht(reader)
-            elif marker == MARKER_DAC:
+            elif marker == Marker.DAC:
                 self.segments.append(jpeg.DefineArithmeticConditioning.decode(reader))
             elif marker in (
-                MARKER_RST0,
-                MARKER_RST1,
-                MARKER_RST2,
-                MARKER_RST3,
-                MARKER_RST4,
-                MARKER_RST5,
-                MARKER_RST6,
-                MARKER_RST7,
+                Marker.RST0,
+                Marker.RST1,
+                Marker.RST2,
+                Marker.RST3,
+                Marker.RST4,
+                Marker.RST5,
+                Marker.RST6,
+                Marker.RST7,
             ):
                 self.segments.append(jpeg.Restart.decode(reader))
                 self.segments.append(self.parse_scan(reader))
-            elif marker == MARKER_SOI:
+            elif marker == Marker.SOI:
                 self.segments.append(jpeg.StartOfImage.decode(reader))
-            elif marker == MARKER_EOI:
+            elif marker == Marker.EOI:
                 self.segments.append(jpeg.EndOfImage.decode(reader))
                 break
-            elif marker == MARKER_DQT:
+            elif marker == Marker.DQT:
                 dqt = jpeg.DefineQuantizationTables.decode(reader)
                 self.segments.append(dqt)
                 for table in dqt.tables:
                     self.quantization_tables[table.destination] = table.values
-            elif marker == MARKER_DNL:
+            elif marker == Marker.DNL:
                 dnl = jpeg.DefineNumberOfLines.decode(reader)
                 self.segments.append(dnl)
                 self.dnl = dnl
-            elif marker == MARKER_DRI:
+            elif marker == Marker.DRI:
                 self.segments.append(jpeg.DefineRestartInterval.decode(reader))
-            elif marker == MARKER_EXP:
+            elif marker == Marker.EXP:
                 self.segments.append(jpeg.ExpandReferenceComponents.decode(reader))
-            elif marker == MARKER_SOS:
+            elif marker == Marker.SOS:
                 sos = jpeg.StartOfScan.decode(reader)
                 self.segments.append(sos)
                 self.sos = sos
                 self.parse_scan(reader)
             elif marker in (
-                MARKER_APP0,
-                MARKER_APP1,
-                MARKER_APP2,
-                MARKER_APP3,
-                MARKER_APP4,
-                MARKER_APP5,
-                MARKER_APP6,
-                MARKER_APP7,
-                MARKER_APP8,
-                MARKER_APP9,
-                MARKER_APP10,
-                MARKER_APP11,
-                MARKER_APP12,
-                MARKER_APP13,
-                MARKER_APP14,
-                MARKER_APP15,
+                Marker.APP0,
+                Marker.APP1,
+                Marker.APP2,
+                Marker.APP3,
+                Marker.APP4,
+                Marker.APP5,
+                Marker.APP6,
+                Marker.APP7,
+                Marker.APP8,
+                Marker.APP9,
+                Marker.APP10,
+                Marker.APP11,
+                Marker.APP12,
+                Marker.APP13,
+                Marker.APP14,
+                Marker.APP15,
             ):
                 self.segments.append(jpeg.ApplicationSpecificData.decode(reader))
-            elif marker == MARKER_COM:
+            elif marker == Marker.COM:
                 self.segments.append(jpeg.Comment.decode(reader))
             else:
                 raise Exception("Unknown marker %02x" % marker)

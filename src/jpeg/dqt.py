@@ -1,4 +1,4 @@
-from jpeg.marker import MARKER_DQT
+import jpeg.marker
 
 
 class QuantizationTable:
@@ -16,7 +16,7 @@ class DefineQuantizationTables:
         self.tables = tables
 
     def encode(self, writer):
-        writer.write_marker(MARKER_DQT)
+        writer.write_marker(jpeg.marker.Marker.DQT)
         length = 2
         for table in self.tables:
             if table.precision == 8:
@@ -35,7 +35,7 @@ class DefineQuantizationTables:
 
     def decode(reader):
         marker = reader.read_marker()
-        assert marker == MARKER_DQT
+        assert marker == jpeg.marker.Marker.DQT
         length = reader.read_u16()
         assert length >= 2
         offset = 2

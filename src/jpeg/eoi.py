@@ -1,4 +1,4 @@
-from jpeg.marker import MARKER_EOI
+import jpeg.marker
 
 
 class EndOfImage:
@@ -6,10 +6,10 @@ class EndOfImage:
         pass
 
     def encode(self, writer):
-        writer.write_marker(MARKER_EOI)
+        writer.write_marker(jpeg.marker.Marker.EOI)
 
     def decode(reader):
-        assert reader.read_marker() == MARKER_EOI
+        assert reader.read_marker() == jpeg.marker.Marker.EOI
         return EndOfImage()
 
     def __repr__(self):

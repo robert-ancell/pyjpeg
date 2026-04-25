@@ -1,4 +1,6 @@
-from jpeg.marker import MARKER_APP0, MARKER_APP15
+import struct
+
+import jpeg.marker
 
 
 class Density:
@@ -108,14 +110,14 @@ class ApplicationSpecificData:
         )
 
     def encode(self, writer):
-        writer.write_marker(MARKER_APP0 + self.n)
+        writer.write_marker(jpeg.marker.Marker.APP0 + self.n)
         writer.write_u16(2 + len(self.data))
         writer.write(self.data)
 
     def decode(reader):
         marker = reader.read_marker()
-        assert marker >= MARKER_APP0 and marker <= MARKER_APP15
-        n = marker - MARKER_APP0
+        assert marker >= jpeg.marker.Marker.APP0 and marker <= jpeg.marker.Marker.APP15
+        n = marker - jpeg.marker.Marker.APP0
         length = reader.read_u16()
         assert length > 2
         data = reader.read(length - 2)

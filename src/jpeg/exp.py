@@ -1,4 +1,4 @@
-from jpeg.marker import MARKER_EXP
+import jpeg.marker
 
 
 class ExpandReferenceComponents:
@@ -9,13 +9,13 @@ class ExpandReferenceComponents:
         self.expand_vertical = expand_vertical
 
     def encode(self, writer):
-        writer.write_marker(MARKER_EXP)
+        writer.write_marker(jpeg.marker.Marker.EXP)
         writer.write_u16(3)
         writer.write_u8(self.expand_horizontal << 4 | self.expand_vertical)
 
     def decode(self, reader):
         marker = reader.read_marker()
-        assert marker == MARKER_EXP
+        assert marker == jpeg.marker.Marker.EXP
         length = reader.read_u16()
         assert length == 3
         expand = reader.read_u8()

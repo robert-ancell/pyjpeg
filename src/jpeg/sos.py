@@ -1,4 +1,4 @@
-from jpeg.marker import MARKER_SOS
+import jpeg.marker
 
 
 class ScanComponent:
@@ -47,7 +47,7 @@ class StartOfScan:
         return StartOfScan(components, predictor, 0, 0, point_transform)
 
     def encode(self, writer):
-        writer.write_marker(MARKER_SOS)
+        writer.write_marker(jpeg.marker.Marker.SOS)
         writer.write_u16(6 + len(self.components) * 2)
         writer.write_u8(len(self.components))
         for component in self.components:
@@ -59,7 +59,7 @@ class StartOfScan:
 
     def decode(reader):
         marker = reader.read_marker()
-        assert marker == MARKER_SOS
+        assert marker == jpeg.marker.Marker.SOS
         length = reader.read_u16()
         assert length >= 6
         num_components = reader.read_u8()

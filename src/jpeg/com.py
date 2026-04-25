@@ -1,4 +1,4 @@
-from jpeg.marker import MARKER_COM
+import jpeg.marker
 
 
 class Comment:
@@ -6,13 +6,13 @@ class Comment:
         self.data = data
 
     def encode(self, writer):
-        writer.write_marker(MARKER_COM)
+        writer.write_marker(jpeg.marker.Marker.COM)
         writer.write_u16(2 + len(self.data))
         writer.write(self.data)
 
     def decode(reader):
         marker = reader.read_marker()
-        assert marker == MARKER_COM
+        assert marker == jpeg.marker.Marker.COM
         length = reader.read_u16()
         data = reader.read(length - 2)
         return Comment(data)

@@ -1,4 +1,4 @@
-from jpeg.marker import MARKER_DAC
+import jpeg.marker
 
 
 class ArithmeticConditioning:
@@ -25,7 +25,7 @@ class DefineArithmeticConditioning:
         self.tables = tables
 
     def encode(self, writer):
-        writer.write_marker(MARKER_DAC)
+        writer.write_marker(jpeg.marker.Marker.DAC)
         writer.write_u16(2 + len(self.tables) * 2)
         for table in self.tables:
             writer.write_u8(table.table_class << 4 | table.destination)
@@ -33,7 +33,7 @@ class DefineArithmeticConditioning:
 
     def decode(self, reader):
         marker = reader.read_marker()
-        assert marker == MARKER_DAC
+        assert marker == jpeg.marker.Marker.DAC
         length = reader.read_u16()
         assert length > 2 and (length - 2) % 2 == 0
         n_tables = (length - 2) // 2

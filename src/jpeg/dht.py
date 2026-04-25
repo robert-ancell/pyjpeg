@@ -1,4 +1,4 @@
-from jpeg.marker import MARKER_DHT
+import jpeg.marker
 
 
 class HuffmanTable:
@@ -27,7 +27,7 @@ class DefineHuffmanTables:
         self.tables = tables
 
     def encode(self, writer):
-        writer.write_marker(MARKER_DHT)
+        writer.write_marker(jpeg.marker.Marker.DHT)
         length = 2
         for table in self.tables:
             length += 1 + len(table.table)
@@ -44,7 +44,7 @@ class DefineHuffmanTables:
 
     def decode(reader):
         marker = reader.read_marker()
-        assert marker == MARKER_DHT
+        assert marker == jpeg.marker.Marker.DHT
         length = reader.read_u16()
         assert length >= 2
         offset = 2

@@ -56,7 +56,7 @@ class StartOfFrame:
         return StartOfFrame(n, precision, number_of_lines, samples_per_line, components)
 
     def encode(self, writer):
-        writer.write_marker(jpeg.marker.MARKER_SOF0 + self.n)
+        writer.write_marker(jpeg.marker.Marker.SOF0 + self.n)
         writer.write_u16(8 + len(self.components) * 3)
         writer.write_u8(self.precision)
         writer.write_u16(self.number_of_lines)
@@ -72,23 +72,23 @@ class StartOfFrame:
     def decode(reader):
         marker = reader.read_marker()
         assert marker in (
-            jpeg.marker.MARKER_SOF0,
-            jpeg.marker.MARKER_SOF1,
-            jpeg.marker.MARKER_SOF2,
-            jpeg.marker.MARKER_SOF3,
-            jpeg.marker.MARKER_SOF5,
-            jpeg.marker.MARKER_SOF6,
-            jpeg.marker.MARKER_SOF7,
-            jpeg.marker.MARKER_SOF9,
-            jpeg.marker.MARKER_SOF10,
-            jpeg.marker.MARKER_SOF11,
-            jpeg.marker.MARKER_SOF13,
-            jpeg.marker.MARKER_SOF14,
-            jpeg.marker.MARKER_SOF15,
-            jpeg.marker.MARKER_SOF55,
-            jpeg.marker.MARKER_SOF57,
+            jpeg.marker.Marker.SOF0,
+            jpeg.marker.Marker.SOF1,
+            jpeg.marker.Marker.SOF2,
+            jpeg.marker.Marker.SOF3,
+            jpeg.marker.Marker.SOF5,
+            jpeg.marker.Marker.SOF6,
+            jpeg.marker.Marker.SOF7,
+            jpeg.marker.Marker.SOF9,
+            jpeg.marker.Marker.SOF10,
+            jpeg.marker.Marker.SOF11,
+            jpeg.marker.Marker.SOF13,
+            jpeg.marker.Marker.SOF14,
+            jpeg.marker.Marker.SOF15,
+            jpeg.marker.Marker.SOF55,
+            jpeg.marker.Marker.SOF57,
         )
-        n = marker - jpeg.marker.MARKER_SOF0
+        n = marker - jpeg.marker.Marker.SOF0
         length = reader.read_u16()
         assert length >= 8
         precision = reader.read_u8()

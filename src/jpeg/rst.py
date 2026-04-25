@@ -1,4 +1,4 @@
-from jpeg.marker import MARKER_RST0
+import jpeg.marker
 
 
 class Restart:
@@ -6,12 +6,12 @@ class Restart:
         self.index = index
 
     def encode(self, writer):
-        writer.write_marker(MARKER_RST0 + self.index)
+        writer.write_marker(jpeg.marker.Marker.RST0 + self.index)
 
     def decode(reader):
         marker = reader.read_marker()
-        assert marker >= MARKER_RST0 and marker <= MARKER_RST7
-        return Restart(marker - MARKER_RST0)
+        assert marker >= jpeg.marker.Marker.RST0 and marker <= jpeg.marker.Marker.RST7
+        return Restart(marker - jpeg.marker.Marker.RST0)
 
     def __repr__(self):
         return f"Restart({self.index})"
