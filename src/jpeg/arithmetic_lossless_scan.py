@@ -97,13 +97,13 @@ class Encoder(jpeg.arithmetic_scan.Encoder):
             xstates = self.small_xstates
             mstates = self.small_mstates
         self.write_dc(
+            data_unit,
             self.non_zero[c],
             self.sign[c],
             self.sp[c],
             self.sn[c],
             xstates,
             mstates,
-            data_unit,
         )
 
 

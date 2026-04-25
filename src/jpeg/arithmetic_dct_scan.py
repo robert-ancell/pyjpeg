@@ -111,13 +111,13 @@ class Encoder(jpeg.arithmetic_scan.Encoder):
             prev_dc_diff = self.prev_dc_diff.get(component_index, 0)
             c = jpeg.arithmetic_scan.classify_dc(conditioning_bounds, prev_dc_diff)
             self.write_dc(
+                dc_diff,
                 self.dc_non_zero[c],
                 self.dc_sign[c],
                 self.dc_sp[c],
                 self.dc_sn[c],
                 self.dc_xstates,
                 self.dc_mstates,
-                dc_diff,
             )
             self.prev_dc[component_index] = dc
             self.prev_dc_diff[component_index] = dc_diff
@@ -150,10 +150,10 @@ class Encoder(jpeg.arithmetic_scan.Encoder):
                 xstates = self.ac_high_xstates
                 mstates = self.ac_high_mstates
             self.write_ac(
+                jpeg.dct.transform_coefficient(data_unit[k], self.point_transform),
                 self.ac_sn_sp_x1[k - 1],
                 xstates,
                 mstates,
-                jpeg.dct.transform_coefficient(data_unit[k], self.point_transform),
             )
             k += 1
 

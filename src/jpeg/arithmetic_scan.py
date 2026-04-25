@@ -34,7 +34,7 @@ class Encoder:
     def __init__(self):
         self.encoder = jpeg.arithmetic.Encoder()
 
-    def write_dc(self, non_zero, sign, sp, sn, xstates, mstates, dc_diff):
+    def write_dc(self, dc_diff, non_zero, sign, sp, sn, xstates, mstates):
         if dc_diff == 0:
             self.encoder.write_bit(non_zero, 0)
             return
@@ -69,7 +69,7 @@ class Encoder:
             bit = (v >> i) & 0x1
             self.encoder.write_bit(mstates[width - 2], bit)
 
-    def write_ac(self, sn_sp_x1, xstates, mstates, ac):
+    def write_ac(self, ac, sn_sp_x1, xstates, mstates):
         assert ac != 0
 
         if ac > 0:
@@ -174,8 +174,8 @@ if __name__ == "__main__":
     ac_sn_sp_x1 = jpeg.arithmetic.State()
     ac_xstates = [jpeg.arithmetic.State() for _ in range(16)]
     ac_mstates = [jpeg.arithmetic.State() for _ in range(16)]
-    encoder.write_dc(dc_non_zero, dc_sign, dc_sp, dc_sn, dc_xstates, dc_mstates, 123)
-    encoder.write_ac(ac_sn_sp_x1, ac_xstates, ac_mstates, 55)
+    encoder.write_dc(123, dc_non_zero, dc_sign, dc_sp, dc_sn, dc_xstates, dc_mstates)
+    encoder.write_ac(55, ac_sn_sp_x1, ac_xstates, ac_mstates)
 
     dc_non_zero = jpeg.arithmetic.State()
     dc_sign = jpeg.arithmetic.State()
