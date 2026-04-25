@@ -28,7 +28,7 @@ class HuffmanLosslessScan:
                     self.samples[i * len(self.components) + component_index]
                 )
             data_units.append(
-                jpeg.lossless.make_data_units(
+                jpeg.lossless.encode(
                     self.samples_per_line,
                     component_samples,
                     precision=self.precision,

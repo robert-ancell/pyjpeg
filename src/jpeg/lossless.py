@@ -18,7 +18,7 @@ def predict(predictor, a, b, c):
         raise Exception("Unknown predictor")
 
 
-def make_data_units(width, samples, precision=8, predictor=1):
+def encode(width, samples, precision=8, predictor=1):
     data_units = []
     height = len(samples) // width
     for y in range(height):
@@ -33,7 +33,7 @@ def make_data_units(width, samples, precision=8, predictor=1):
     return data_units
 
 
-def get_samples(width, data_units, precision=8, predictor=1):
+def decode(width, data_units, precision=8, predictor=1):
     samples = []
     height = len(data_units) // width
     for y in range(height):
@@ -72,6 +72,6 @@ if __name__ == "__main__":
 
     for predictor in [1, 2, 3, 4, 5, 6, 7]:
         samples = [random.randint(0, 255) for _ in range(64)]
-        data_units = make_data_units(8, samples, predictor=predictor)
-        samples2 = get_samples(8, data_units, predictor=predictor)
+        data_units = encode(8, samples, predictor=predictor)
+        samples2 = decode(8, data_units, predictor=predictor)
         assert samples == samples2
