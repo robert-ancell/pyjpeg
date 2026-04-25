@@ -103,58 +103,59 @@ class Encoder(jpeg.arithmetic_scan.Encoder):
         self, component_index, data_unit, conditioning_bounds=(0, 1), kx=5
     ):
         k = self.spectral_selection[0]
+
+        # Write DC coefficient
+        if k == 0:
+            dc = jpeg.dct.transform_coefficient(data_unit[k], self.point_transform)
+            dc_diff = dc - self.prev_dc.get(component_index, 0)
+            prev_dc_diff = self.prev_dc_diff.get(component_index, 0)
+            c = jpeg.arithmetic_scan.classify_dc(conditioning_bounds, prev_dc_diff)
+            self.write_dc(
+                self.dc_non_zero[c],
+                self.dc_sign[c],
+                self.dc_sp[c],
+                self.dc_sn[c],
+                self.dc_xstates,
+                self.dc_mstates,
+                dc_diff,
+            )
+            self.prev_dc[component_index] = dc
+            self.prev_dc_diff[component_index] = dc_diff
+            k += 1
+
+        # Write AC coefficients
         while k <= self.spectral_selection[1]:
-            if k == 0:
-                dc = jpeg.dct.transform_coefficient(data_unit[k], self.point_transform)
-                dc_diff = dc - self.prev_dc.get(component_index, 0)
-                prev_dc_diff = self.prev_dc_diff.get(component_index, 0)
-                c = jpeg.arithmetic_scan.classify_dc(conditioning_bounds, prev_dc_diff)
-                self.write_dc(
-                    self.dc_non_zero[c],
-                    self.dc_sign[c],
-                    self.dc_sp[c],
-                    self.dc_sn[c],
-                    self.dc_xstates,
-                    self.dc_mstates,
-                    dc_diff,
+            run_length = 0
+            while (
+                k + run_length <= self.spectral_selection[1]
+                and jpeg.dct.transform_coefficient(
+                    data_unit[k + run_length], self.point_transform
                 )
-                self.prev_dc[component_index] = dc
-                self.prev_dc_diff[component_index] = dc_diff
-                k += 1
+                == 0
+            ):
+                run_length += 1
+            if k + run_length > self.spectral_selection[1]:
+                self.encoder.write_bit(self.ac_end_of_block[k - 1], 1)
+                k += run_length
             else:
-                run_length = 0
-                while (
-                    k + run_length <= self.spectral_selection[1]
-                    and jpeg.dct.transform_coefficient(
-                        data_unit[k + run_length], self.point_transform
-                    )
-                    == 0
-                ):
-                    run_length += 1
-                if k + run_length > self.spectral_selection[1]:
-                    self.encoder.write_bit(self.ac_end_of_block[k - 1], 1)
-                    k += run_length
-                else:
-                    self.encoder.write_bit(self.ac_end_of_block[k - 1], 0)
-                    for _ in range(run_length):
-                        self.encoder.write_bit(self.ac_non_zero[k - 1], 0)
-                        k += 1
-                    self.encoder.write_bit(self.ac_non_zero[k - 1], 1)
-                    if k <= kx:
-                        xstates = self.ac_low_xstates
-                        mstates = self.ac_low_mstates
-                    else:
-                        xstates = self.ac_high_xstates
-                        mstates = self.ac_high_mstates
-                    self.write_ac(
-                        self.ac_sn_sp_x1[k - 1],
-                        xstates,
-                        mstates,
-                        jpeg.dct.transform_coefficient(
-                            data_unit[k], self.point_transform
-                        ),
-                    )
+                self.encoder.write_bit(self.ac_end_of_block[k - 1], 0)
+                for _ in range(run_length):
+                    self.encoder.write_bit(self.ac_non_zero[k - 1], 0)
                     k += 1
+                self.encoder.write_bit(self.ac_non_zero[k - 1], 1)
+                if k <= kx:
+                    xstates = self.ac_low_xstates
+                    mstates = self.ac_low_mstates
+                else:
+                    xstates = self.ac_high_xstates
+                    mstates = self.ac_high_mstates
+                self.write_ac(
+                    self.ac_sn_sp_x1[k - 1],
+                    xstates,
+                    mstates,
+                    jpeg.dct.transform_coefficient(data_unit[k], self.point_transform),
+                )
+                k += 1
 
 
 class Decoder(jpeg.arithmetic_scan.Decoder):
