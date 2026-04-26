@@ -39,8 +39,7 @@ class Encoder:
         if symbol_frequencies is not None:
             symbol_frequencies[symbol] += 1
         if encoder is not None:
-            for bit in encoder.encode(symbol):
-                self.writer.write_bit(bit)
+            self.writer.write_bits(encoder.encode(symbol))
 
     # Get the number of bits required to write the magnitude
     def _get_magnitude_length(self, magnitude):

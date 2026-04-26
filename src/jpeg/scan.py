@@ -14,6 +14,10 @@ class Writer:
             self.data = 0
             self.bit_count = 0
 
+    def write_bits(self, bits):
+        for bit in bits:
+            self.write_bit(bit)
+
     def flush(self, pad_bit=1):
         if self.bit_count == 0:
             return

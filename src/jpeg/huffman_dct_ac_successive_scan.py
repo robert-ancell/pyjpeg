@@ -1,5 +1,6 @@
 import jpeg.dct
 import jpeg.huffman
+import jpeg.scan
 
 
 class HuffmanDCTACSuccessiveScan:
@@ -16,6 +17,8 @@ class HuffmanDCTACSuccessiveScan:
         self.point_transform = point_transform
 
     def encode(self, writer, symbol_frequencies=None):
+        scan_writer = jpeg.scan.Writer(writer)
+
         def get_bits(value, length):
             bits = []
             for i in range(length):
@@ -43,7 +46,6 @@ class HuffmanDCTACSuccessiveScan:
             return encoder.encode(symbol)
 
         encoder = jpeg.huffman.Encoder(self.table)
-        scan_data = []
         correction_bits = [[]]
         eob_count = 0
         eob_correction_bits = []
@@ -68,31 +70,31 @@ class HuffmanDCTACSuccessiveScan:
                     else:
                         if eob_count > 0:
                             eob_bits = encode_eob(eob_count)
-                            scan_data.extend(
-                                encode_symbol(
-                                    encoder,
-                                    len(eob_bits) << 4 | 0,
-                                )
-                            )
-                            scan_data.extend(eob_bits)
-                            scan_data.extend(eob_correction_bits)
+                            for bit in encode_symbol(encoder, len(eob_bits) << 4 | 0):
+                                scan_writer.write_bit(bit)
+                            for bit in eob_bits:
+                                scan_writer.write_bit(bit)
+                            for bit in eob_correction_bits:
+                                scan_writer.write_bit(bit)
                             eob_count = 0
                             eob_correction_bits = []
 
                         while run_length > 15:
                             # ZRL
-                            scan_data.extend(encode_symbol(encoder, 15 << 4 | 0))
-                            scan_data.extend(correction_bits[0])
+                            scan_writer.write_bits(encode_symbol(encoder, 15 << 4 | 0))
+                            scan_writer.write_bits(correction_bits[0])
                             run_length -= 16
                             correction_bits = correction_bits[1:]
                         assert len(correction_bits) == 1
 
-                        scan_data.extend(encode_symbol(encoder, run_length << 4 | 1))
+                        scan_writer.write_bits(
+                            encode_symbol(encoder, run_length << 4 | 1)
+                        )
                         if transformed_coefficient < 0:
-                            scan_data.append(0)
+                            scan_writer.write_bit(0)
                         else:
-                            scan_data.append(1)
-                        scan_data.extend(correction_bits[0])
+                            scan_writer.write_bit(1)
+                        scan_writer.write_bits(correction_bits[0])
                         run_length = 0
                         correction_bits = [[]]
                 else:
@@ -111,22 +113,8 @@ class HuffmanDCTACSuccessiveScan:
 
         if eob_count > 0:
             eob_bits = encode_eob(eob_count)
-            scan_data.extend(encode_symbol(encoder, len(eob_bits) << 4 | 0))
-            scan_data.extend(eob_bits)
-            scan_data.extend(eob_correction_bits)
+            scan_writer.write_bits(encode_symbol(encoder, len(eob_bits) << 4 | 0))
+            scan_writer.write_bits(eob_bits)
+            scan_writer.write_bits(eob_correction_bits)
 
-        writer.write(_encode_scan_data(scan_data))
-
-
-# FIXME: Make common
-def _encode_scan_data(scan_data):
-    while len(scan_data) % 8 != 0:
-        scan_data.append(0)
-
-    data = b""
-    while len(scan_data) > 0:
-        byte = 0
-        for _ in range(8):
-            byte = byte << 1 | scan_data.pop(0)
-        data += bytes(byte)
-    return data
+        scan_writer.flush(pad_bit=1)
