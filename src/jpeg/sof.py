@@ -3,34 +3,55 @@ import jpeg.stream
 
 
 class FrameComponent:
-    def __init__(self, id, sampling_factor, quantization_table_index):
+    def __init__(self, id: int, sampling_factor: tuple, quantization_table_index: int):
         self.id = id
         self.sampling_factor = sampling_factor
         self.quantization_table_index = quantization_table_index
 
-    def dct(id, sampling_factor=(1, 1), quantization_table_index=0):
+    def dct(
+        id: int, sampling_factor: tuple = (1, 1), quantization_table_index: int = 0
+    ):
         return FrameComponent(id, sampling_factor, quantization_table_index)
 
-    def lossless(id, sampling_factor=(1, 1)):
+    def lossless(id, sampling_factor: tuple = (1, 1)):
         return FrameComponent(id, sampling_factor, 0)
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, FrameComponent)
+            and other.id == self.id
+            and other.sampling_factor == self.sampling_factor
+            and other.quantization_table_index == self.quantization_table_index
+        )
 
     def __repr__(self):
         return f"FrameComponent({self.id}, {self.sampling_factor}, {self.quantization_table_index})"
 
 
 class StartOfFrame:
-    def __init__(self, n, precision, number_of_lines, samples_per_line, components):
+    def __init__(
+        self,
+        n: int,
+        precision: int,
+        number_of_lines: int,
+        samples_per_line: int,
+        components,
+    ):
         self.n = n
         self.precision = precision
         self.number_of_lines = number_of_lines
         self.samples_per_line = samples_per_line
         self.components = components
 
-    def baseline(number_of_lines, samples_per_line, components):
+    def baseline(number_of_lines: int, samples_per_line: int, components):
         return StartOfFrame(0, 8, number_of_lines, samples_per_line, components)
 
     def extended(
-        number_of_lines, samples_per_line, components, precision=8, arithmetic=False
+        number_of_lines: int,
+        samples_per_line: int,
+        components,
+        precision: int = 8,
+        arithmetic: bool = False,
     ):
         if arithmetic:
             n = 9
@@ -39,7 +60,11 @@ class StartOfFrame:
         return StartOfFrame(n, precision, number_of_lines, samples_per_line, components)
 
     def progressive(
-        number_of_lines, samples_per_line, components, precision=8, arithmetic=False
+        number_of_lines: int,
+        samples_per_line: int,
+        components,
+        precision: int = 8,
+        arithmetic: bool = False,
     ):
         if arithmetic:
             n = 10
@@ -48,7 +73,11 @@ class StartOfFrame:
         return StartOfFrame(n, precision, number_of_lines, samples_per_line, components)
 
     def lossless(
-        number_of_lines, samples_per_line, components, precision=8, arithmetic=False
+        number_of_lines: int,
+        samples_per_line: int,
+        components,
+        precision: int = 8,
+        arithmetic: bool = False,
     ):
         if arithmetic:
             n = 11
@@ -128,3 +157,25 @@ class StartOfFrame:
             return f"StartOfFrame.lossless({self.number_of_lines}, {self.samples_per_line}, {self.components}, precision={self.precision}, arithmetic={self.n == 11})"
         else:
             return f"StartOfFrame({self.n}, {self.precision}, {self.number_of_lines}, {self.samples_per_line}, {self.components})"
+
+
+if __name__ == "__main__":
+    writer = jpeg.stream.BufferedWriter()
+    StartOfFrame(
+        10, 8, 480, 640, [FrameComponent(42, (1, 2), 0), FrameComponent(43, (2, 3), 1)]
+    ).encode(writer)
+    assert (
+        writer.data
+        == b"\xff\xca\x00\x0e\x08\x01\xe0\x02\x80\x02\x2a\x12\x00\x2b\x23\x01"
+    )
+
+    reader = jpeg.stream.BufferedReader(writer.data)
+    sof = StartOfFrame.decode(reader)
+    assert sof.n == 10
+    assert sof.precision == 8
+    assert sof.number_of_lines == 480
+    assert sof.samples_per_line == 640
+    assert sof.components == [
+        FrameComponent(42, (1, 2), 0),
+        FrameComponent(43, (2, 3), 1),
+    ]
