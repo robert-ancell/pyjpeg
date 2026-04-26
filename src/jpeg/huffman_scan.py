@@ -67,13 +67,13 @@ class Decoder:
         self.reader = jpeg.scan.Reader(reader)
 
     def read_dc(self, decoder):
-        length = decoder.decode2(self.reader)
+        length = decoder.read_symbol(self.reader)
         assert length <= 15
         dc_diff = self._read_magnitude(length)
         return dc_diff
 
     def read_ac(self, decoder):
-        run_length_and_length = decoder.decode2(self.reader)
+        run_length_and_length = decoder.read_symbol(self.reader)
         run_length = run_length_and_length >> 4
         length = run_length_and_length & 0xF
         return (run_length, self._read_magnitude(length))

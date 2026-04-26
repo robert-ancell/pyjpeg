@@ -107,22 +107,7 @@ class Decoder:
                 # FIXME: Handle overflow
             code <<= 1
 
-    def decode(self, code):
-        symbol_tree = self.symbol_tree
-        length = 0
-        for bit in code:
-            symbol = symbol_tree[bit]
-            length += 1
-            if symbol is None:
-                raise Exception("Unknown Huffman Code")
-            elif isinstance(symbol, int):
-                # FIXME: Check have used all bits
-                return (length, symbol)
-            else:
-                symbol_tree = symbol
-
-    # FIXME: Replace decode()
-    def decode2(self, reader):
+    def read_symbol(self, reader):
         symbol_tree = self.symbol_tree
         while True:
             bit = reader.read_bit()
@@ -299,4 +284,4 @@ if __name__ == "__main__":
     decoder = Decoder(table)
     for length, symbols in enumerate(table):
         for symbol in symbols:
-            assert decoder.decode2(scan_reader) == symbol
+            assert decoder.read_symbol(scan_reader) == symbol
