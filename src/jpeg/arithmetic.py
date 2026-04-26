@@ -135,9 +135,9 @@ class Encoder:
     # Encodes [value] using [state].
     def write_bit(self, state, value):
         if value == state.mps:
-            self.encode_mps(state)
+            self._encode_mps(state)
         else:
-            self.encode_lps(state)
+            self._encode_lps(state)
 
     # Encodes [value] using fixed probability (0.5).
     def write_fixed_bit(self, value):
@@ -154,10 +154,10 @@ class Encoder:
         self.c = t
 
         self.c <<= self.ct
-        self.byte_out()
+        self._byte_out()
 
         self.c <<= 8
-        self.byte_out()
+        self._byte_out()
 
         # Discard final zeros
         while len(self.data) > 0 and self.data[-1] == 0:
@@ -165,7 +165,7 @@ class Encoder:
         if len(self.data) > 0 and self.data[-1] == 0xFF:
             self.data.append(0x00)
 
-    def encode_mps(self, state):
+    def _encode_mps(self, state):
         (qe, _, mps_next_index, _) = states[state.index]
         self.a -= qe
         if self.a >= 0x8000:
@@ -175,37 +175,37 @@ class Encoder:
             self.c += self.a
             self.a = qe
 
-        self.renormalize()
+        self._renormalize()
 
         state.index = mps_next_index
 
-    def encode_lps(self, state):
+    def _encode_lps(self, state):
         (qe, lps_next_index, _, switch_mps) = states[state.index]
         self.a -= qe
         if self.a >= qe:
             self.c += self.a
             self.a = qe
 
-        self.renormalize()
+        self._renormalize()
 
         if switch_mps:
             state.mps ^= 0x1
         state.index = lps_next_index
 
-    def renormalize(self):
+    def _renormalize(self):
         while True:
             self.a <<= 1
             self.c <<= 1
             self.ct -= 1
 
             if self.ct == 0:
-                self.byte_out()
+                self._byte_out()
                 self.ct = 8
 
             if self.a >= 0x8000:
                 return
 
-    def byte_out(self):
+    def _byte_out(self):
         t = self.c >> 19
         if t > 0xFF:
             self.data[-1] += 1
@@ -215,20 +215,26 @@ class Encoder:
                 self.data.append(0x00)
 
             # Output stacked zeros
-            self.data.extend([0x00] * self.st)
+            for _ in range(self.st):
+                self._write_byte(0)
             self.st = 0
 
-            self.data.append(t & 0xFF)
+            self._write_byte(t & 0xFF)
         elif t == 0xFF:
             self.st += 1
         else:
             # Output stacked ffs
-            self.data.extend([0xFF, 0x00] * self.st)
+            for _ in range(self.st):
+                self._write_byte(0xFF)
             self.st = 0
-
             self.data.append(t)
 
         self.c &= 0x7FFFF
+
+    def _write_byte(self, value):
+        self.data.append(value)
+        if value == 0xFF:
+            self.data.append(0x00)
 
 
 class Decoder:
@@ -239,9 +245,9 @@ class Decoder:
         self.a = 0
         self.c = 0
 
-        self.byte_in()
+        self._byte_in()
         self.c = self.d << 8
-        self.byte_in()
+        self._byte_in()
         self.c |= self.d
         self.d = 0
 
@@ -250,20 +256,20 @@ class Decoder:
         self.a = (self.a - qe) & 0xFFFF
         if self.c < self.a:
             if self.a < 0x8000:
-                bit = self.cond_mps_exchange(state)
-                self.renormalize()
+                bit = self._cond_mps_exchange(state)
+                self._renormalize()
             else:
                 bit = state.mps
         else:
-            bit = self.cond_lps_exchange(state)
-            self.renormalize()
+            bit = self._cond_lps_exchange(state)
+            self._renormalize()
         return bit
 
     def read_fixed_bit(self):
         # Default state is 0.5
         return self.read_bit(State())
 
-    def cond_mps_exchange(self, state):
+    def _cond_mps_exchange(self, state):
         (qe, lps_next_index, mps_next_index, switch_mps) = states[state.index]
         if self.a < qe:
             bit = state.mps ^ 0x1
@@ -275,7 +281,7 @@ class Decoder:
             state.index = mps_next_index
         return bit
 
-    def cond_lps_exchange(self, state):
+    def _cond_lps_exchange(self, state):
         (qe, lps_next_index, mps_next_index, switch_mps) = states[state.index]
         self.c -= self.a
         if self.a < qe:
@@ -289,10 +295,10 @@ class Decoder:
         self.a = qe
         return bit
 
-    def renormalize(self):
+    def _renormalize(self):
         while True:
             if self.ct == 16:
-                self.byte_in()
+                self._byte_in()
             self.a <<= 1
             self.c <<= 1
             self.c |= self.d >> 7
@@ -303,7 +309,7 @@ class Decoder:
             if self.a >= 0x8000:
                 return
 
-    def byte_in(self):
+    def _byte_in(self):
         # Trailing zeros
         if len(self.data) == 0:
             self.d = 0
