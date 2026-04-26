@@ -238,8 +238,8 @@ class Encoder:
 
 
 class Decoder:
-    def __init__(self, data):
-        self.data = data
+    def __init__(self, reader):
+        self.reader = reader
         self.d = 0
         self.ct = 0
         self.a = 0
@@ -310,18 +310,23 @@ class Decoder:
                 return
 
     def _byte_in(self):
-        # Trailing zeros
-        if len(self.data) == 0:
+        try:
+            if self.reader.peek(1)[0] == 0xFF:
+                if self.reader.peek(2)[1] == 0:
+                    self.d = self.reader.read_u8()
+                    self.reader.read_u8()
+                else:
+                    self.d = 0
+            else:
+                self.d = self.reader.read_u8()
+        except EOFError:
             self.d = 0
-            self.ct += 8
-            return
-
-        self.d = self.data[0]
         self.ct += 8
-        self.data = self.data[1:]
 
 
 if __name__ == "__main__":
+    import jpeg.reader
+
     data = [
         0x00,
         0x02,
@@ -377,16 +382,8 @@ if __name__ == "__main__":
         to_hex(e.data) == "655B5144F7969D517855BFFF00FC5184C7CEF93900287D46708ECBC0F6"
     )
 
-    d_data = []
-    i = 0
-    while i < len(e.data):
-        if e.data[i] == 0xFF and e.data[i + 1] == 0:
-            d_data.append(0xFF)
-            i += 2
-        else:
-            d_data.append(e.data[i])
-            i += 1
-    d = Decoder(d_data)
+    reader = jpeg.reader.BufferedReader(e.data)
+    d = Decoder(reader)
     state = State()
     decoded_data = []
     for _ in range(len(bits) // 8):

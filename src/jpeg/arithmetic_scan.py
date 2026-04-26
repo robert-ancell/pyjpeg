@@ -113,8 +113,8 @@ class Encoder:
 
 
 class Decoder:
-    def __init__(self, data):
-        self.decoder = jpeg.arithmetic.Decoder(data)
+    def __init__(self, reader):
+        self.decoder = jpeg.arithmetic.Decoder(reader)
 
     def read_dc(self, non_zero, sign, sp, sn, xstates, mstates):
         if self.decoder.read_bit(non_zero) == 0:
@@ -166,6 +166,8 @@ class Decoder:
 
 
 if __name__ == "__main__":
+    import jpeg.reader
+
     encoder = Encoder()
     dc_non_zero = jpeg.arithmetic.State()
     dc_sign = jpeg.arithmetic.State()
@@ -188,7 +190,8 @@ if __name__ == "__main__":
     ac_sn_sp_x1 = jpeg.arithmetic.State()
     ac_xstates = [jpeg.arithmetic.State() for _ in range(16)]
     ac_mstates = [jpeg.arithmetic.State() for _ in range(16)]
-    decoder = Decoder(encoder.get_data())
+    reader = jpeg.reader.BufferedReader(encoder.get_data())
+    decoder = Decoder(reader)
     dc = decoder.read_dc(dc_non_zero, dc_sign, dc_sp, dc_sn, dc_xstates, dc_mstates)
     ac = decoder.read_ac(ac_sn_sp_x1, ac_xstates, ac_mstates)
     assert dc == 123

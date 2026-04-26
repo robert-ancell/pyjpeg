@@ -335,7 +335,8 @@ class ArithmeticScanDecoder(ScanDecoder):
         scan_data,
     ):
         super().__init__(frame_components, scan_components)
-        self.decoder = jpeg.arithmetic.Decoder(scan_data)
+        reader = jpeg.reader.BufferedReader(scan_data)
+        self.decoder = jpeg.arithmetic.Decoder(reader)
 
     def read_dc(self, non_zero, sign, sp, sn, xstates, mstates):
         if self.decoder.read_bit(non_zero) == 0:
