@@ -131,6 +131,7 @@ class Encoder:
         self.st = 0
         # FIXME: Replace with writer
         self.data = []
+        self.data_ = None
 
     # Encodes [value] using [state].
     def write_bit(self, state, value):
@@ -158,6 +159,8 @@ class Encoder:
 
         self.c <<= 8
         self._byte_out()
+
+        self._write_byte(self.data_)
 
         # Discard final zeros
         while len(self.data) > 0 and self.data[-1] == 0:
@@ -208,26 +211,26 @@ class Encoder:
     def _byte_out(self):
         t = self.c >> 19
         if t > 0xFF:
-            self.data[-1] += 1
-
-            # Stuff zero
-            if self.data[-1] == 0xFF:
-                self.data.append(0x00)
+            self.data_ += 1
+            self._write_byte(self.data_)
 
             # Output stacked zeros
             for _ in range(self.st):
                 self._write_byte(0)
             self.st = 0
 
-            self._write_byte(t & 0xFF)
+            self.data_ = t & 0xFF
         elif t == 0xFF:
             self.st += 1
         else:
+            if self.data_ is not None:
+                self._write_byte(self.data_)
+
             # Output stacked ffs
             for _ in range(self.st):
                 self._write_byte(0xFF)
             self.st = 0
-            self.data.append(t)
+            self.data_ = t
 
         self.c &= 0x7FFFF
 
