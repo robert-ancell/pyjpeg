@@ -336,51 +336,51 @@ class ArithmeticScanDecoder(ScanDecoder):
     ):
         super().__init__(frame_components, scan_components)
         reader = jpeg.stream.BufferedReader(scan_data)
-        self.decoder = jpeg.arithmetic.Decoder(reader)
+        self.reader = jpeg.arithmetic.Reader(reader)
 
     def read_dc(self, non_zero, sign, sp, sn, xstates, mstates):
-        if self.decoder.read_bit(non_zero) == 0:
+        if self.reader.read_bit(non_zero) == 0:
             return 0
 
-        if self.decoder.read_bit(sign) == 0:
+        if self.reader.read_bit(sign) == 0:
             mag_state = sp
             dc_sign = 1
         else:
             mag_state = sn
             dc_sign = -1
-        if self.decoder.read_bit(mag_state) == 0:
+        if self.reader.read_bit(mag_state) == 0:
             return sign
 
         # FIXME: Set max width to not run off end of array
         width = 1
-        while self.decoder.read_bit(xstates[width]) == 1:
+        while self.reader.read_bit(xstates[width]) == 1:
             width += 1
 
         magnitude = 1
         for _ in range(width - 1):
-            magnitude = magnitude << 1 | self.decoder.read_bit(mstates[width - 2])
+            magnitude = magnitude << 1 | self.reader.read_bit(mstates[width - 2])
         magnitude += 1
 
         return dc_sign * magnitude
 
     def read_ac(self, sn_sp_x1, xstates, mstates):
-        if self.decoder.read_fixed_bit() == 0:
+        if self.reader.read_fixed_bit() == 0:
             sign = 1
         else:
             sign = -1
 
-        if self.decoder.read_bit(sn_sp_x1) == 0:
+        if self.reader.read_bit(sn_sp_x1) == 0:
             return sign
 
         width = 1
-        if self.decoder.read_bit(sn_sp_x1) == 1:
+        if self.reader.read_bit(sn_sp_x1) == 1:
             width += 1
-            while self.decoder.read_bit(xstates[width - 2]) == 1:
+            while self.reader.read_bit(xstates[width - 2]) == 1:
                 width += 1
 
         magnitude = 1
         for _ in range(width - 1):
-            magnitude = magnitude << 1 | self.decoder.read_bit(mstates[width - 2])
+            magnitude = magnitude << 1 | self.reader.read_bit(mstates[width - 2])
         magnitude += 1
 
         return sign * magnitude
@@ -448,10 +448,10 @@ class ArithmeticDCTScanDecoder(ArithmeticScanDecoder):
                 data_unit[0] = dc_diff  # FIXME: prev_dc
                 k += 1
             else:
-                if self.decoder.read_bit(self.ac_end_of_block[k - 1]) == 1:
+                if self.reader.read_bit(self.ac_end_of_block[k - 1]) == 1:
                     k = self.spectral_selection[1] + 1
                 else:
-                    while self.decoder.read_bit(self.ac_non_zero[k - 1]) == 0:
+                    while self.reader.read_bit(self.ac_non_zero[k - 1]) == 0:
                         k += 1
                     kx = self.kx[ac_table]
                     if k <= kx:
