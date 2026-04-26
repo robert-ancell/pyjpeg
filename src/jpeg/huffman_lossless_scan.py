@@ -7,6 +7,12 @@ class HuffmanLosslessScanComponent:
     def __init__(self, table):
         self.table = table
 
+    def __eq__(self, other):
+        return (
+            isinstance(other, HuffmanLosslessScanComponent)
+            and other.table == self.table
+        )
+
 
 class HuffmanLosslessScan:
     def __init__(self, samples_per_line, samples, components, precision=8, predictor=1):
@@ -114,4 +120,12 @@ if __name__ == "__main__":
             )
         ],
     )
+    assert scan2.samples_per_line == 8
     assert scan2.samples == samples
+    assert scan2.components == [
+        HuffmanLosslessScanComponent(
+            jpeg.huffman_tables.standard_luminance_dc_huffman_table
+        )
+    ]
+    assert scan2.precision == 8
+    assert scan2.predictor == 1
