@@ -10,8 +10,8 @@ class Decoder:
         self.quantization_tables = [[1] * 64, [1] * 64, [1] * 64, [1] * 64]
         self.dc_arithmetic_conditioning_bounds = [(0, 1), (0, 1), (0, 1), (0, 1)]
         self.ac_arithmetic_kx = [5, 5, 5, 5]
-        self.dc_huffman_tables = [{}, {}, {}, {}]
-        self.ac_huffman_tables = [{}, {}, {}, {}]
+        self.dc_huffman_tables = [None, None, None, None]
+        self.ac_huffman_tables = [None, None, None, None]
         self.segments = []
         self.sof = None
         self.sos = None
@@ -31,47 +31,28 @@ class Decoder:
             return self.dnl.number_of_lines
         return self.sof.number_of_lines
 
-    def parse_dht(self, reader):
-        dht = jpeg.DefineHuffmanTables.decode(reader)
-        self.segments.append(dht)
-        for table in dht.tables:
-
-            def bitstring(code, length):
-                s = []
-                for i in range(length):
-                    s.append((code >> (length - i - 1)) & 0x1)
-                return tuple(s)
-
-            # FIXME: Do this later
-            codes_to_symbol = {}
-            code = 0
-            for i, symbols in enumerate(table.table):
-                for symbol in symbols:
-                    codes_to_symbol[bitstring(code, i + 1)] = symbol
-                    code += 1
-                code <<= 1
-
-            if table.table_class == 0:
-                self.dc_huffman_tables[table.destination] = codes_to_symbol
-            else:
-                self.ac_huffman_tables[table.destination] = codes_to_symbol
-
     def parse_scan(self, reader):
-        scan_data = []
-        while True:
-            b = reader.peek(1)[0]
-            if b == 0xFF:
-                if reader.peek(2)[1] != 0:
-                    break
-                reader.read_u8()
-                reader.read_u8()
-                scan_data.append(0xFF)
-            else:
-                scan_data.append(reader.read_u8())
+        assert self.sof is not None
+        assert self.sos is not None
 
         if self.is_lossless():
-            self.parse_lossless_scan(scan_data)
+            if self.is_arithmetic():
+                self.parse_arithmetic_lossless_scan(reader)
+            else:
+                self.parse_huffman_lossless_scan(reader)
         else:
+            # FIXME: Remove
+            scan_data = []
+            while True:
+                b = reader.peek(1)[0]
+                if b == 0xFF:
+                    if reader.peek(2)[1] != 0:
+                        break
+                    reader.read_u8()
+                    reader.read_u8()
+                    scan_data.append(0xFF)
+                else:
+                    scan_data.append(reader.read_u8())
             self.parse_dct_scan(scan_data)
 
     def parse_dct_scan(self, scan_data):
@@ -152,89 +133,44 @@ class Decoder:
             )
         self.segments.append(segment)
 
-    def parse_lossless_scan(self, scan_data):
-        assert self.sof is not None
-        assert self.sos is not None
-
-        if self.is_arithmetic():
-            scan_decoder = ArithmeticLosslessScanDecoder(
-                self.sof.components,
-                self.sos.components,
-                scan_data,
-                self.dc_arithmetic_conditioning_bounds,
-            )
-        else:
-            scan_decoder = HuffmanLosslessScanDecoder(
-                self.sof.components,
-                self.sos.components,
-                scan_data,
-                self.dc_huffman_tables,
-            )
-
-        samples = []
-        diffs = [0] * self.sof.samples_per_line
-        above_diffs = [0] * self.sof.samples_per_line
-        for y in range(self.sof.samples_per_line):
-            for x in range(self.number_of_lines()):
-                for component in self.sos.components:
-                    # First line uses fixed predictor since no samples above
-                    if y == 0:
-                        if x == 0:
-                            p = 1 << (self.sof.precision - 1)
-                        else:
-                            p = samples[-1]
-                    else:
-                        predictor = self.sos.ss
-                        a = b = c = 0
-                        b = samples[-self.sof.samples_per_line]
-                        if x == 0:
-                            # If on left edge, use the above value for prediction
-                            a = b
-                            c = b
-                        else:
-                            a = samples[-1]
-                            c = samples[-self.sof.samples_per_line - 1]
-                        p = jpeg.lossless.predict(predictor, a, b, c)
-
-                    if x == 0:
-                        left_diff = 0
-                    else:
-                        left_diff = diffs[x - 1]
-
-                    diff = scan_decoder.read_data_unit(
-                        component.dc_table, left_diff, above_diffs[x]
-                    )
-                    # FIXME: Clamp diff to 16 bit
-                    diffs[x] = diff
-                    samples.append(p + diff)
-            above_diffs = diffs
-            diffs = [0] * self.sof.samples_per_line
-        if self.is_arithmetic():
-            components = []
-            for component in self.sos.components:
-                components.append(
-                    jpeg.ArithmeticLosslessScanComponent(
-                        conditioning_bounds=self.dc_arithmetic_conditioning_bounds[
-                            component.dc_table
-                        ]
-                    )
-                )
-            self.segments.append(
-                jpeg.ArithmeticLosslessScan(
-                    self.sof.samples_per_line, samples, components
+    def parse_arithmetic_lossless_scan(self, reader):
+        components = []
+        for component in self.sos.components:
+            components.append(
+                jpeg.ArithmeticLosslessScanComponent(
+                    conditioning_bounds=self.dc_arithmetic_conditioning_bounds[
+                        component.dc_table
+                    ]
                 )
             )
-        else:
-            components = []
-            for component in self.sos.components:
-                components.append(
-                    jpeg.HuffmanLosslessScanComponent(
-                        table=self.dc_huffman_tables[component.dc_table]
-                    )
-                )
-            self.segments.append(
-                jpeg.HuffmanLosslessScan(self.sof.samples_per_line, samples, components)
+        self.segments.append(
+            jpeg.ArithmeticLosslessScan.decode(
+                reader,
+                self.sof.samples_per_line,
+                components,
+                number_of_lines=self.number_of_lines(),
+                precision=self.sof.precision,
+                predictor=self.sos.ss,
             )
+        )
+
+    def parse_huffman_lossless_scan(self, reader):
+        components = []
+        for component in self.sos.components:
+            components.append(
+                jpeg.HuffmanLosslessScanComponent(
+                    table=self.dc_huffman_tables[component.dc_table].table
+                )
+            )
+        self.segments.append(
+            jpeg.huffman_lossless_scan.HuffmanLosslessScan.decode(
+                reader,
+                self.sof.samples_per_line,
+                components,
+                precision=self.sof.precision,
+                predictor=self.sos.ss,
+            )
+        )
 
     def decode(self, reader):
         while True:
@@ -258,7 +194,13 @@ class Decoder:
                 self.segments.append(sof)
                 self.sof = sof
             elif marker == Marker.DHT:
-                self.parse_dht(reader)
+                dht = jpeg.DefineHuffmanTables.decode(reader)
+                self.segments.append(dht)
+                for table in dht.tables:
+                    if table.table_class == 0:
+                        self.dc_huffman_tables[table.destination] = table
+                    else:
+                        self.ac_huffman_tables[table.destination] = table
             elif marker == Marker.DAC:
                 self.segments.append(jpeg.DefineArithmeticConditioning.decode(reader))
             elif marker in (
@@ -277,7 +219,7 @@ class Decoder:
                 self.segments.append(jpeg.StartOfImage.decode(reader))
             elif marker == Marker.EOI:
                 self.segments.append(jpeg.EndOfImage.decode(reader))
-                break
+                return
             elif marker == Marker.DQT:
                 dqt = jpeg.DefineQuantizationTables.decode(reader)
                 self.segments.append(dqt)
@@ -467,56 +409,6 @@ class ArithmeticDCTScanDecoder(ArithmeticScanDecoder):
         return jpeg.dct.unzig_zag(data_unit)
 
 
-class ArithmeticLosslessScanDecoder(ArithmeticScanDecoder):
-    def __init__(
-        self,
-        frame_components,
-        scan_components,
-        scan_data,
-        conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
-    ):
-        super().__init__(
-            frame_components,
-            scan_components,
-            scan_data,
-        )
-
-        self.conditioning_bounds = conditioning_bounds
-
-        def make_states(count):
-            states = []
-            for _ in range(count):
-                states.append(jpeg.arithmetic.State())
-            return states
-
-        self.non_zero = make_states(25)
-        self.sign = make_states(25)
-        self.sp = make_states(25)
-        self.sn = make_states(25)
-        self.small_xstates = make_states(15)
-        self.large_xstates = make_states(15)
-        self.small_mstates = make_states(14)
-        self.large_mstates = make_states(14)
-
-    def read_data_unit(self, table, left_diff, above_diff):
-        conditioning_bounds = self.conditioning_bounds[table]
-        ca = jpeg.arithmetic_scan.classify_dc(conditioning_bounds, left_diff)
-        cb = jpeg.arithmetic_scan.classify_dc(conditioning_bounds, above_diff)
-        c = ca * 5 + cb
-        if (
-            cb == jpeg.arithmetic_scan.Classification.LARGE_POSITIVE
-            or cb == jpeg.arithmetic_scan.Classification.LARGE_NEGATIVE
-        ):
-            xstates = self.large_xstates
-            mstates = self.large_mstates
-        else:
-            xstates = self.small_xstates
-            mstates = self.small_mstates
-        return self.read_dc(
-            self.non_zero[c], self.sign[c], self.sp[c], self.sn[c], xstates, mstates
-        )
-
-
 class HuffmanScanDecoder(ScanDecoder):
     def __init__(
         self,
@@ -596,18 +488,3 @@ class HuffmanDCTScanDecoder(HuffmanScanDecoder):
                     data_unit[k] = ac
                     k += 1
         return jpeg.dct.unzig_zag(data_unit)
-
-
-class HuffmanLosslessScanDecoder(HuffmanScanDecoder):
-    def __init__(
-        self,
-        frame_components,
-        scan_components,
-        scan_data,
-        dc_tables=[{}, {}, {}, {}],
-    ):
-        super().__init__(frame_components, scan_components, scan_data)
-        self.dc_tables = dc_tables
-
-    def read_data_unit(self, table, left_diff, above_diff):
-        return self.read_dc(self.dc_tables[table])
