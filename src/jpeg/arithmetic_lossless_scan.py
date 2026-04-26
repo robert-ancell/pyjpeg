@@ -17,7 +17,7 @@ class ArithmeticLosslessScan:
         self.predictor = predictor
 
     def encode(self, writer):
-        encoder = Encoder(writer)
+        writer = Writer(writer)
 
         # FIXME: Store samples per component
         data_units = []
@@ -47,20 +47,20 @@ class ArithmeticLosslessScan:
                     component_data_units[i - self.samples_per_line] if y > 0 else 0
                 )
 
-                encoder.write_data_unit(
+                writer.write_data_unit(
                     self.components[component_index].conditioning_bounds,
                     left_data_unit,
                     above_data_unit,
                     data_unit,
                 )
 
-        encoder.flush()
+        writer.flush()
 
     def decode(reader, samples_per_line, components, precision=8, predictor=1):
-        decoder = Decoder(reader)
+        reader = Reader(reader)
         # FIXME
         return ArithmeticLosslessScan(
-            decoder.samples_per_line,
+            reader.samples_per_line,
             components,
             [],
             precision=precision,
@@ -68,9 +68,9 @@ class ArithmeticLosslessScan:
         )
 
 
-class Encoder(jpeg.arithmetic_scan.Encoder):
+class Writer:
     def __init__(self, writer):
-        super().__init__(writer)
+        self.writer = jpeg.arithmetic_scan.Writer(writer)
 
         def make_states(count):
             return [jpeg.arithmetic.State() for _ in range(count)]
@@ -97,7 +97,7 @@ class Encoder(jpeg.arithmetic_scan.Encoder):
         else:
             xstates = self.small_xstates
             mstates = self.small_mstates
-        self.write_dc(
+        self.writer.write_dc(
             data_unit,
             self.non_zero[c],
             self.sign[c],
@@ -107,10 +107,13 @@ class Encoder(jpeg.arithmetic_scan.Encoder):
             mstates,
         )
 
+    def flush(self):
+        self.writer.flush()
 
-class Decoder(jpeg.arithmetic_scan.Decoder):
+
+class Reader:
     def __init__(self, reader):
-        super().__init__(reader)
+        self.reader = jpeg.arithmetic_scan.Reader(reader)
 
         def make_states(self, count):
             return [jpeg.arithmetic.State() for _ in range(count)]
@@ -137,6 +140,6 @@ class Decoder(jpeg.arithmetic_scan.Decoder):
         else:
             xstates = self.small_xstates
             mstates = self.small_mstates
-        return self.read_dc(
+        return self.reader.read_dc(
             self.non_zero[c], self.sign[c], self.sp[c], self.sn[c], xstates, mstates
         )

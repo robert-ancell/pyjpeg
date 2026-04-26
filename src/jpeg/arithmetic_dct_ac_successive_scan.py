@@ -17,7 +17,7 @@ class ArithmeticDCTACSuccessiveScan:
             nonzero_states.append(jpeg.arithmetic.State())
             additional_states.append(jpeg.arithmetic.State())
 
-        encoder = jpeg.arithmetic.Encoder(writer)
+        writer = jpeg.arithmetic.Writer(writer)
         for data_unit in self.data_units:
             eob = self.spectral_selection[1] + 1
             while eob > self.spectral_selection[0]:
@@ -45,31 +45,31 @@ class ArithmeticDCTACSuccessiveScan:
             while k <= self.spectral_selection[1]:
                 if k >= eob_prev:
                     if k == eob:
-                        encoder.write_bit(eob_states[k - 1], 1)
+                        writer.write_bit(eob_states[k - 1], 1)
                         break
-                    encoder.write_bit(eob_states[k - 1], 0)
+                    writer.write_bit(eob_states[k - 1], 0)
 
                 # Encode run of zeros
                 while (
                     jpeg.dct.transform_coefficient(data_unit[k], self.point_transform)
                     == 0
                 ):
-                    encoder.write_bit(nonzero_states[k - 1], 0)
+                    writer.write_bit(nonzero_states[k - 1], 0)
                     k += 1
 
                 transformed_coefficient = jpeg.dct.transform_coefficient(
                     data_unit[k], self.point_transform
                 )
                 if transformed_coefficient < -1 or transformed_coefficient > 1:
-                    encoder.write_bit(
+                    writer.write_bit(
                         additional_states[k - 1], transformed_coefficient & 0x1
                     )
                 else:
-                    encoder.write_bit(nonzero_states[k - 1], 1)
+                    writer.write_bit(nonzero_states[k - 1], 1)
                     if transformed_coefficient < 0:
-                        encoder.write_fixed_bit(1)
+                        writer.write_fixed_bit(1)
                     else:
-                        encoder.write_fixed_bit(0)
+                        writer.write_fixed_bit(0)
                 k += 1
 
-        encoder.flush()
+        writer.flush()

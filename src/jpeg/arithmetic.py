@@ -123,7 +123,7 @@ class State:
         self.mps = 0
 
 
-class Encoder:
+class Writer:
     def __init__(self, writer):
         self.writer = writer
         self.a = 0x10000
@@ -239,7 +239,7 @@ class Encoder:
                 self.writer.write_u8(0x00)
 
 
-class Decoder:
+class Reader:
     def __init__(self, reader):
         self.reader = reader
         self.d = 0
@@ -370,7 +370,7 @@ if __name__ == "__main__":
             bits.append((d >> (7 - i)) & 0x1)
 
     writer = jpeg.writer.BufferedWriter()
-    e = Encoder(writer)
+    e = Writer(writer)
     state = State()
     for b in bits:
         e.write_bit(state, b)
@@ -388,7 +388,7 @@ if __name__ == "__main__":
     )
 
     reader = jpeg.reader.BufferedReader(writer.data)
-    d = Decoder(reader)
+    d = Reader(reader)
     state = State()
     decoded_data = []
     for _ in range(len(bits) // 8):

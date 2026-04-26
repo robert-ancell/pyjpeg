@@ -24,7 +24,7 @@ class ArithmeticDCTScan:
         self.point_transform = point_transform
 
     def encode(self, writer):
-        encoder = Encoder(
+        writer = Writer(
             writer,
             spectral_selection=self.spectral_selection,
             point_transform=self.point_transform,
@@ -38,7 +38,7 @@ class ArithmeticDCTScan:
                     * scan_component.sampling_factor[1]
                 ):
                     assert i < len(self.data_units)
-                    encoder.write_data_unit(
+                    writer.write_data_unit(
                         component_index,
                         self.data_units[i],
                         conditioning_bounds=scan_component.conditioning_bounds,
@@ -46,7 +46,7 @@ class ArithmeticDCTScan:
                     )
                     i += 1
 
-        encoder.flush()
+        writer.flush()
 
     def decode(
         reader,
@@ -55,7 +55,7 @@ class ArithmeticDCTScan:
         spectral_selection=(0, 63),
         point_transform=0,
     ):
-        decoder = Decoder(
+        reader = Reader(
             reader,
             spectral_selection=spectral_selection,
             point_transform=point_transform,
@@ -64,20 +64,20 @@ class ArithmeticDCTScan:
         return ArithmeticDCTScan(
             samples_per_line,
             components,
-            decoder.samples,
+            reader.samples,
             spectral_selection=spectral_selection,
             point_transform=point_transform,
         )
 
 
-class Encoder(jpeg.arithmetic_scan.Encoder):
+class Writer:
     def __init__(
         self,
         writer,
         spectral_selection=(0, 63),
         point_transform=0,
     ):
-        super().__init__(writer)
+        self.writer = jpeg.arithmetic_scan.Writer(writer)
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
         # FIXME: Get rid of these
@@ -113,7 +113,7 @@ class Encoder(jpeg.arithmetic_scan.Encoder):
             dc_diff = dc - self.prev_dc.get(component_index, 0)
             prev_dc_diff = self.prev_dc_diff.get(component_index, 0)
             c = jpeg.arithmetic_scan.classify_dc(conditioning_bounds, prev_dc_diff)
-            self.write_dc(
+            self.writer.write_dc(
                 dc_diff,
                 self.dc_non_zero[c],
                 self.dc_sign[c],
@@ -138,21 +138,19 @@ class Encoder(jpeg.arithmetic_scan.Encoder):
             ):
                 run_length += 1
             if k + run_length > self.spectral_selection[1]:
-                self.encoder.write_bit(self.ac_end_of_block[k - 1], 1)
+                self.writer.write_eob(self.ac_end_of_block[k - 1], True)
                 return
 
-            self.encoder.write_bit(self.ac_end_of_block[k - 1], 0)
-            for _ in range(run_length):
-                self.encoder.write_bit(self.ac_non_zero[k - 1], 0)
-                k += 1
-            self.encoder.write_bit(self.ac_non_zero[k - 1], 1)
+            self.writer.write_eob(self.ac_end_of_block[k - 1], False)
+            self.writer.write_zeros(self.ac_non_zero[k - 1 :], run_length)
+            k += run_length
             if k <= kx:
                 xstates = self.ac_low_xstates
                 mstates = self.ac_low_mstates
             else:
                 xstates = self.ac_high_xstates
                 mstates = self.ac_high_mstates
-            self.write_ac(
+            self.writer.write_ac(
                 jpeg.dct.transform_coefficient(data_unit[k], self.point_transform),
                 self.ac_sn_sp_x1[k - 1],
                 xstates,
@@ -160,15 +158,18 @@ class Encoder(jpeg.arithmetic_scan.Encoder):
             )
             k += 1
 
+    def flush(self):
+        self.writer.flush()
 
-class Decoder(jpeg.arithmetic_scan.Decoder):
+
+class Reader:
     def __init__(
         self,
         reader,
         spectral_selection=(0, 63),
         point_transform=0,
     ):
-        super().__init__(reader)
+        self.reader = jpeg.arithmetic_scan.Reader(reader)
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
 
