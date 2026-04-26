@@ -95,8 +95,10 @@ class Decoder:
 if __name__ == "__main__":
     import jpeg.huffman
     import jpeg.huffman_tables
+    import jpeg.writer
 
-    encoder = Encoder()
+    writer = jpeg.writer.BufferedWriter()
+    encoder = Encoder(writer)
     dc_encoder = jpeg.huffman.Encoder(
         jpeg.huffman_tables.standard_luminance_dc_huffman_table
     )
@@ -106,8 +108,9 @@ if __name__ == "__main__":
     encoder.write_dc(123, dc_encoder)
     encoder.write_ac(2, 55, ac_encoder)
     encoder.write_ac(0, -17, ac_encoder)
+    encoder.flush()
 
-    reader = jpeg.reader.BufferedReader(encoder.get_data())
+    reader = jpeg.reader.BufferedReader(writer.data)
     decoder = Decoder(reader)
     dc_decoder = jpeg.huffman.Decoder(
         jpeg.huffman_tables.standard_luminance_dc_huffman_table
