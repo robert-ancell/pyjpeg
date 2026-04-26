@@ -9,18 +9,16 @@ class NullWriter(jpeg.stream.Writer):
 def optimize(segments):
     dc_huffman_tables = [None, None, None, None]
     ac_huffman_tables = [None, None, None, None]
-    symbol_frequencies = {}
-    symbol_frequencies = {}
+    symbol_frequencies = []
     sos = None
     for segment in segments:
         if isinstance(segment, jpeg.DefineHuffmanTables):
             for table in segment.tables:
                 if table.table_class == 0:
-                    dc_huffman_tables[table.destination] = table
-                    symbol_frequencies[table] = [0] * 256
+                    dc_huffman_tables[table.destination] = len(symbol_frequencies)
                 else:
-                    ac_huffman_tables[table.destination] = table
-                    symbol_frequencies[table] = [0] * 256
+                    ac_huffman_tables[table.destination] = len(symbol_frequencies)
+                symbol_frequencies.append([0] * 256)
         elif isinstance(segment, jpeg.StartOfScan):
             sos = segment
         elif isinstance(segment, jpeg.HuffmanDCTScan):
@@ -55,10 +53,14 @@ def optimize(segments):
     dc_huffman_tables = [None, None, None, None]
     ac_huffman_tables = [None, None, None, None]
     sos = None
+    table_index = 0
     for segment in segments:
         if isinstance(segment, jpeg.DefineHuffmanTables):
             for table in segment.tables:
-                table.table = jpeg.huffman.make_huffman_table(symbol_frequencies[table])
+                table.table = jpeg.huffman.make_huffman_table(
+                    symbol_frequencies[table_index]
+                )
+                table_index += 1
                 if table.table_class == 0:
                     dc_huffman_tables[table.destination] = table
                 else:
