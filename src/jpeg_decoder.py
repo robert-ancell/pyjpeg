@@ -143,12 +143,16 @@ class Decoder:
                     ]
                 )
             )
+        # FIXME: Handle scaling factor
+        number_of_data_units = (
+            self.number_of_lines() * self.sof.samples_per_line * len(components)
+        )
         self.segments.append(
             jpeg.ArithmeticLosslessScan.decode(
                 reader,
+                number_of_data_units,
                 self.sof.samples_per_line,
                 components,
-                number_of_lines=self.number_of_lines(),
                 precision=self.sof.precision,
                 predictor=self.sos.ss,
             )
