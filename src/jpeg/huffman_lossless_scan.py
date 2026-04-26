@@ -89,8 +89,7 @@ if __name__ == "__main__":
     import random
 
     import jpeg.huffman_tables
-    import jpeg.reader
-    import jpeg.writer
+    import jpeg.stream
 
     samples = [random.randint(0, 255) for _ in range(64)]
     scan = HuffmanLosslessScan(
@@ -102,10 +101,10 @@ if __name__ == "__main__":
             )
         ],
     )
-    writer = jpeg.writer.BufferedWriter()
+    writer = jpeg.stream.BufferedWriter()
     scan.encode(writer)
 
-    reader = jpeg.reader.BufferedReader(writer.data)
+    reader = jpeg.stream.BufferedReader(writer.data)
     scan2 = HuffmanLosslessScan.decode(
         reader,
         8,

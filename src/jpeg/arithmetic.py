@@ -327,8 +327,7 @@ class Reader:
 
 
 if __name__ == "__main__":
-    import jpeg.reader
-    import jpeg.writer
+    import jpeg.stream
 
     data = [
         0x00,
@@ -369,7 +368,7 @@ if __name__ == "__main__":
         for i in range(8):
             bits.append((d >> (7 - i)) & 0x1)
 
-    writer = jpeg.writer.BufferedWriter()
+    writer = jpeg.stream.BufferedWriter()
     e = Writer(writer)
     state = State()
     for b in bits:
@@ -387,7 +386,7 @@ if __name__ == "__main__":
         == "655B5144F7969D517855BFFF00FC5184C7CEF93900287D46708ECBC0F6"
     )
 
-    reader = jpeg.reader.BufferedReader(writer.data)
+    reader = jpeg.stream.BufferedReader(writer.data)
     d = Reader(reader)
     state = State()
     decoded_data = []

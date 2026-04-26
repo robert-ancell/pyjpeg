@@ -120,12 +120,12 @@ if __name__ == "__main__":
 
     import jpeg.dct
     import jpeg.huffman_tables
-    import jpeg.writer
+    import jpeg.stream
 
     samples = [random.randint(0, 255) for _ in range(64)]
     data_units = [jpeg.dct.quantize(jpeg.dct.fdct(samples), [1] * 64)]
 
-    writer = jpeg.writer.BufferedWriter()
+    writer = jpeg.stream.BufferedWriter()
     scan = HuffmanDCTACSuccessiveScan(
         data_units, jpeg.huffman_tables.standard_luminance_ac_huffman_table
     )

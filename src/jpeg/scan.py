@@ -49,12 +49,11 @@ class Reader:
 
 
 if __name__ == "__main__":
-    import jpeg.reader
-    import jpeg.writer
+    import jpeg.stream
 
     bits = [1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1]
 
-    writer = jpeg.BufferedWriter()
+    writer = jpeg.stream.BufferedWriter()
     scan_writer = Writer(writer)
     for bit in bits:
         scan_writer.write_bit(bit)
@@ -62,7 +61,7 @@ if __name__ == "__main__":
 
     assert writer.data == b"\xaa\xff\x00\x0f"
 
-    reader = jpeg.BufferedReader(writer.data)
+    reader = jpeg.stream.BufferedReader(writer.data)
     scan_reader = Reader(reader)
     for i in range(len(bits)):
         bit = scan_reader.read_bit()

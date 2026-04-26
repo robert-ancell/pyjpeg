@@ -1,7 +1,7 @@
-import jpeg.writer
+import jpeg.stream
 
 
-class NullWriter(jpeg.writer.Writer):
+class NullWriter(jpeg.stream.Writer):
     def write(self, data):
         pass
 

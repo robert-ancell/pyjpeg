@@ -122,9 +122,8 @@ class Decoder:
 
 if __name__ == "__main__":
     import jpeg.huffman_tables
-    import jpeg.reader
     import jpeg.scan
-    import jpeg.writer
+    import jpeg.stream
 
     # Table from ITU T.81 K.3.2
     table = [
@@ -272,14 +271,14 @@ if __name__ == "__main__":
         ],
     ]
     encoder = Encoder(table)
-    writer = jpeg.writer.BufferedWriter()
+    writer = jpeg.stream.BufferedWriter()
     scan_writer = jpeg.scan.Writer(writer)
     for length, symbols in enumerate(table):
         for symbol in symbols:
             encoder.write_symbol(scan_writer, symbol)
     scan_writer.flush()
 
-    reader = jpeg.reader.BufferedReader(writer.data)
+    reader = jpeg.stream.BufferedReader(writer.data)
     scan_reader = jpeg.scan.Reader(reader)
     decoder = Decoder(table)
     for length, symbols in enumerate(table):

@@ -177,10 +177,9 @@ class Reader:
 
 
 if __name__ == "__main__":
-    import jpeg.reader
-    import jpeg.writer
+    import jpeg.stream
 
-    writer = jpeg.writer.BufferedWriter()
+    writer = jpeg.stream.BufferedWriter()
     encoder = Writer(writer)
     dc_non_zero = jpeg.arithmetic.State()
     dc_sign = jpeg.arithmetic.State()
@@ -204,7 +203,7 @@ if __name__ == "__main__":
     ac_sn_sp_x1 = jpeg.arithmetic.State()
     ac_xstates = [jpeg.arithmetic.State() for _ in range(16)]
     ac_mstates = [jpeg.arithmetic.State() for _ in range(16)]
-    reader = jpeg.reader.BufferedReader(writer.data)
+    reader = jpeg.stream.BufferedReader(writer.data)
     decoder = Reader(reader)
     dc = decoder.read_dc(dc_non_zero, dc_sign, dc_sp, dc_sn, dc_xstates, dc_mstates)
     ac = decoder.read_ac(ac_sn_sp_x1, ac_xstates, ac_mstates)

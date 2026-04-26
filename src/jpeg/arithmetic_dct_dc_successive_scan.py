@@ -33,17 +33,16 @@ if __name__ == "__main__":
     import random
 
     import jpeg.dct
-    import jpeg.reader
-    import jpeg.writer
+    import jpeg.stream
 
     samples = [random.randint(0, 255) for _ in range(64)]
     data_units = [jpeg.dct.quantize(jpeg.dct.fdct(samples), [1] * 64)]
 
-    writer = jpeg.writer.BufferedWriter()
+    writer = jpeg.stream.BufferedWriter()
     scan = ArithmeticDCTDCSuccessiveScan(data_units)
     scan.encode(writer)
 
-    reader = jpeg.reader.BufferedReader(writer.data)
+    reader = jpeg.stream.BufferedReader(writer.data)
     scan2 = ArithmeticDCTDCSuccessiveScan.decode(reader, 1)
 
     # FIXME
