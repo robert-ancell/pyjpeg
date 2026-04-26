@@ -17,7 +17,7 @@ class ArithmeticDCTACSuccessiveScan:
             nonzero_states.append(jpeg.arithmetic.State())
             additional_states.append(jpeg.arithmetic.State())
 
-        encoder = jpeg.arithmetic.Encoder()
+        encoder = jpeg.arithmetic.Encoder(writer)
         for data_unit in self.data_units:
             eob = self.spectral_selection[1] + 1
             while eob > self.spectral_selection[0]:
@@ -73,4 +73,3 @@ class ArithmeticDCTACSuccessiveScan:
                 k += 1
 
         encoder.flush()
-        writer.write(bytes(encoder.data))

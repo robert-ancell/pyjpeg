@@ -32,9 +32,7 @@ def classify_dc(conditioning_bounds, value):
 
 class Encoder:
     def __init__(self, writer):
-        # FIXME: Move writer into encoder
-        self.writer = writer
-        self.encoder = jpeg.arithmetic.Encoder()
+        self.encoder = jpeg.arithmetic.Encoder(writer)
 
     def write_dc(self, dc_diff, non_zero, sign, sp, sn, xstates, mstates):
         if dc_diff == 0:
@@ -109,7 +107,6 @@ class Encoder:
 
     def flush(self):
         self.encoder.flush()
-        self.writer.write(bytes(self.encoder.data))
 
 
 class Decoder:

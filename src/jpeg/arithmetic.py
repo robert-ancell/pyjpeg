@@ -124,14 +124,14 @@ class State:
 
 
 class Encoder:
-    def __init__(self):
+    def __init__(self, writer):
+        self.writer = writer
         self.a = 0x10000
         self.c = 0
         self.ct = 11
         self.st = 0
-        # FIXME: Replace with writer
-        self.data = []
-        self.data_ = None
+        self.data = None
+        self.zero_count = 0
 
     # Encodes [value] using [state].
     def write_bit(self, state, value):
@@ -160,13 +160,7 @@ class Encoder:
         self.c <<= 8
         self._byte_out()
 
-        self._write_byte(self.data_)
-
-        # Discard final zeros
-        while len(self.data) > 0 and self.data[-1] == 0:
-            self.data = self.data[:-1]
-        if len(self.data) > 0 and self.data[-1] == 0xFF:
-            self.data.append(0x00)
+        self._write_byte(self.data)
 
     def _encode_mps(self, state):
         (qe, _, mps_next_index, _) = states[state.index]
@@ -211,33 +205,38 @@ class Encoder:
     def _byte_out(self):
         t = self.c >> 19
         if t > 0xFF:
-            self.data_ += 1
-            self._write_byte(self.data_)
+            self._write_byte(self.data + 1)
 
             # Output stacked zeros
             for _ in range(self.st):
                 self._write_byte(0)
             self.st = 0
 
-            self.data_ = t & 0xFF
+            self.data = t & 0xFF
         elif t == 0xFF:
             self.st += 1
         else:
-            if self.data_ is not None:
-                self._write_byte(self.data_)
+            if self.data is not None:
+                self._write_byte(self.data)
 
             # Output stacked ffs
             for _ in range(self.st):
                 self._write_byte(0xFF)
             self.st = 0
-            self.data_ = t
+            self.data = t
 
         self.c &= 0x7FFFF
 
     def _write_byte(self, value):
-        self.data.append(value)
-        if value == 0xFF:
-            self.data.append(0x00)
+        if value == 0:
+            self.zero_count += 1
+        else:
+            for _ in range(self.zero_count):
+                self.writer.write_u8(0)
+            self.zero_count = 0
+            self.writer.write_u8(value)
+            if value == 0xFF:
+                self.writer.write_u8(0x00)
 
 
 class Decoder:
@@ -329,6 +328,7 @@ class Decoder:
 
 if __name__ == "__main__":
     import jpeg.reader
+    import jpeg.writer
 
     data = [
         0x00,
@@ -369,7 +369,8 @@ if __name__ == "__main__":
         for i in range(8):
             bits.append((d >> (7 - i)) & 0x1)
 
-    e = Encoder()
+    writer = jpeg.writer.BufferedWriter()
+    e = Encoder(writer)
     state = State()
     for b in bits:
         e.write_bit(state, b)
@@ -382,10 +383,11 @@ if __name__ == "__main__":
         return s
 
     assert (
-        to_hex(e.data) == "655B5144F7969D517855BFFF00FC5184C7CEF93900287D46708ECBC0F6"
+        to_hex(writer.data)
+        == "655B5144F7969D517855BFFF00FC5184C7CEF93900287D46708ECBC0F6"
     )
 
-    reader = jpeg.reader.BufferedReader(e.data)
+    reader = jpeg.reader.BufferedReader(writer.data)
     d = Decoder(reader)
     state = State()
     decoded_data = []
