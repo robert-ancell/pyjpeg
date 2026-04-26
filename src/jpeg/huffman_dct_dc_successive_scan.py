@@ -20,3 +20,19 @@ class HuffmanDCTDCSuccessiveScan:
             scan_writer.write_bit(bit)
 
         scan_writer.flush(pad_bit=1)
+
+
+if __name__ == "__main__":
+    import random
+
+    import jpeg.dct
+    import jpeg.writer
+
+    samples = [random.randint(0, 255) for _ in range(64)]
+    data_units = [jpeg.dct.quantize(jpeg.dct.fdct(samples), [1] * 64)]
+
+    writer = jpeg.writer.BufferedWriter()
+    scan = HuffmanDCTDCSuccessiveScan(data_units)
+    scan.encode(writer)
+
+    # FIXME: Decode
