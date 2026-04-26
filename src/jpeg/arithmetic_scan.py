@@ -167,8 +167,10 @@ class Decoder:
 
 if __name__ == "__main__":
     import jpeg.reader
+    import jpeg.writer
 
-    encoder = Encoder()
+    writer = jpeg.writer.BufferedWriter()
+    encoder = Encoder(writer)
     dc_non_zero = jpeg.arithmetic.State()
     dc_sign = jpeg.arithmetic.State()
     dc_sp = jpeg.arithmetic.State()
@@ -180,6 +182,7 @@ if __name__ == "__main__":
     ac_mstates = [jpeg.arithmetic.State() for _ in range(16)]
     encoder.write_dc(123, dc_non_zero, dc_sign, dc_sp, dc_sn, dc_xstates, dc_mstates)
     encoder.write_ac(55, ac_sn_sp_x1, ac_xstates, ac_mstates)
+    encoder.flush()
 
     dc_non_zero = jpeg.arithmetic.State()
     dc_sign = jpeg.arithmetic.State()
@@ -190,7 +193,7 @@ if __name__ == "__main__":
     ac_sn_sp_x1 = jpeg.arithmetic.State()
     ac_xstates = [jpeg.arithmetic.State() for _ in range(16)]
     ac_mstates = [jpeg.arithmetic.State() for _ in range(16)]
-    reader = jpeg.reader.BufferedReader(encoder.get_data())
+    reader = jpeg.reader.BufferedReader(writer.data)
     decoder = Decoder(reader)
     dc = decoder.read_dc(dc_non_zero, dc_sign, dc_sp, dc_sn, dc_xstates, dc_mstates)
     ac = decoder.read_ac(ac_sn_sp_x1, ac_xstates, ac_mstates)
