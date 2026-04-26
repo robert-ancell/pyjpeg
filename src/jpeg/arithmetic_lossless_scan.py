@@ -55,16 +55,16 @@ class ArithmeticLosslessScan:
                 )
         writer.write(encoder.get_data())
 
-        def decode(reader, samples_per_line, components, precision=8, predictor=1):
-            decoder = Decoder(reader)
-            # FIXME
-            return ArithmeticLosslessScan(
-                decoder.samples_per_line,
-                components,
-                [],
-                precision=precision,
-                predictor=predictor,
-            )
+    def decode(reader, samples_per_line, components, precision=8, predictor=1):
+        decoder = Decoder(reader)
+        # FIXME
+        return ArithmeticLosslessScan(
+            decoder.samples_per_line,
+            components,
+            [],
+            precision=precision,
+            predictor=predictor,
+        )
 
 
 class Encoder(jpeg.arithmetic_scan.Encoder):
