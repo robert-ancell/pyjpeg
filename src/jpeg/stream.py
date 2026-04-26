@@ -46,6 +46,17 @@ class Reader:
         return value
 
 
+class Segment:
+    def encode(self, writer: Writer):
+        raise NotImplementedError
+
+    def decode(reader: Reader):
+        raise NotImplementedError
+
+    def __repr__(self):
+        return f"StartOfImage()"
+
+
 class BufferedWriter(Writer):
     def __init__(self):
         self.data = b""
