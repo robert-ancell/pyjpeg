@@ -3,16 +3,24 @@ import jpeg.stream
 
 
 class ArithmeticConditioning:
-    def __init__(self, table_class, destination, value):
+    def __init__(self, table_class: int, destination: int, value: int):
         self.table_class = table_class
         self.destination = destination
         self.value = value
 
-    def dc(destination, bounds):
+    def dc(destination: int, bounds: tuple):
         return ArithmeticConditioning(0, destination, bounds[1] << 4 | bounds[0])
 
-    def ac(destination, kx):
+    def ac(destination, kx: int):
         return ArithmeticConditioning(1, destination, kx)
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, ArithmeticConditioning)
+            and self.table_class == other.table_class
+            and self.destination == other.destination
+            and self.value == other.value
+        )
 
     def __repr__(self):
         if self.table_class == 0:
@@ -32,7 +40,7 @@ class DefineArithmeticConditioning:
             writer.write_u8(table.table_class << 4 | table.destination)
             writer.write_u8(table.value)
 
-    def decode(self, reader: jpeg.stream.Reader):
+    def decode(reader: jpeg.stream.Reader):
         marker = reader.read_marker()
         assert marker == jpeg.marker.Marker.DAC
         length = reader.read_u16()
@@ -49,3 +57,18 @@ class DefineArithmeticConditioning:
 
     def __repr__(self):
         return f"DefineArithmeticConditioning({self.tables})"
+
+
+if __name__ == "__main__":
+    writer = jpeg.stream.BufferedWriter()
+    DefineArithmeticConditioning(
+        [ArithmeticConditioning.dc(1, (2, 3)), ArithmeticConditioning.ac(2, 34)]
+    ).encode(writer)
+    assert writer.data == b"\xff\xcc\x00\x06\x012\x12\x22"
+
+    reader = jpeg.stream.BufferedReader(writer.data)
+    dac = DefineArithmeticConditioning.decode(reader)
+    assert dac.tables == [
+        ArithmeticConditioning.dc(1, (2, 3)),
+        ArithmeticConditioning.ac(2, 34),
+    ]
