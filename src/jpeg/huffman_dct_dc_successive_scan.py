@@ -2,6 +2,7 @@ import jpeg.scan
 
 
 class HuffmanDCTDCSuccessiveScan:
+    # FIXME: Don't take whole data_units, just DC bits
     def __init__(self, data_units, point_transform=0):
         self.data_units = data_units
         self.point_transform = point_transform
@@ -21,11 +22,23 @@ class HuffmanDCTDCSuccessiveScan:
 
         scan_writer.flush(pad_bit=1)
 
+    # FIXME: Need number of rows
+    def decode(reader, number_of_data_units, point_transform=0):
+        scan_reader = jpeg.scan.Reader(reader)
+        data_units = []
+        for _ in range(number_of_data_units):
+            bit = scan_reader.read_bit()
+            dc_diff = bit << point_transform
+            data_unit = [dc_diff] + [0] * 63
+            data_units.append(data_unit)
+        return HuffmanDCTDCSuccessiveScan(data_units, point_transform=point_transform)
+
 
 if __name__ == "__main__":
     import random
 
     import jpeg.dct
+    import jpeg.reader
     import jpeg.writer
 
     samples = [random.randint(0, 255) for _ in range(64)]
@@ -35,4 +48,8 @@ if __name__ == "__main__":
     scan = HuffmanDCTDCSuccessiveScan(data_units)
     scan.encode(writer)
 
-    # FIXME: Decode
+    reader = jpeg.reader.BufferedReader(writer.data)
+    scan2 = HuffmanDCTDCSuccessiveScan.decode(reader, 1)
+
+    # FIXME
+    # assert scan2.data_units == data_units

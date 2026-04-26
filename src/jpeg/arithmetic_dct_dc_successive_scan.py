@@ -19,3 +19,33 @@ class ArithmeticDCTDCSuccessiveScan:
 
         encoder.flush()
         writer.write(bytes(encoder.data))
+
+    def decode(reader, number_of_data_units, point_transform=0):
+        decoder = jpeg.arithmetic.Decoder(b"")  # FIXME: Data
+        prev_dc = 0
+        for _ in range(number_of_data_units):
+            bit = decoder.read_fixed_bit()
+        return ArithmeticDCTDCSuccessiveScan(
+            data_units, point_transform=point_transform
+        )
+
+
+if __name__ == "__main__":
+    import random
+
+    import jpeg.dct
+    import jpeg.reader
+    import jpeg.writer
+
+    samples = [random.randint(0, 255) for _ in range(64)]
+    data_units = [jpeg.dct.quantize(jpeg.dct.fdct(samples), [1] * 64)]
+
+    writer = jpeg.writer.BufferedWriter()
+    scan = ArithmeticDCTDCSuccessiveScan(data_units)
+    scan.encode(writer)
+
+    reader = jpeg.reader.BufferedReader(writer.data)
+    scan2 = ArithmeticDCTDCSuccessiveScan.decode(reader, 1)
+
+    # FIXME
+    # assert scan2.data_units == data_units
