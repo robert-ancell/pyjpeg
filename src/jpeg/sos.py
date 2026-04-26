@@ -14,6 +14,14 @@ class ScanComponent:
     def lossless(component_selector, table):
         return ScanComponent(component_selector, table, 0)
 
+    def __eq__(self, other):
+        return (
+            isinstance(other, ScanComponent)
+            and other.component_selector == self.component_selector
+            and other.dc_table == self.dc_table
+            and other.ac_table == self.ac_table
+        )
+
     def __repr__(self):
         return f"ScanComponent({self.component_selector}, {self.dc_table}, {self.ac_table})"
 
@@ -81,3 +89,19 @@ class StartOfScan:
 
     def __repr__(self):
         return f"StartOfScan({self.components}, {self.ss}, {self.se}, {self.ah}, {self.al})"
+
+
+if __name__ == "__main__":
+    writer = jpeg.stream.BufferedWriter()
+    StartOfScan(
+        [ScanComponent(42, 0, 1), ScanComponent(43, 2, 3)], 1, 62, 2, 15
+    ).encode(writer)
+    assert writer.data == b"\xff\xda\x00\x0a\x02\x2a\x01\x2b\x23\x01\x3e\x2f"
+
+    reader = jpeg.stream.BufferedReader(writer.data)
+    sos = StartOfScan.decode(reader)
+    assert sos.components == [ScanComponent(42, 0, 1), ScanComponent(43, 2, 3)]
+    assert sos.ss == 1
+    assert sos.se == 62
+    assert sos.ah == 2
+    assert sos.al == 15
