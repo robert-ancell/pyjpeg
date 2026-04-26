@@ -1,4 +1,5 @@
 import jpeg.marker
+import jpeg.stream
 
 
 class ScanComponent:
@@ -46,7 +47,7 @@ class StartOfScan:
     def lossless(components, predictor=1, point_transform=0):
         return StartOfScan(components, predictor, 0, 0, point_transform)
 
-    def encode(self, writer):
+    def encode(self, writer: jpeg.stream.Writer):
         writer.write_marker(jpeg.marker.Marker.SOS)
         writer.write_u16(6 + len(self.components) * 2)
         writer.write_u8(len(self.components))
@@ -57,7 +58,7 @@ class StartOfScan:
         writer.write_u8(self.se)
         writer.write_u8(self.ah << 4 | self.al)
 
-    def decode(reader):
+    def decode(reader: jpeg.stream.Reader):
         marker = reader.read_marker()
         assert marker == jpeg.marker.Marker.SOS
         length = reader.read_u16()

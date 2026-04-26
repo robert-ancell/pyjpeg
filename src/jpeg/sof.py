@@ -1,4 +1,5 @@
 import jpeg.marker
+import jpeg.stream
 
 
 class FrameComponent:
@@ -55,7 +56,7 @@ class StartOfFrame:
             n = 3
         return StartOfFrame(n, precision, number_of_lines, samples_per_line, components)
 
-    def encode(self, writer):
+    def encode(self, writer: jpeg.stream.Writer):
         writer.write_marker(jpeg.marker.Marker.SOF0 + self.n)
         writer.write_u16(8 + len(self.components) * 3)
         writer.write_u8(self.precision)
@@ -69,7 +70,7 @@ class StartOfFrame:
             )
             writer.write_u8(component.quantization_table_index)
 
-    def decode(reader):
+    def decode(reader: jpeg.stream.Reader):
         marker = reader.read_marker()
         assert marker in (
             jpeg.marker.Marker.SOF0,

@@ -1,4 +1,5 @@
 import jpeg.marker
+import jpeg.stream
 
 
 class HuffmanTable:
@@ -26,7 +27,7 @@ class DefineHuffmanTables:
     def __init__(self, tables):
         self.tables = tables
 
-    def encode(self, writer):
+    def encode(self, writer: jpeg.stream.Writer):
         writer.write_marker(jpeg.marker.Marker.DHT)
         length = 2
         for table in self.tables:
@@ -42,7 +43,7 @@ class DefineHuffmanTables:
                 for symbol in symbols:
                     writer.write_u8(symbol)
 
-    def decode(reader):
+    def decode(reader: jpeg.stream.Reader):
         marker = reader.read_marker()
         assert marker == jpeg.marker.Marker.DHT
         length = reader.read_u16()

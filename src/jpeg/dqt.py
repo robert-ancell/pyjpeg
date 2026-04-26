@@ -1,4 +1,5 @@
 import jpeg.marker
+import jpeg.stream
 
 
 class QuantizationTable:
@@ -15,7 +16,7 @@ class DefineQuantizationTables:
     def __init__(self, tables):
         self.tables = tables
 
-    def encode(self, writer):
+    def encode(self, writer: jpeg.stream.Writer):
         writer.write_marker(jpeg.marker.Marker.DQT)
         length = 2
         for table in self.tables:
@@ -33,7 +34,7 @@ class DefineQuantizationTables:
                 else:
                     writer.write_u16(value)
 
-    def decode(reader):
+    def decode(reader: jpeg.stream.Reader):
         marker = reader.read_marker()
         assert marker == jpeg.marker.Marker.DQT
         length = reader.read_u16()

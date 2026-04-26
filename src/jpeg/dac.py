@@ -1,4 +1,5 @@
 import jpeg.marker
+import jpeg.stream
 
 
 class ArithmeticConditioning:
@@ -24,14 +25,14 @@ class DefineArithmeticConditioning:
     def __init__(self, tables):
         self.tables = tables
 
-    def encode(self, writer):
+    def encode(self, writer: jpeg.stream.Writer):
         writer.write_marker(jpeg.marker.Marker.DAC)
         writer.write_u16(2 + len(self.tables) * 2)
         for table in self.tables:
             writer.write_u8(table.table_class << 4 | table.destination)
             writer.write_u8(table.value)
 
-    def decode(self, reader):
+    def decode(self, reader: jpeg.stream.Reader):
         marker = reader.read_marker()
         assert marker == jpeg.marker.Marker.DAC
         length = reader.read_u16()
