@@ -1,7 +1,7 @@
 import jpeg.scan
 
 
-class Encoder:
+class Writer:
     def __init__(self, writer):
         self.writer = jpeg.scan.Writer(writer)
 
@@ -62,7 +62,7 @@ class Encoder:
             self.writer.write_bit(bit)
 
 
-class Decoder:
+class Reader:
     def __init__(self, reader):
         self.reader = jpeg.scan.Reader(reader)
 
@@ -98,29 +98,29 @@ if __name__ == "__main__":
     import jpeg.writer
 
     writer = jpeg.writer.BufferedWriter()
-    encoder = Encoder(writer)
+    scan_writer = Writer(writer)
     dc_encoder = jpeg.huffman.Encoder(
         jpeg.huffman_tables.standard_luminance_dc_huffman_table
     )
     ac_encoder = jpeg.huffman.Encoder(
         jpeg.huffman_tables.standard_luminance_ac_huffman_table
     )
-    encoder.write_dc(123, dc_encoder)
-    encoder.write_ac(2, 55, ac_encoder)
-    encoder.write_ac(0, -17, ac_encoder)
-    encoder.flush()
+    scan_writer.write_dc(123, dc_encoder)
+    scan_writer.write_ac(2, 55, ac_encoder)
+    scan_writer.write_ac(0, -17, ac_encoder)
+    scan_writer.flush()
 
     reader = jpeg.reader.BufferedReader(writer.data)
-    decoder = Decoder(reader)
+    scan_reader = Reader(reader)
     dc_decoder = jpeg.huffman.Decoder(
         jpeg.huffman_tables.standard_luminance_dc_huffman_table
     )
     ac_decoder = jpeg.huffman.Decoder(
         jpeg.huffman_tables.standard_luminance_ac_huffman_table
     )
-    dc = decoder.read_dc(dc_decoder)
-    (run_length1, ac1) = decoder.read_ac(ac_decoder)
-    (run_length2, ac2) = decoder.read_ac(ac_decoder)
+    dc = scan_reader.read_dc(dc_decoder)
+    (run_length1, ac1) = scan_reader.read_ac(ac_decoder)
+    (run_length2, ac2) = scan_reader.read_ac(ac_decoder)
     assert dc == 123
     assert run_length1 == 2
     assert ac1 == 55

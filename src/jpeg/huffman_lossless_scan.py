@@ -17,7 +17,7 @@ class HuffmanLosslessScan:
         self.predictor = predictor
 
     def encode(self, writer, symbol_frequencies=None):
-        encoder = jpeg.huffman_scan.Encoder(writer)
+        scan_writer = jpeg.huffman_scan.Writer(writer)
 
         # FIXME: Store samples per component
         data_units = []
@@ -50,16 +50,16 @@ class HuffmanLosslessScan:
                 component_data_units = data_units[component_index]
                 data_unit = component_data_units[i]
 
-                encoder.write_dc(
+                scan_writer.write_dc(
                     data_unit,
                     dc_encoders[component_index],
                     symbol_frequencies=component_symbol_frequencies[component_index],
                 )
 
-        encoder.flush()
+        scan_writer.flush()
 
     def decode(reader, samples_per_line, components, precision=8, predictor=1):
-        decoder = jpeg.huffman_scan.Decoder(reader)
+        scan_reader = jpeg.huffman_scan.Reader(reader)
         dc_decoders = []
         for scan_component in components:
             dc_decoders.append(jpeg.huffman.Decoder(scan_component.table))
@@ -67,7 +67,7 @@ class HuffmanLosslessScan:
         while True:
             for component_index, scan_component in enumerate(components):
                 try:
-                    data_unit = decoder.read_dc(dc_decoders[component_index])
+                    data_unit = scan_reader.read_dc(dc_decoders[component_index])
                     data_units.append(data_unit)
                 except EOFError:
                     samples = jpeg.lossless.decode(

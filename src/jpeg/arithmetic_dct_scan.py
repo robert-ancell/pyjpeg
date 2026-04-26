@@ -24,7 +24,7 @@ class ArithmeticDCTScan:
         self.point_transform = point_transform
 
     def encode(self, writer):
-        writer = Writer(
+        scan_writer = Writer(
             writer,
             spectral_selection=self.spectral_selection,
             point_transform=self.point_transform,
@@ -38,7 +38,7 @@ class ArithmeticDCTScan:
                     * scan_component.sampling_factor[1]
                 ):
                     assert i < len(self.data_units)
-                    writer.write_data_unit(
+                    scan_writer.write_data_unit(
                         component_index,
                         self.data_units[i],
                         conditioning_bounds=scan_component.conditioning_bounds,
@@ -46,7 +46,7 @@ class ArithmeticDCTScan:
                     )
                     i += 1
 
-        writer.flush()
+        scan_writer.flush()
 
     def decode(
         reader,

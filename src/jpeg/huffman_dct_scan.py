@@ -24,7 +24,7 @@ class HuffmanDCTScan:
         self.point_transform = point_transform
 
     def encode(self, writer, dc_symbol_frequencies=None, ac_symbol_frequencies=None):
-        scan_encoder = Encoder(
+        scan_writer = Writer(
             writer,
             spectral_selection=self.spectral_selection,
             point_transform=self.point_transform,
@@ -49,7 +49,7 @@ class HuffmanDCTScan:
                         ac_frequencies = ac_symbol_frequencies[component_index]
                     else:
                         ac_frequencies = None
-                    scan_encoder.write_data_unit(
+                    scan_writer.write_data_unit(
                         component_index,
                         self.data_units[i],
                         dc_encoder,
@@ -58,7 +58,7 @@ class HuffmanDCTScan:
                         ac_symbol_frequencies=ac_frequencies,
                     )
                     i += 1
-        scan_encoder.flush()
+        scan_writer.flush()
 
     def decode(reader, components, spectral_selection=(0, 63), point_transform=0):
         # FIXME
@@ -70,14 +70,14 @@ class HuffmanDCTScan:
         )
 
 
-class Encoder(jpeg.huffman_scan.Encoder):
+class Writer:
     def __init__(
         self,
         writer,
         spectral_selection=(0, 63),
         point_transform=0,
     ):
-        super().__init__(writer)
+        self.writer = jpeg.huffman_scan.Writer(writer)
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
         self.prev_dc = {}
@@ -97,7 +97,7 @@ class Encoder(jpeg.huffman_scan.Encoder):
                 dc = jpeg.dct.transform_coefficient(data_unit[k], self.point_transform)
                 dc_diff = dc - self.prev_dc.get(component_index, 0)
                 self.prev_dc[component_index] = dc
-                self.write_dc(
+                self.writer.write_dc(
                     dc_diff, dc_encoder, symbol_frequencies=dc_symbol_frequencies
                 )
                 k += 1
@@ -112,14 +112,18 @@ class Encoder(jpeg.huffman_scan.Encoder):
                 ):
                     run_length += 1
                 if k + run_length > self.spectral_selection[1]:
-                    self.write_eob(ac_encoder, symbol_frequencies=ac_symbol_frequencies)
+                    self.writer.write_eob(
+                        ac_encoder, symbol_frequencies=ac_symbol_frequencies
+                    )
                     k = self.spectral_selection[1] + 1
                 elif run_length >= 16:
-                    self.write_zrl(ac_encoder, symbol_frequencies=ac_symbol_frequencies)
+                    self.writer.write_zrl(
+                        ac_encoder, symbol_frequencies=ac_symbol_frequencies
+                    )
                     k += 16
                 else:
                     k += run_length
-                    self.write_ac(
+                    self.writer.write_ac(
                         run_length,
                         jpeg.dct.transform_coefficient(
                             data_unit[k], self.point_transform
