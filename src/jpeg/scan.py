@@ -14,8 +14,7 @@ class Writer:
             self.data = 0
             self.bit_count = 0
 
-    # FIXME: Check what pad bit should be used
-    def flush(self, pad_bit=0):
+    def flush(self, pad_bit=1):
         if self.bit_count == 0:
             return
         n_padding = 8 - self.bit_count

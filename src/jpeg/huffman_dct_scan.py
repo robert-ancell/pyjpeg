@@ -25,6 +25,7 @@ class HuffmanDCTScan:
 
     def encode(self, writer, dc_symbol_frequencies=None, ac_symbol_frequencies=None):
         scan_encoder = Encoder(
+            writer,
             spectral_selection=self.spectral_selection,
             point_transform=self.point_transform,
         )
@@ -57,7 +58,7 @@ class HuffmanDCTScan:
                         ac_symbol_frequencies=ac_frequencies,
                     )
                     i += 1
-        writer.write(scan_encoder.get_data())
+        scan_encoder.flush()
 
     def decode(reader, components, spectral_selection=(0, 63), point_transform=0):
         # FIXME
@@ -72,10 +73,11 @@ class HuffmanDCTScan:
 class Encoder(jpeg.huffman_scan.Encoder):
     def __init__(
         self,
+        writer,
         spectral_selection=(0, 63),
         point_transform=0,
     ):
-        super().__init__()
+        super().__init__(writer)
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
         self.prev_dc = {}
@@ -126,3 +128,6 @@ class Encoder(jpeg.huffman_scan.Encoder):
                         symbol_frequencies=ac_symbol_frequencies,
                     )
                     k += 1
+
+    def flush(self):
+        self.writer.flush()

@@ -17,7 +17,7 @@ class HuffmanLosslessScan:
         self.predictor = predictor
 
     def encode(self, writer, symbol_frequencies=None):
-        encoder = jpeg.huffman_scan.Encoder()
+        encoder = jpeg.huffman_scan.Encoder(writer)
 
         # FIXME: Store samples per component
         data_units = []
@@ -55,8 +55,8 @@ class HuffmanLosslessScan:
                     dc_encoders[component_index],
                     symbol_frequencies=component_symbol_frequencies[component_index],
                 )
-        # FIXME: Use writer directly
-        writer.write(encoder.get_data())
+
+        encoder.flush()
 
     def decode(reader, samples_per_line, components, precision=8, predictor=1):
         decoder = jpeg.huffman_scan.Decoder(reader)

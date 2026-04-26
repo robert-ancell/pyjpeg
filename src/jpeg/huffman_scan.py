@@ -2,8 +2,8 @@ import jpeg.scan
 
 
 class Encoder:
-    def __init__(self):
-        self.bits = []
+    def __init__(self, writer):
+        self.writer = jpeg.scan.Writer(writer)
 
     # DC coefficient, written as a change from previous DC coefficient.
     def write_dc(self, dc_diff, encoder, symbol_frequencies=None):
@@ -31,12 +31,16 @@ class Encoder:
         self._write_symbol(symbol, encoder, symbol_frequencies)
         self._write_magnitude(ac, length)
 
+    def flush(self):
+        self.writer.flush(pad_bit=1)
+
     # Write a Huffman symbol
     def _write_symbol(self, symbol, encoder, symbol_frequencies=None):
         if symbol_frequencies is not None:
             symbol_frequencies[symbol] += 1
         if encoder is not None:
-            self.bits.extend(encoder.encode(symbol))
+            for bit in encoder.encode(symbol):
+                self.writer.write_bit(bit)
 
     # Get the number of bits required to write the magnitude
     def _get_magnitude_length(self, magnitude):
@@ -56,32 +60,7 @@ class Encoder:
             value = magnitude
         for i in range(length):
             bit = (value >> (length - i - 1)) & 0x1
-            self.bits.append(bit)
-
-    def get_data(self):
-        # Pad with 1 bits
-        if len(self.bits) % 8 != 0:
-            self.bits.extend([1] * (8 - len(self.bits) % 8))
-
-        data = []
-        for i in range(0, len(self.bits), 8):
-            b = (
-                self.bits[i] << 7
-                | self.bits[i + 1] << 6
-                | self.bits[i + 2] << 5
-                | self.bits[i + 3] << 4
-                | self.bits[i + 4] << 3
-                | self.bits[i + 5] << 2
-                | self.bits[i + 6] << 1
-                | self.bits[i + 7]
-            )
-            data.append(b)
-
-            # Byte stuff so ff doesn't look like a marker
-            if b == 0xFF:
-                data.append(0)
-
-        return bytes(data)
+            self.writer.write_bit(bit)
 
 
 class Decoder:
