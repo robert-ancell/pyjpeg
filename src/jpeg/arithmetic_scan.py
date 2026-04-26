@@ -107,14 +107,14 @@ class Writer:
             bit = (v >> i) & 0x1
             self.writer.write_bit(mstates[width - 2], bit)
 
-    def write_eob(self, state, is_eob):
+    def write_eob(self, is_eob, state):
         if is_eob:
             bit = 1
         else:
             bit = 0
         self.writer.write_bit(state, bit)
 
-    def write_zeros(self, non_zero_states, count):
+    def write_zeros(self, count, non_zero_states):
         for i in range(count):
             self.writer.write_bit(non_zero_states[i], 0)
         self.writer.write_bit(non_zero_states[count], 1)
@@ -175,6 +175,15 @@ class Reader:
 
         return sign * (magnitude + 1)
 
+    def read_eob(self, state):
+        return self.reader.read_bit(state) == 1
+
+    def read_zeros(self, non_zero_states):
+        run_length = 0
+        while self.reader.read_bit(non_zero_states[run_length]) == 0:
+            run_length += 1
+        return run_length
+
 
 if __name__ == "__main__":
     import jpeg.stream
@@ -187,11 +196,15 @@ if __name__ == "__main__":
     dc_sn = jpeg.arithmetic.State()
     dc_xstates = [jpeg.arithmetic.State() for _ in range(16)]
     dc_mstates = [jpeg.arithmetic.State() for _ in range(16)]
+    ac_non_zero = [jpeg.arithmetic.State() for _ in range(63)]
     ac_sn_sp_x1 = jpeg.arithmetic.State()
     ac_xstates = [jpeg.arithmetic.State() for _ in range(16)]
     ac_mstates = [jpeg.arithmetic.State() for _ in range(16)]
+    ac_eob = jpeg.arithmetic.State()
     encoder.write_dc(123, dc_non_zero, dc_sign, dc_sp, dc_sn, dc_xstates, dc_mstates)
+    encoder.write_zeros(3, ac_non_zero)
     encoder.write_ac(55, ac_sn_sp_x1, ac_xstates, ac_mstates)
+    encoder.write_eob(True, ac_eob)
     encoder.flush()
 
     dc_non_zero = jpeg.arithmetic.State()
@@ -200,12 +213,16 @@ if __name__ == "__main__":
     dc_sn = jpeg.arithmetic.State()
     dc_xstates = [jpeg.arithmetic.State() for _ in range(16)]
     dc_mstates = [jpeg.arithmetic.State() for _ in range(16)]
+    ac_non_zero = [jpeg.arithmetic.State() for _ in range(63)]
     ac_sn_sp_x1 = jpeg.arithmetic.State()
     ac_xstates = [jpeg.arithmetic.State() for _ in range(16)]
     ac_mstates = [jpeg.arithmetic.State() for _ in range(16)]
+    ac_eob = jpeg.arithmetic.State()
     reader = jpeg.stream.BufferedReader(writer.data)
     decoder = Reader(reader)
     dc = decoder.read_dc(dc_non_zero, dc_sign, dc_sp, dc_sn, dc_xstates, dc_mstates)
+    run_length = decoder.read_zeros(ac_non_zero)
     ac = decoder.read_ac(ac_sn_sp_x1, ac_xstates, ac_mstates)
+    is_eob = decoder.read_eob(ac_eob)
     assert dc == 123
     assert ac == 55

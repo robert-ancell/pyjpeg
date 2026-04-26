@@ -9,6 +9,14 @@ class ArithmeticDCTScanComponent:
         self.conditioning_bounds = conditioning_bounds
         self.kx = kx
 
+    def __eq__(self, other):
+        return (
+            isinstance(other, ArithmeticDCTScanComponent)
+            and other.sampling_factor == self.sampling_factor
+            and other.conditioning_bounds == self.conditioning_bounds
+            and other.kx == self.kx
+        )
+
 
 class ArithmeticDCTScan:
     def __init__(
@@ -50,6 +58,7 @@ class ArithmeticDCTScan:
 
     def decode(
         reader,
+        number_of_data_units,
         samples_per_line,
         components,
         spectral_selection=(0, 63),
@@ -60,11 +69,22 @@ class ArithmeticDCTScan:
             spectral_selection=spectral_selection,
             point_transform=point_transform,
         )
-        # FIXME
+        data_units = []
+        for i in range(number_of_data_units):
+            # FIXME: Handle scaling factor
+            component_index = i % len(components)
+            component = components[component_index]
+
+            data_units.append(
+                reader.read_data_unit(
+                    conditioning_bounds=component.conditioning_bounds,
+                    kx=component.kx,
+                )
+            )
+
         return ArithmeticDCTScan(
-            samples_per_line,
+            data_units,
             components,
-            reader.samples,
             spectral_selection=spectral_selection,
             point_transform=point_transform,
         )
@@ -138,11 +158,11 @@ class Writer:
             ):
                 run_length += 1
             if k + run_length > self.spectral_selection[1]:
-                self.writer.write_eob(self.ac_end_of_block[k - 1], True)
+                self.writer.write_eob(True, self.ac_end_of_block[k - 1])
                 return
 
-            self.writer.write_eob(self.ac_end_of_block[k - 1], False)
-            self.writer.write_zeros(self.ac_non_zero[k - 1 :], run_length)
+            self.writer.write_eob(False, self.ac_end_of_block[k - 1])
+            self.writer.write_zeros(run_length, self.ac_non_zero[k - 1 :])
             k += run_length
             if k <= kx:
                 xstates = self.ac_low_xstates
@@ -190,5 +210,70 @@ class Reader:
         self.ac_low_mstates = make_states(14)
         self.ac_high_mstates = make_states(14)
 
-    def read_data_unit(self, component_index, conditioning_bounds=(0, 1), kx=5):
-        return [0] * 64
+    def read_data_unit(
+        self,
+        prev_dc_diff=0,
+        prev_dc=0,
+        conditioning_bounds=(0, 1),
+        kx=5,
+    ):
+        data_unit = [0] * 64
+        k = self.spectral_selection[0]
+
+        # Read DC coefficient
+        if k == 0:
+            c = jpeg.arithmetic_scan.classify_dc(conditioning_bounds, prev_dc_diff)
+            dc_diff = self.reader.read_dc(
+                self.dc_non_zero[c],
+                self.dc_sign[c],
+                self.dc_sp[c],
+                self.dc_sn[c],
+                self.dc_xstates,
+                self.dc_mstates,
+            )
+            # FIXME: Point transform
+            data_unit[0] = dc_diff + prev_dc
+            k += 1
+
+        # Read AC coefficients
+        while k <= self.spectral_selection[1]:
+            if self.reader.read_eob(self.ac_end_of_block[k - 1]):
+                return data_unit
+
+            k += self.reader.read_zeros(self.ac_non_zero[k - 1 :])
+            if k <= kx:
+                xstates = self.ac_low_xstates
+                mstates = self.ac_low_mstates
+            else:
+                xstates = self.ac_high_xstates
+                mstates = self.ac_high_mstates
+            # FIXME: Point transform
+            data_unit[k] = self.reader.read_ac(
+                self.ac_sn_sp_x1[k - 1], xstates, mstates
+            )
+            k += 1
+
+        return data_unit
+
+
+if __name__ == "__main__":
+    import random
+
+    samples = [random.randint(0, 255) for _ in range(64)]
+    data_units = [jpeg.dct.quantize(jpeg.dct.fdct(samples), [1] * 64)]
+    scan = ArithmeticDCTScan(
+        data_units,
+        [ArithmeticDCTScanComponent()],
+    )
+    writer = jpeg.stream.BufferedWriter()
+    scan.encode(writer)
+
+    reader = jpeg.stream.BufferedReader(writer.data)
+    scan2 = ArithmeticDCTScan.decode(
+        reader,
+        1,
+        8,
+        [ArithmeticDCTScanComponent()],
+    )
+    assert scan2.data_units == data_units
+    assert scan2.components == [ArithmeticDCTScanComponent()]
