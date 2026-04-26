@@ -47,14 +47,13 @@ class Reader:
 
 
 class Segment:
+    # FIXME: Rename to write
     def encode(self, writer: Writer):
         raise NotImplementedError
 
+    # FIXME: Rename to read
     def decode(reader: Reader):
         raise NotImplementedError
-
-    def __repr__(self):
-        return f"StartOfImage()"
 
 
 class BufferedWriter(Writer):
