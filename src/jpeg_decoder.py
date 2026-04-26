@@ -166,9 +166,14 @@ class Decoder:
                     table=self.dc_huffman_tables[component.dc_table].table
                 )
             )
+        # FIXME: Handle scaling factor
+        number_of_data_units = (
+            self.number_of_lines() * self.sof.samples_per_line * len(components)
+        )
         self.segments.append(
             jpeg.huffman_lossless_scan.HuffmanLosslessScan.decode(
                 reader,
+                number_of_data_units,
                 self.sof.samples_per_line,
                 components,
                 precision=self.sof.precision,

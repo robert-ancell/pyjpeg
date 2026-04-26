@@ -64,31 +64,51 @@ class HuffmanLosslessScan:
 
         scan_writer.flush()
 
-    def decode(reader, samples_per_line, components, precision=8, predictor=1):
+    def decode(
+        reader,
+        number_of_data_units,
+        samples_per_line,
+        components,
+        precision=8,
+        predictor=1,
+    ):
         scan_reader = jpeg.huffman_scan.Reader(reader)
         dc_decoders = []
         for scan_component in components:
             dc_decoders.append(jpeg.huffman.Decoder(scan_component.table))
-        data_units = []
-        while True:
-            for component_index, scan_component in enumerate(components):
-                try:
-                    data_unit = scan_reader.read_dc(dc_decoders[component_index])
-                    data_units.append(data_unit)
-                except EOFError:
-                    samples = jpeg.lossless.decode(
-                        samples_per_line,
-                        data_units,
-                        precision=precision,
-                        predictor=predictor,
-                    )
-                    return HuffmanLosslessScan(
-                        samples_per_line,
-                        samples,
-                        components,
-                        precision=precision,
-                        predictor=predictor,
-                    )
+        component_data_units = [[] for _ in components]
+        for i in range(number_of_data_units):
+            # FIXME: Handle scaling factor
+            component_index = i % len(components)
+            data_units = component_data_units[component_index]
+
+            data_unit = scan_reader.read_dc(dc_decoders[component_index])
+            data_units.append(data_unit)
+
+        component_samples = []
+        for component_index, component in enumerate(components):
+            component_samples.append(
+                jpeg.lossless.decode(
+                    samples_per_line,
+                    data_units,
+                    precision=precision,
+                    predictor=predictor,
+                )
+            )
+
+        samples = []
+        while len(component_samples[0]) > 0:
+            for _ in range(samples_per_line):
+                for component_index in range(len(components)):
+                    samples.append(component_samples[component_index].pop(0))
+
+        return HuffmanLosslessScan(
+            samples_per_line,
+            samples,
+            components,
+            precision=precision,
+            predictor=predictor,
+        )
 
 
 if __name__ == "__main__":
@@ -113,6 +133,7 @@ if __name__ == "__main__":
     reader = jpeg.stream.BufferedReader(writer.data)
     scan2 = HuffmanLosslessScan.decode(
         reader,
+        64,
         8,
         [
             HuffmanLosslessScanComponent(
