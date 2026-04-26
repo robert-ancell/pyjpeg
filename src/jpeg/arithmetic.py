@@ -320,11 +320,6 @@ class Decoder:
         self.ct += 8
         self.data = self.data[1:]
 
-        # Skip stuffed zero
-        if self.d == 0xFF:
-            assert self.data[0] == 0x00
-            self.data = self.data[1:]
-
 
 if __name__ == "__main__":
     data = [
@@ -382,7 +377,16 @@ if __name__ == "__main__":
         to_hex(e.data) == "655B5144F7969D517855BFFF00FC5184C7CEF93900287D46708ECBC0F6"
     )
 
-    d = Decoder(e.data)
+    d_data = []
+    i = 0
+    while i < len(e.data):
+        if e.data[i] == 0xFF and e.data[i + 1] == 0:
+            d_data.append(0xFF)
+            i += 2
+        else:
+            d_data.append(e.data[i])
+            i += 1
+    d = Decoder(d_data)
     state = State()
     decoded_data = []
     for _ in range(len(bits) // 8):
