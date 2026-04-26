@@ -3,18 +3,26 @@ import jpeg.stream
 
 
 class HuffmanTable:
-    def __init__(self, table_class, destination, table):
+    def __init__(self, table_class: int, destination: int, table):
         assert len(table) == 16
         self.table_class = table_class
         self.destination = destination
         # FIXME: Rename to symbols_by_length
         self.table = table
 
-    def dc(destination, table):
+    def dc(destination: int, table):
         return HuffmanTable(0, destination, table)
 
-    def ac(destination, table):
+    def ac(destination: int, table):
         return HuffmanTable(1, destination, table)
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, HuffmanTable)
+            and self.table_class == other.table_class
+            and self.destination == other.destination
+            and self.table == other.table
+        )
 
     def __repr__(self):
         if self.table_class == 0:
@@ -71,3 +79,61 @@ class DefineHuffmanTables:
 
     def __repr__(self):
         return f"DefineHuffmanTables({self.tables})"
+
+
+if __name__ == "__main__":
+    tables = [
+        HuffmanTable.dc(
+            1,
+            [
+                [0],
+                [1],
+                [2],
+                [3],
+                [4],
+                [5],
+                [6],
+                [7],
+                [8],
+                [9],
+                [10],
+                [11],
+                [12],
+                [13],
+                [14],
+                [15],
+            ],
+        ),
+        HuffmanTable.ac(
+            3,
+            [
+                [],
+                [],
+                [1, 2, 3],
+                [],
+                [],
+                [4, 5, 6],
+                [],
+                [],
+                [7],
+                [8],
+                [9],
+                [10],
+                [],
+                [],
+                [],
+                [],
+            ],
+        ),
+    ]
+
+    writer = jpeg.stream.BufferedWriter()
+    DefineHuffmanTables(tables).encode(writer)
+    assert (
+        writer.data
+        == b"\xff\xc4\x00\x3e\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x13\x00\x00\x03\x00\x00\x03\x00\x00\x01\x01\x01\x01\x00\x00\x00\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a"
+    )
+
+    reader = jpeg.stream.BufferedReader(writer.data)
+    dht = DefineHuffmanTables.decode(reader)
+    assert dht.tables == tables

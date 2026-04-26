@@ -3,7 +3,7 @@ import jpeg.stream
 
 
 class QuantizationTable:
-    def __init__(self, destination, values, precision=8):
+    def __init__(self, destination: int, values, precision: int = 8):
         self.destination = destination
         self.precision = precision
         self.values = values
