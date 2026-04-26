@@ -40,10 +40,10 @@ class HuffmanDCTACSuccessiveScan:
             length = get_eob_length(count)
             return get_bits(count, length)
 
-        def encode_symbol(encoder, symbol):
+        def write_symbol(writer, encoder, symbol):
             if symbol_frequencies is not None:
                 symbol_frequencies[symbol] += 1
-            return encoder.encode(symbol)
+            encoder.write_symbol(writer, symbol)
 
         encoder = jpeg.huffman.Encoder(self.table)
         correction_bits = [[]]
@@ -70,26 +70,21 @@ class HuffmanDCTACSuccessiveScan:
                     else:
                         if eob_count > 0:
                             eob_bits = encode_eob(eob_count)
-                            for bit in encode_symbol(encoder, len(eob_bits) << 4 | 0):
-                                scan_writer.write_bit(bit)
-                            for bit in eob_bits:
-                                scan_writer.write_bit(bit)
-                            for bit in eob_correction_bits:
-                                scan_writer.write_bit(bit)
+                            write_symbol(scan_writer, encoder, len(eob_bits) << 4 | 0)
+                            scan_writer.write_bits(eob_bits)
+                            scan_writer.write_bits(eob_correction_bits)
                             eob_count = 0
                             eob_correction_bits = []
 
                         while run_length > 15:
                             # ZRL
-                            scan_writer.write_bits(encode_symbol(encoder, 15 << 4 | 0))
+                            write_symbol(scan_writer, encoder, 15 << 4 | 0)
                             scan_writer.write_bits(correction_bits[0])
                             run_length -= 16
                             correction_bits = correction_bits[1:]
                         assert len(correction_bits) == 1
 
-                        scan_writer.write_bits(
-                            encode_symbol(encoder, run_length << 4 | 1)
-                        )
+                        write_symbol(scan_writer, encoder, run_length << 4 | 1)
                         if transformed_coefficient < 0:
                             scan_writer.write_bit(0)
                         else:
@@ -113,7 +108,7 @@ class HuffmanDCTACSuccessiveScan:
 
         if eob_count > 0:
             eob_bits = encode_eob(eob_count)
-            scan_writer.write_bits(encode_symbol(encoder, len(eob_bits) << 4 | 0))
+            write_symbol(scan_writer, encoder, len(eob_bits) << 4 | 0)
             scan_writer.write_bits(eob_bits)
             scan_writer.write_bits(eob_correction_bits)
 
