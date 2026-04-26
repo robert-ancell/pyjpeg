@@ -24,7 +24,6 @@ class Comment:
 
 if __name__ == "__main__":
     writer = jpeg.stream.BufferedWriter()
-
     Comment(bytes("Hello world!", "utf-8")).encode(writer)
     assert writer.data == b"\xff\xfe\x00\x0eHello world!"
 

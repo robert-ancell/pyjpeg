@@ -1,6 +1,7 @@
 import struct
 
 import jpeg.marker
+import jpeg.stream
 
 
 class Density:
@@ -26,7 +27,8 @@ class AdobeColorSpace:
 
 
 class ApplicationSpecificData:
-    def __init__(self, n, data):
+    def __init__(self, n: int, data: bytes):
+        assert n >= 0 and n <= 15
         self.n = n
         self.data = data
 
@@ -109,12 +111,12 @@ class ApplicationSpecificData:
             color_space,
         )
 
-    def encode(self, writer):
+    def encode(self, writer: jpeg.stream.Writer):
         writer.write_marker(jpeg.marker.Marker.APP0 + self.n)
         writer.write_u16(2 + len(self.data))
         writer.write(self.data)
 
-    def decode(reader):
+    def decode(reader: jpeg.stream.Reader):
         marker = reader.read_marker()
         assert marker >= jpeg.marker.Marker.APP0 and marker <= jpeg.marker.Marker.APP15
         n = marker - jpeg.marker.Marker.APP0
@@ -132,3 +134,14 @@ class ApplicationSpecificData:
             return f"ApplicationSpecificData.adobe(version={version}, flags0={flags0}, flags1={flags1}, color_space={color_space})"
         else:
             return f"ApplicationSpecificData({self.n}, {self.data})"
+
+
+if __name__ == "__main__":
+    writer = jpeg.stream.BufferedWriter()
+    ApplicationSpecificData(15, b"\xde\xad\xbe\xef").encode(writer)
+    assert writer.data == b"\xff\xef\x00\x06\xde\xad\xbe\xef"
+
+    reader = jpeg.stream.BufferedReader(writer.data)
+    app = ApplicationSpecificData.decode(reader)
+    assert app.n == 15
+    assert app.data == b"\xde\xad\xbe\xef"

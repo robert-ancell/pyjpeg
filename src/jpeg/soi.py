@@ -19,7 +19,6 @@ class StartOfImage(jpeg.stream.Segment):
 
 if __name__ == "__main__":
     writer = jpeg.stream.BufferedWriter()
-
     StartOfImage().encode(writer)
     assert writer.data == b"\xff\xd8"
 

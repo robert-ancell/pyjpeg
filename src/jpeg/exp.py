@@ -3,7 +3,7 @@ import jpeg.stream
 
 
 class ExpandReferenceComponents:
-    def __init__(self, expand_horizontal, expand_vertical):
+    def __init__(self, expand_horizontal: bool, expand_vertical: bool):
         self.expand_horizontal = expand_horizontal
         self.expand_vertical = expand_vertical
 
@@ -35,7 +35,6 @@ class ExpandReferenceComponents:
 
 if __name__ == "__main__":
     writer = jpeg.stream.BufferedWriter()
-
     ExpandReferenceComponents(True, False).encode(writer)
     assert writer.data == b"\xff\xdf\x00\x03\x10"
 

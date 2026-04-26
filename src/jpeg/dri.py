@@ -25,7 +25,6 @@ class DefineRestartInterval:
 
 if __name__ == "__main__":
     writer = jpeg.stream.BufferedWriter()
-
     DefineRestartInterval(123).encode(writer)
     assert writer.data == b"\xff\xdd\x00\x04\x00\x7b"
 

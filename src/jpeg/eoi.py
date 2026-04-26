@@ -19,7 +19,6 @@ class EndOfImage(jpeg.stream.Segment):
 
 if __name__ == "__main__":
     writer = jpeg.stream.BufferedWriter()
-
     EndOfImage().encode(writer)
     assert writer.data == b"\xff\xd9"
 
