@@ -25,6 +25,7 @@ class ArithmeticDCTScan:
 
     def encode(self, writer):
         encoder = Encoder(
+            writer,
             spectral_selection=self.spectral_selection,
             point_transform=self.point_transform,
         )
@@ -44,7 +45,8 @@ class ArithmeticDCTScan:
                         kx=scan_component.kx,
                     )
                     i += 1
-        writer.write(encoder.get_data())
+
+        encoder.flush()
 
     def decode(
         reader,
@@ -71,10 +73,11 @@ class ArithmeticDCTScan:
 class Encoder(jpeg.arithmetic_scan.Encoder):
     def __init__(
         self,
+        writer,
         spectral_selection=(0, 63),
         point_transform=0,
     ):
-        super().__init__()
+        super().__init__(writer)
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
         # FIXME: Get rid of these

@@ -129,6 +129,7 @@ class Encoder:
         self.c = 0
         self.ct = 11
         self.st = 0
+        # FIXME: Replace with writer
         self.data = []
 
     # Encodes [value] using [state].

@@ -17,7 +17,7 @@ class ArithmeticLosslessScan:
         self.predictor = predictor
 
     def encode(self, writer):
-        encoder = Encoder()
+        encoder = Encoder(writer)
 
         # FIXME: Store samples per component
         data_units = []
@@ -53,7 +53,8 @@ class ArithmeticLosslessScan:
                     above_data_unit,
                     data_unit,
                 )
-        writer.write(encoder.get_data())
+
+        encoder.flush()
 
     def decode(reader, samples_per_line, components, precision=8, predictor=1):
         decoder = Decoder(reader)
@@ -68,8 +69,8 @@ class ArithmeticLosslessScan:
 
 
 class Encoder(jpeg.arithmetic_scan.Encoder):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, writer):
+        super().__init__(writer)
 
         def make_states(count):
             return [jpeg.arithmetic.State() for _ in range(count)]
