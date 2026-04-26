@@ -16,23 +16,26 @@ class Writer:
     def write_eob(self, encoder, block_count=1, symbol_frequencies=None):
         assert 1 <= block_count <= 32767
         length = self._get_magnitude_length(block_count)
-        self.write_ac(length - 1, 0, encoder, symbol_frequencies)
-        if block_count > 1:
-            self._write_magnitude(block_count, length - 1)
+        self._write_ac(length - 1, 0, encoder, symbol_frequencies=symbol_frequencies)
+        self._write_magnitude(block_count, length - 1)
 
     # Run of 16 zero AC coefficients.
     def write_zrl(self, encoder, symbol_frequencies=None):
-        self.write_ac(15, 0, encoder, symbol_frequencies)
+        self._write_ac(15, 0, encoder, symbol_frequencies=symbol_frequencies)
 
     # AC Coefficient after [run_length] zero coefficients.
     def write_ac(self, run_length, ac, encoder, symbol_frequencies=None):
+        assert ac != 0
+        self._write_ac(run_length, ac, encoder, symbol_frequencies=symbol_frequencies)
+
+    def flush(self):
+        self.writer.flush(pad_bit=1)
+
+    def _write_ac(self, run_length, ac, encoder, symbol_frequencies=None):
         length = self._get_magnitude_length(ac)
         symbol = run_length << 4 | length
         self._write_symbol(symbol, encoder, symbol_frequencies)
         self._write_magnitude(ac, length)
-
-    def flush(self):
-        self.writer.flush(pad_bit=1)
 
     # Write a Huffman symbol
     def _write_symbol(self, symbol, encoder, symbol_frequencies=None):
