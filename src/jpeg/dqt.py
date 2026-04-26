@@ -11,9 +11,9 @@ class QuantizationTable:
     def __eq__(self, other):
         return (
             isinstance(other, QuantizationTable)
-            and self.destination == other.destination
-            and self.precision == other.precision
-            and self.values == other.values
+            and other.destination == self.destination
+            and other.precision == self.precision
+            and other.values == self.values
         )
 
     def __repr__(self):

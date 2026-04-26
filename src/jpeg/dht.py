@@ -19,9 +19,9 @@ class HuffmanTable:
     def __eq__(self, other):
         return (
             isinstance(other, HuffmanTable)
-            and self.table_class == other.table_class
-            and self.destination == other.destination
-            and self.table == other.table
+            and other.table_class == self.table_class
+            and other.destination == self.destination
+            and other.table == self.table
         )
 
     def __repr__(self):

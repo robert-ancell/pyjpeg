@@ -17,9 +17,9 @@ class ArithmeticConditioning:
     def __eq__(self, other):
         return (
             isinstance(other, ArithmeticConditioning)
-            and self.table_class == other.table_class
-            and self.destination == other.destination
-            and self.value == other.value
+            and other.table_class == self.table_class
+            and other.destination == self.destination
+            and other.value == self.value
         )
 
     def __repr__(self):
