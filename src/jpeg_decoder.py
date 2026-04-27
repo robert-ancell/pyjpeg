@@ -113,7 +113,8 @@ class Decoder:
                 jpeg.ArithmeticDCTScanComponent(
                     conditioning_bounds=self.dc_arithmetic_conditioning_bounds[
                         component.dc_table
-                    ]
+                    ],
+                    kx=self.ac_arithmetic_kx[component.ac_table],
                 )
             )
         # FIXME: Handle scaling factor, restart interval
