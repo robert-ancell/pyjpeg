@@ -129,10 +129,9 @@ class Decoder:
             components.append(
                 jpeg.HuffmanDCTScanComponent(
                     dc_table=self.dc_huffman_tables[component.dc_table].table,
-                    ac_table=self.dc_huffman_tables[component.ac_table].table,
+                    ac_table=self.ac_huffman_tables[component.ac_table].table,
                 )
             )
-        # FIXME: DCT data units
         # FIXME: Handle scaling factor
         (width, height) = self.size_in_data_units()
         number_of_data_units = width * height * len(components)

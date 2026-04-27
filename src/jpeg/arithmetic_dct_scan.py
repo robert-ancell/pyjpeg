@@ -17,6 +17,9 @@ class ArithmeticDCTScanComponent:
             and other.kx == self.kx
         )
 
+    def __repr__(self):
+        return f"ArithmeticDCTScanComponent(sampling_factor={self.sampling_factor}, conditioning_bounds={self.conditioning_bounds}, kx={self.kx})"
+
 
 class ArithmeticDCTScan:
     def __init__(

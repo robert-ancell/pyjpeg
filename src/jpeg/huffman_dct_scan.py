@@ -17,6 +17,9 @@ class HuffmanDCTScanComponent:
             and other.sampling_factor == self.sampling_factor
         )
 
+    def __repr__(self):
+        return f"HuffmanDCTScanComponent({self.dc_table}, {self.ac_table}, sampling_factor={self.sampling_factor})"
+
 
 class HuffmanDCTScan:
     def __init__(

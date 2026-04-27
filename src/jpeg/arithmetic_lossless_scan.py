@@ -14,6 +14,9 @@ class ArithmeticLosslessScanComponent:
             and other.conditioning_bounds == self.conditioning_bounds
         )
 
+    def __repr__(self):
+        return f"ArithmeticLosslessScanComponent(conditioning_bounds={self.conditioning_bounds})"
+
 
 class ArithmeticLosslessScan:
     def __init__(

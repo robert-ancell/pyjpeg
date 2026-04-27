@@ -13,6 +13,9 @@ class HuffmanLosslessScanComponent:
             and other.table == self.table
         )
 
+    def __repr__(self):
+        return f"HuffmanLosslessScanComponent({self.table})"
+
 
 class HuffmanLosslessScan:
     def __init__(self, samples_per_line, samples, components, precision=8, predictor=1):
