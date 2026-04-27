@@ -64,7 +64,7 @@ class ArithmeticDCTScan:
         spectral_selection=(0, 63),
         point_transform=0,
     ):
-        reader = Reader(
+        scan_reader = Reader(
             reader,
             spectral_selection=spectral_selection,
             point_transform=point_transform,
@@ -76,7 +76,8 @@ class ArithmeticDCTScan:
             component = components[component_index]
 
             data_units.append(
-                reader.read_data_unit(
+                # FIXME: prev_dc, prev_dc_diff
+                scan_reader.read_data_unit(
                     conditioning_bounds=component.conditioning_bounds,
                     kx=component.kx,
                 )
