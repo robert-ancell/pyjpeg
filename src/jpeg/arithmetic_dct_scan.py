@@ -89,7 +89,7 @@ class ArithmeticDCTScan:
 
             data_unit = scan_reader.read_data_unit(
                 prev_dc=prev_dc[component_index],
-                prev_dc_diff=prev_dc[component_index],
+                prev_dc_diff=prev_dc_diff[component_index],
                 conditioning_bounds=component.conditioning_bounds,
                 kx=component.kx,
             )
@@ -275,8 +275,10 @@ class Reader:
 if __name__ == "__main__":
     import random
 
-    samples = [random.randint(0, 255) for _ in range(64)]
-    data_units = [jpeg.dct.quantize(jpeg.dct.fdct(samples), [1] * 64)]
+    data_units = []
+    for _ in range(4):
+        samples = [random.randint(0, 255) for _ in range(64)]
+        data_units.append(jpeg.dct.quantize(jpeg.dct.fdct(samples), [1] * 64))
     scan = ArithmeticDCTScan(
         data_units,
         [ArithmeticDCTScanComponent()],
@@ -287,7 +289,7 @@ if __name__ == "__main__":
     reader = jpeg.stream.BufferedReader(writer.data)
     scan2 = ArithmeticDCTScan.decode(
         reader,
-        1,
+        4,
         [ArithmeticDCTScanComponent()],
     )
     assert scan2.data_units == data_units
