@@ -41,6 +41,8 @@ class ArithmeticDCTScan:
             point_transform=self.point_transform,
         )
 
+        prev_dc = [0] * len(self.components)
+        prev_dc_diff = [0] * len(self.components)
         i = 0
         while i < len(self.data_units):
             for component_index, scan_component in enumerate(self.components):
@@ -49,12 +51,19 @@ class ArithmeticDCTScan:
                     * scan_component.sampling_factor[1]
                 ):
                     assert i < len(self.data_units)
+                    data_unit = self.data_units[i]
                     scan_writer.write_data_unit(
-                        component_index,
-                        self.data_units[i],
+                        data_unit,
+                        prev_dc=prev_dc[component_index],
+                        prev_dc_diff=prev_dc_diff[component_index],
                         conditioning_bounds=scan_component.conditioning_bounds,
                         kx=scan_component.kx,
                     )
+                    dc = jpeg.dct.transform_coefficient(
+                        data_unit[0], self.point_transform
+                    )
+                    prev_dc_diff[component_index] = dc - prev_dc[component_index]
+                    prev_dc[component_index] = dc
                     i += 1
 
         scan_writer.flush()
@@ -86,8 +95,11 @@ class ArithmeticDCTScan:
                 kx=component.kx,
             )
             data_units.append(data_unit)
-            prev_dc_diff[component_index] = data_unit[0] - prev_dc[component_index]
-            prev_dc[component_index] = data_unit[0]
+
+            # FIXME: point transform
+            dc = data_unit[0]
+            prev_dc_diff[component_index] = dc - prev_dc[component_index]
+            prev_dc[component_index] = dc
 
         return ArithmeticDCTScan(
             data_units,
@@ -107,9 +119,6 @@ class Writer:
         self.writer = jpeg.arithmetic_scan.Writer(writer)
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
-        # FIXME: Get rid of these
-        self.prev_dc = {}
-        self.prev_dc_diff = {}
 
         def make_states(count):
             return [jpeg.arithmetic.State() for _ in range(count)]
@@ -128,17 +137,20 @@ class Writer:
         self.ac_low_mstates = make_states(14)
         self.ac_high_mstates = make_states(14)
 
-    # FIXME: Get rid of component_index and instead use last two data_units
     def write_data_unit(
-        self, component_index, data_unit, conditioning_bounds=(0, 1), kx=5
+        self,
+        data_unit,
+        prev_dc=0,
+        prev_dc_diff=0,
+        conditioning_bounds=(0, 1),
+        kx=5,
     ):
         k = self.spectral_selection[0]
 
         # Write DC coefficient
         if k == 0:
             dc = jpeg.dct.transform_coefficient(data_unit[k], self.point_transform)
-            dc_diff = dc - self.prev_dc.get(component_index, 0)
-            prev_dc_diff = self.prev_dc_diff.get(component_index, 0)
+            dc_diff = dc - prev_dc
             c = jpeg.arithmetic_scan.classify_dc(conditioning_bounds, prev_dc_diff)
             self.writer.write_dc(
                 dc_diff,
@@ -149,8 +161,6 @@ class Writer:
                 self.dc_xstates,
                 self.dc_mstates,
             )
-            self.prev_dc[component_index] = dc
-            self.prev_dc_diff[component_index] = dc_diff
             k += 1
 
         # Write AC coefficients
@@ -219,8 +229,8 @@ class Reader:
 
     def read_data_unit(
         self,
-        prev_dc_diff=0,
         prev_dc=0,
+        prev_dc_diff=0,
         conditioning_bounds=(0, 1),
         kx=5,
     ):
@@ -239,7 +249,7 @@ class Reader:
                 self.dc_mstates,
             )
             # FIXME: Point transform
-            data_unit[0] = dc_diff + prev_dc
+            data_unit[0] = prev_dc + dc_diff
             k += 1
 
         # Read AC coefficients
