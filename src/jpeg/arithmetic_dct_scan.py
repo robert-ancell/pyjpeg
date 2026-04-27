@@ -59,7 +59,6 @@ class ArithmeticDCTScan:
     def decode(
         reader,
         number_of_data_units,
-        samples_per_line,
         components,
         spectral_selection=(0, 63),
         point_transform=0,
@@ -70,18 +69,22 @@ class ArithmeticDCTScan:
             point_transform=point_transform,
         )
         data_units = []
+        prev_dc = [0] * len(components)
+        prev_dc_diff = [0] * len(components)
         for i in range(number_of_data_units):
             # FIXME: Handle scaling factor
             component_index = i % len(components)
             component = components[component_index]
 
-            data_units.append(
-                # FIXME: prev_dc, prev_dc_diff
-                scan_reader.read_data_unit(
-                    conditioning_bounds=component.conditioning_bounds,
-                    kx=component.kx,
-                )
+            data_unit = scan_reader.read_data_unit(
+                prev_dc=prev_dc[component_index],
+                prev_dc_diff=prev_dc[component_index],
+                conditioning_bounds=component.conditioning_bounds,
+                kx=component.kx,
             )
+            data_units.append(data_unit)
+            prev_dc_diff[component_index] = data_unit[0] - prev_dc[component_index]
+            prev_dc[component_index] = data_unit[0]
 
         return ArithmeticDCTScan(
             data_units,
@@ -273,7 +276,6 @@ if __name__ == "__main__":
     scan2 = ArithmeticDCTScan.decode(
         reader,
         1,
-        8,
         [ArithmeticDCTScanComponent()],
     )
     assert scan2.data_units == data_units

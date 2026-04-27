@@ -81,6 +81,9 @@ class Reader:
         length = run_length_and_length & 0xF
         return (run_length, self._read_magnitude(length))
 
+    def read_eob_count(self, length):
+        self._read_magnitude(length - 1)
+
     def _read_magnitude(self, length):
         if length == 0:
             return 0
@@ -111,6 +114,7 @@ if __name__ == "__main__":
     scan_writer.write_dc(123, dc_encoder)
     scan_writer.write_ac(2, 55, ac_encoder)
     scan_writer.write_ac(0, -17, ac_encoder)
+    scan_writer.write_eob(ac_encoder)
     scan_writer.flush()
 
     reader = jpeg.stream.BufferedReader(writer.data)
@@ -124,8 +128,9 @@ if __name__ == "__main__":
     dc = scan_reader.read_dc(dc_decoder)
     (run_length1, ac1) = scan_reader.read_ac(ac_decoder)
     (run_length2, ac2) = scan_reader.read_ac(ac_decoder)
+    (run_length3, ac3) = scan_reader.read_ac(ac_decoder)
     assert dc == 123
     assert run_length1 == 2
     assert ac1 == 55
-    assert run_length2 == 0
-    assert ac2 == -17
+    assert run_length3 == 0
+    assert ac3 == 0
