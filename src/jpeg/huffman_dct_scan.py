@@ -231,8 +231,10 @@ if __name__ == "__main__":
 
     import jpeg.huffman_tables
 
-    samples = [random.randint(0, 255) for _ in range(64)]
-    data_units = [jpeg.dct.quantize(jpeg.dct.fdct(samples), [1] * 64)]
+    data_units = []
+    for _ in range(4):
+        samples = [random.randint(0, 255) for _ in range(64)]
+        data_units.append(jpeg.dct.quantize(jpeg.dct.fdct(samples), [1] * 64))
     scan = HuffmanDCTScan(
         data_units,
         [
@@ -248,7 +250,7 @@ if __name__ == "__main__":
     reader = jpeg.stream.BufferedReader(writer.data)
     scan2 = HuffmanDCTScan.decode(
         reader,
-        1,
+        4,
         [
             HuffmanDCTScanComponent(
                 dc_table=jpeg.huffman_tables.standard_luminance_dc_huffman_table,
