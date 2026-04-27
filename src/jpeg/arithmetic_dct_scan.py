@@ -45,10 +45,9 @@ class ArithmeticDCTScan:
         prev_dc_diff = [0] * len(self.components)
         i = 0
         while i < len(self.data_units):
-            for component_index, scan_component in enumerate(self.components):
+            for component_index, component in enumerate(self.components):
                 for _ in range(
-                    scan_component.sampling_factor[0]
-                    * scan_component.sampling_factor[1]
+                    component.sampling_factor[0] * component.sampling_factor[1]
                 ):
                     assert i < len(self.data_units)
                     data_unit = self.data_units[i]
@@ -56,8 +55,8 @@ class ArithmeticDCTScan:
                         data_unit,
                         prev_dc=prev_dc[component_index],
                         prev_dc_diff=prev_dc_diff[component_index],
-                        conditioning_bounds=scan_component.conditioning_bounds,
-                        kx=scan_component.kx,
+                        conditioning_bounds=component.conditioning_bounds,
+                        kx=component.kx,
                     )
                     dc = jpeg.dct.transform_coefficient(
                         data_unit[0], self.point_transform
