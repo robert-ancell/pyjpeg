@@ -74,3 +74,34 @@ class ArithmeticDCTACSuccessiveScan:
                 k += 1
 
         writer.flush()
+
+
+if __name__ == "__main__":
+    import random
+
+    import jpeg.dct
+
+    samples = [random.randint(0, 255) for _ in range(64)]
+    data_units = [jpeg.dct.quantize(jpeg.dct.fdct(samples), [1] * 64)]
+
+    point_transform = 4
+    mask = 0xFFFF
+    bit = 1
+    for _ in range(point_transform):
+        mask &= ~bit
+        bit <<= 1
+    progressive_data_units = []
+    for point_transform in range(point_transform + 1):
+        approximated_data_units = []
+        for data_unit in data_units:
+            approximated_data_unit = []
+            for coefficient in data_unit:
+                if coefficient >= 0:
+                    approximated_coefficient = coefficient & mask
+                else:
+                    approximated_coefficient = -(-coefficient & mask)
+                approximated_data_unit.append(approximated_coefficient)
+            approximated_data_units.append(approximated_data_unit)
+        progressive_data_units.append(approximated_data_units)
+        mask |= bit
+        bit >>= 1
