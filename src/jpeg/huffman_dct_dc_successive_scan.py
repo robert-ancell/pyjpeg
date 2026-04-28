@@ -14,11 +14,7 @@ class HuffmanDCTDCSuccessiveScan:
         prev_dc = 0
         for data_unit in self.data_units:
             dc = data_unit[0]
-            dc_diff = dc - prev_dc
-            prev_dc = dc
-            if dc_diff < 0:
-                dc_diff = -dc_diff
-            bit = (dc_diff >> self.point_transform) & 0x1
+            bit = (dc >> self.point_transform) & 0x1
             scan_writer.write_bit(bit)
 
         scan_writer.flush(pad_bit=1)
@@ -28,8 +24,8 @@ class HuffmanDCTDCSuccessiveScan:
         data_units = []
         for _ in range(number_of_data_units):
             bit = scan_reader.read_bit()
-            dc_diff = bit << point_transform
-            data_unit = [dc_diff] + [0] * 63
+            dc = bit << point_transform
+            data_unit = [dc] + [0] * 63
             data_units.append(data_unit)
         return HuffmanDCTDCSuccessiveScan(data_units, point_transform=point_transform)
 

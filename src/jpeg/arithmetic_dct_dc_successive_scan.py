@@ -3,7 +3,7 @@ import jpeg.stream
 
 
 class ArithmeticDCTDCSuccessiveScan:
-    def __init__(self, data_units, point_transform=0):
+    def __init__(self, data_units, point_transform):
         # FIXME: Rename to dc_values
         self.data_units = data_units
         self.point_transform = point_transform
@@ -13,19 +13,15 @@ class ArithmeticDCTDCSuccessiveScan:
         prev_dc = 0
         for data_unit in self.data_units:
             dc = data_unit[0]
-            dc_diff = dc - prev_dc
-            prev_dc = dc
-            if dc_diff < 0:
-                dc_diff = -dc_diff
-            writer.write_fixed_bit((dc_diff >> self.point_transform) & 0x1)
+            writer.write_fixed_bit((dc >> self.point_transform) & 0x1)
 
         writer.flush()
 
-    def read(reader: jpeg.stream.Reader, number_of_data_units, point_transform=0):
+    def read(reader: jpeg.stream.Reader, number_of_data_units, point_transform):
         reader = jpeg.arithmetic.Reader(reader)
         prev_dc = 0
         for _ in range(number_of_data_units):
-            bit = reader.read_fixed_bit()
+            bit = reader.read_fixed_bit() << self.point_transform
         return ArithmeticDCTDCSuccessiveScan(
             data_units, point_transform=point_transform
         )
