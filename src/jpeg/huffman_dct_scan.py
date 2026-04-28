@@ -44,6 +44,7 @@ class HuffmanDCTScan:
         i = 0
         dc_encoders = []
         ac_encoders = []
+        prev_dc = [0] * len(self.components)
         for component in self.components:
             dc_encoders.append(jpeg.huffman.Encoder(component.dc_table))
             ac_encoders.append(jpeg.huffman.Encoder(component.ac_table))
@@ -62,14 +63,17 @@ class HuffmanDCTScan:
                         ac_frequencies = ac_symbol_frequencies[component_index]
                     else:
                         ac_frequencies = None
+                    data_unit = self.data_units[i]
                     scan_writer.write_data_unit(
                         component_index,
-                        self.data_units[i],
+                        data_unit,
                         dc_encoders[component_index],
                         ac_encoders[component_index],
+                        prev_dc=prev_dc[component_index],
                         dc_symbol_frequencies=dc_frequencies,
                         ac_symbol_frequencies=ac_frequencies,
                     )
+                    prev_dc[component_index] = data_unit[0]
                     i += 1
         scan_writer.flush()
 
@@ -113,6 +117,7 @@ class HuffmanDCTScan:
         )
 
 
+# FIXME: Merge into above class
 class Writer:
     def __init__(
         self,
@@ -123,8 +128,6 @@ class Writer:
         self.writer = jpeg.huffman_scan.Writer(writer)
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
-        # FIXME: Remove and pass into write_data_unit
-        self.prev_dc = {}
 
     def write_data_unit(
         self,
@@ -132,6 +135,7 @@ class Writer:
         data_unit,
         dc_encoder,
         ac_encoder,
+        prev_dc=0,
         dc_symbol_frequencies=None,
         ac_symbol_frequencies=None,
     ):
@@ -140,8 +144,7 @@ class Writer:
         # Write DC coefficient
         if k == 0:
             dc = jpeg.dct.transform_coefficient(data_unit[k], self.point_transform)
-            dc_diff = dc - self.prev_dc.get(component_index, 0)
-            self.prev_dc[component_index] = dc
+            dc_diff = dc - jpeg.dct.transform_coefficient(prev_dc, self.point_transform)
             self.writer.write_dc(
                 dc_diff, dc_encoder, symbol_frequencies=dc_symbol_frequencies
             )
@@ -182,6 +185,7 @@ class Writer:
         self.writer.flush()
 
 
+# FIXME: Merge into above class
 class Reader:
     def __init__(
         self,
