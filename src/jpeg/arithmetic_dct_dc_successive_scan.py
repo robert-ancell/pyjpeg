@@ -1,4 +1,5 @@
 import jpeg.arithmetic
+import jpeg.stream
 
 
 class ArithmeticDCTDCSuccessiveScan:
@@ -7,7 +8,7 @@ class ArithmeticDCTDCSuccessiveScan:
         self.data_units = data_units
         self.point_transform = point_transform
 
-    def encode(self, writer):
+    def write(self, writer: jpeg.stream.Writer):
         writer = jpeg.arithmetic.Writer(writer)
         prev_dc = 0
         for data_unit in self.data_units:
@@ -20,7 +21,7 @@ class ArithmeticDCTDCSuccessiveScan:
 
         writer.flush()
 
-    def decode(reader, number_of_data_units, point_transform=0):
+    def read(reader: jpeg.stream.Reader, number_of_data_units, point_transform=0):
         reader = jpeg.arithmetic.Reader(reader)
         prev_dc = 0
         for _ in range(number_of_data_units):
@@ -41,10 +42,10 @@ if __name__ == "__main__":
 
     writer = jpeg.stream.BufferedWriter()
     scan = ArithmeticDCTDCSuccessiveScan(data_units)
-    scan.encode(writer)
+    scan.write(writer)
 
     reader = jpeg.stream.BufferedReader(writer.data)
-    scan2 = ArithmeticDCTDCSuccessiveScan.decode(reader, 1)
+    scan2 = ArithmeticDCTDCSuccessiveScan.read(reader, 1)
 
     # FIXME
     # assert scan2.data_units == data_units

@@ -23,7 +23,7 @@ class ArithmeticLosslessScan:
         self.data_units = data_units
         self.components = components
 
-    def encode(self, writer: jpeg.stream.Writer):
+    def write(self, writer: jpeg.stream.Writer):
         writer = Writer(writer)
 
         for i, data_unit in enumerate(self.data_units):
@@ -50,7 +50,7 @@ class ArithmeticLosslessScan:
 
         writer.flush()
 
-    def decode(
+    def read(
         reader: jpeg.stream.Reader,
         samples_per_line: int,
         number_of_data_units: int,
@@ -181,17 +181,17 @@ if __name__ == "__main__":
     import jpeg.lossless
 
     samples = [random.randint(0, 255) for _ in range(64)]
-    data_units = jpeg.lossless.encode(8, samples)
+    data_units = jpeg.lossless.write(8, samples)
     scan = ArithmeticLosslessScan(
         8,
         data_units,
         [ArithmeticLosslessScanComponent()],
     )
     writer = jpeg.stream.BufferedWriter()
-    scan.encode(writer)
+    scan.write(writer)
 
     reader = jpeg.stream.BufferedReader(writer.data)
-    scan2 = ArithmeticLosslessScan.decode(
+    scan2 = ArithmeticLosslessScan.read(
         reader,
         8,
         64,

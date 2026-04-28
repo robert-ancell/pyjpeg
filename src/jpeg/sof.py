@@ -85,7 +85,7 @@ class StartOfFrame:
             n = 3
         return StartOfFrame(n, precision, number_of_lines, samples_per_line, components)
 
-    def encode(self, writer: jpeg.stream.Writer):
+    def write(self, writer: jpeg.stream.Writer):
         writer.write_marker(jpeg.marker.Marker.SOF0 + self.n)
         writer.write_u16(8 + len(self.components) * 3)
         writer.write_u8(self.precision)
@@ -99,7 +99,7 @@ class StartOfFrame:
             )
             writer.write_u8(component.quantization_table_index)
 
-    def decode(reader: jpeg.stream.Reader):
+    def read(reader: jpeg.stream.Reader):
         marker = reader.read_marker()
         assert marker in (
             jpeg.marker.Marker.SOF0,
@@ -163,14 +163,14 @@ if __name__ == "__main__":
     writer = jpeg.stream.BufferedWriter()
     StartOfFrame(
         10, 8, 480, 640, [FrameComponent(42, (1, 2), 0), FrameComponent(43, (2, 3), 1)]
-    ).encode(writer)
+    ).write(writer)
     assert (
         writer.data
         == b"\xff\xca\x00\x0e\x08\x01\xe0\x02\x80\x02\x2a\x12\x00\x2b\x23\x01"
     )
 
     reader = jpeg.stream.BufferedReader(writer.data)
-    sof = StartOfFrame.decode(reader)
+    sof = StartOfFrame.read(reader)
     assert sof.n == 10
     assert sof.precision == 8
     assert sof.number_of_lines == 480

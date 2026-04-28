@@ -1,6 +1,7 @@
 import jpeg.dct
 import jpeg.huffman
 import jpeg.huffman_scan
+import jpeg.stream
 
 
 class HuffmanDCTScanComponent:
@@ -34,7 +35,12 @@ class HuffmanDCTScan:
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
 
-    def encode(self, writer, dc_symbol_frequencies=None, ac_symbol_frequencies=None):
+    def write(
+        self,
+        writer: jpeg.stream.Writer,
+        dc_symbol_frequencies=None,
+        ac_symbol_frequencies=None,
+    ):
         scan_writer = Writer(
             writer,
             spectral_selection=self.spectral_selection,
@@ -77,8 +83,8 @@ class HuffmanDCTScan:
                     i += 1
         scan_writer.flush()
 
-    def decode(
-        reader,
+    def read(
+        reader: jpeg.stream.Reader,
         number_of_data_units,
         components,
         spectral_selection=(0, 63),
@@ -249,10 +255,10 @@ if __name__ == "__main__":
         ],
     )
     writer = jpeg.stream.BufferedWriter()
-    scan.encode(writer)
+    scan.write(writer)
 
     reader = jpeg.stream.BufferedReader(writer.data)
-    scan2 = HuffmanDCTScan.decode(
+    scan2 = HuffmanDCTScan.read(
         reader,
         4,
         [

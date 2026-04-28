@@ -6,10 +6,10 @@ class EndOfImage(jpeg.stream.Segment):
     def __init__(self):
         pass
 
-    def encode(self, writer: jpeg.stream.Writer):
+    def write(self, writer: jpeg.stream.Writer):
         writer.write_marker(jpeg.marker.Marker.EOI)
 
-    def decode(reader: jpeg.stream.Reader):
+    def read(reader: jpeg.stream.Reader):
         assert reader.read_marker() == jpeg.marker.Marker.EOI
         return EndOfImage()
 
@@ -19,8 +19,8 @@ class EndOfImage(jpeg.stream.Segment):
 
 if __name__ == "__main__":
     writer = jpeg.stream.BufferedWriter()
-    EndOfImage().encode(writer)
+    EndOfImage().write(writer)
     assert writer.data == b"\xff\xd9"
 
     reader = jpeg.stream.BufferedReader(writer.data)
-    EndOfImage.decode(reader)
+    EndOfImage.read(reader)

@@ -31,7 +31,7 @@ def optimize(segments):
                 scan_ac_symbol_frequencies.append(
                     symbol_frequencies[ac_huffman_tables[component.ac_table]]
                 )
-            segment.encode(
+            segment.write(
                 NullWriter(),
                 dc_symbol_frequencies=scan_dc_symbol_frequencies,
                 ac_symbol_frequencies=scan_ac_symbol_frequencies,
@@ -41,14 +41,14 @@ def optimize(segments):
             scan_symbol_frequencies = symbol_frequencies[
                 ac_huffman_tables[sos.components[0].ac_table]
             ]
-            segment.encode(NullWriter(), symbol_frequencies=scan_symbol_frequencies)
+            segment.write(NullWriter(), symbol_frequencies=scan_symbol_frequencies)
         elif isinstance(segment, jpeg.HuffmanLosslessScan):
             scan_symbol_frequencies = []
             for component in sos.components:
                 scan_symbol_frequencies.append(
                     symbol_frequencies[dc_huffman_tables[component.dc_table]]
                 )
-            segment.encode(NullWriter(), symbol_frequencies=scan_symbol_frequencies)
+            segment.write(NullWriter(), symbol_frequencies=scan_symbol_frequencies)
 
     dc_huffman_tables = [None, None, None, None]
     ac_huffman_tables = [None, None, None, None]

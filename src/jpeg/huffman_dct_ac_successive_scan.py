@@ -1,6 +1,7 @@
 import jpeg.dct
 import jpeg.huffman
 import jpeg.scan
+import jpeg.stream
 
 
 class HuffmanDCTACSuccessiveScan:
@@ -16,7 +17,7 @@ class HuffmanDCTACSuccessiveScan:
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
 
-    def encode(self, writer, symbol_frequencies=None):
+    def write(self, writer: jpeg.stream.Writer, symbol_frequencies=None):
         scan_writer = jpeg.scan.Writer(writer)
 
         def get_bits(value, length):
@@ -120,7 +121,6 @@ if __name__ == "__main__":
 
     import jpeg.dct
     import jpeg.huffman_tables
-    import jpeg.stream
 
     samples = [random.randint(0, 255) for _ in range(64)]
     data_units = [jpeg.dct.quantize(jpeg.dct.fdct(samples), [1] * 64)]
@@ -129,6 +129,6 @@ if __name__ == "__main__":
     scan = HuffmanDCTACSuccessiveScan(
         data_units, jpeg.huffman_tables.standard_luminance_ac_huffman_table
     )
-    scan.encode(writer)
+    scan.write(writer)
 
     # FIXME: Decode

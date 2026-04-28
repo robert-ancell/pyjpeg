@@ -1,5 +1,6 @@
 import jpeg.arithmetic
 import jpeg.dct
+import jpeg.stream
 
 
 class ArithmeticDCTACSuccessiveScan:
@@ -8,7 +9,7 @@ class ArithmeticDCTACSuccessiveScan:
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
 
-    def encode(self, writer):
+    def write(self, writer: jpeg.stream.Writer):
         eob_states = []
         nonzero_states = []
         additional_states = []

@@ -1,6 +1,7 @@
 import jpeg.arithmetic
 import jpeg.arithmetic_scan
 import jpeg.dct
+import jpeg.stream
 
 
 class ArithmeticDCTScanComponent:
@@ -34,7 +35,7 @@ class ArithmeticDCTScan:
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
 
-    def encode(self, writer):
+    def write(self, writer: jpeg.stream.Writer):
         scan_writer = Writer(
             writer,
             spectral_selection=self.spectral_selection,
@@ -67,8 +68,8 @@ class ArithmeticDCTScan:
 
         scan_writer.flush()
 
-    def decode(
-        reader,
+    def read(
+        reader: jpeg.stream.Reader,
         number_of_data_units,
         components,
         spectral_selection=(0, 63),
@@ -286,10 +287,10 @@ if __name__ == "__main__":
         [ArithmeticDCTScanComponent()],
     )
     writer = jpeg.stream.BufferedWriter()
-    scan.encode(writer)
+    scan.write(writer)
 
     reader = jpeg.stream.BufferedReader(writer.data)
-    scan2 = ArithmeticDCTScan.decode(
+    scan2 = ArithmeticDCTScan.read(
         reader,
         4,
         [ArithmeticDCTScanComponent()],

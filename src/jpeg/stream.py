@@ -47,12 +47,10 @@ class Reader:
 
 
 class Segment:
-    # FIXME: Rename to write
-    def encode(self, writer: Writer):
+    def write(self, writer: Writer):
         raise NotImplementedError
 
-    # FIXME: Rename to read
-    def decode(reader: Reader):
+    def read(reader: Reader):
         raise NotImplementedError
 
 

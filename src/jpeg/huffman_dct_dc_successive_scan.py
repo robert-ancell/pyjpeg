@@ -1,4 +1,5 @@
 import jpeg.scan
+import jpeg.stream
 
 
 class HuffmanDCTDCSuccessiveScan:
@@ -7,7 +8,7 @@ class HuffmanDCTDCSuccessiveScan:
         self.data_units = data_units
         self.point_transform = point_transform
 
-    def encode(self, writer):
+    def write(self, writer):
         scan_writer = jpeg.scan.Writer(writer)
 
         prev_dc = 0
@@ -22,8 +23,7 @@ class HuffmanDCTDCSuccessiveScan:
 
         scan_writer.flush(pad_bit=1)
 
-    # FIXME: Need number of rows
-    def decode(reader, number_of_data_units, point_transform=0):
+    def read(reader: jpeg.stream.Reader, number_of_data_units, point_transform=0):
         scan_reader = jpeg.scan.Reader(reader)
         data_units = []
         for _ in range(number_of_data_units):
@@ -38,17 +38,16 @@ if __name__ == "__main__":
     import random
 
     import jpeg.dct
-    import jpeg.stream
 
     samples = [random.randint(0, 255) for _ in range(64)]
     data_units = [jpeg.dct.quantize(jpeg.dct.fdct(samples), [1] * 64)]
 
     writer = jpeg.stream.BufferedWriter()
     scan = HuffmanDCTDCSuccessiveScan(data_units)
-    scan.encode(writer)
+    scan.write(writer)
 
     reader = jpeg.stream.BufferedReader(writer.data)
-    scan2 = HuffmanDCTDCSuccessiveScan.decode(reader, 1)
+    scan2 = HuffmanDCTDCSuccessiveScan.read(reader, 1)
 
     # FIXME
     # assert scan2.data_units == data_units

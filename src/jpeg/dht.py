@@ -35,7 +35,7 @@ class DefineHuffmanTables:
     def __init__(self, tables):
         self.tables = tables
 
-    def encode(self, writer: jpeg.stream.Writer):
+    def write(self, writer: jpeg.stream.Writer):
         writer.write_marker(jpeg.marker.Marker.DHT)
         length = 2
         for table in self.tables:
@@ -51,7 +51,7 @@ class DefineHuffmanTables:
                 for symbol in symbols:
                     writer.write_u8(symbol)
 
-    def decode(reader: jpeg.stream.Reader):
+    def read(reader: jpeg.stream.Reader):
         marker = reader.read_marker()
         assert marker == jpeg.marker.Marker.DHT
         length = reader.read_u16()
@@ -128,12 +128,12 @@ if __name__ == "__main__":
     ]
 
     writer = jpeg.stream.BufferedWriter()
-    DefineHuffmanTables(tables).encode(writer)
+    DefineHuffmanTables(tables).write(writer)
     assert (
         writer.data
         == b"\xff\xc4\x00\x3e\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x13\x00\x00\x03\x00\x00\x03\x00\x00\x01\x01\x01\x01\x00\x00\x00\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a"
     )
 
     reader = jpeg.stream.BufferedReader(writer.data)
-    dht = DefineHuffmanTables.decode(reader)
+    dht = DefineHuffmanTables.read(reader)
     assert dht.tables == tables

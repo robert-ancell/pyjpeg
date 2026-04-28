@@ -1,5 +1,6 @@
 import jpeg.huffman
 import jpeg.huffman_scan
+import jpeg.stream
 
 
 class HuffmanLosslessScanComponent:
@@ -21,7 +22,7 @@ class HuffmanLosslessScan:
         self.data_units = data_units
         self.components = components
 
-    def encode(self, writer, symbol_frequencies=None):
+    def write(self, writer: jpeg.stream.Writer, symbol_frequencies=None):
         scan_writer = jpeg.huffman_scan.Writer(writer)
 
         dc_encoders = []
@@ -44,7 +45,7 @@ class HuffmanLosslessScan:
 
         scan_writer.flush()
 
-    def decode(reader, number_of_data_units, components):
+    def read(reader, number_of_data_units, components):
         scan_reader = jpeg.huffman_scan.Reader(reader)
         dc_decoders = []
         for scan_component in components:
@@ -80,10 +81,10 @@ if __name__ == "__main__":
         ],
     )
     writer = jpeg.stream.BufferedWriter()
-    scan.encode(writer)
+    scan.write(writer)
 
     reader = jpeg.stream.BufferedReader(writer.data)
-    scan2 = HuffmanLosslessScan.decode(
+    scan2 = HuffmanLosslessScan.read(
         reader,
         64,
         [

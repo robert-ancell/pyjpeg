@@ -73,7 +73,7 @@ class Decoder:
             self.number_of_lines() * self.sof.samples_per_line * len(components)
         )
         self.segments.append(
-            jpeg.ArithmeticLosslessScan.decode(
+            jpeg.ArithmeticLosslessScan.read(
                 reader,
                 number_of_data_units,
                 self.sof.samples_per_line,
@@ -96,7 +96,7 @@ class Decoder:
             self.number_of_lines() * self.sof.samples_per_line * len(components)
         )
         self.segments.append(
-            jpeg.HuffmanLosslessScan.decode(
+            jpeg.HuffmanLosslessScan.read(
                 reader,
                 number_of_data_units,
                 self.sof.samples_per_line,
@@ -121,7 +121,7 @@ class Decoder:
         (width, height) = self.size_in_data_units()
         number_of_data_units = width * height * len(components)
         self.segments.append(
-            jpeg.ArithmeticDCTScan.decode(reader, number_of_data_units, components)
+            jpeg.ArithmeticDCTScan.read(reader, number_of_data_units, components)
         )
 
     def parse_huffman_dct_scan(self, reader):
@@ -137,7 +137,7 @@ class Decoder:
         (width, height) = self.size_in_data_units()
         number_of_data_units = width * height * len(components)
         self.segments.append(
-            jpeg.HuffmanDCTScan.decode(reader, number_of_data_units, components)
+            jpeg.HuffmanDCTScan.read(reader, number_of_data_units, components)
         )
 
     def decode(self, reader):
@@ -158,11 +158,11 @@ class Decoder:
                 Marker.SOF14,
                 Marker.SOF15,
             ):
-                sof = jpeg.StartOfFrame.decode(reader)
+                sof = jpeg.StartOfFrame.read(reader)
                 self.segments.append(sof)
                 self.sof = sof
             elif marker == Marker.DHT:
-                dht = jpeg.DefineHuffmanTables.decode(reader)
+                dht = jpeg.DefineHuffmanTables.read(reader)
                 self.segments.append(dht)
                 for table in dht.tables:
                     if table.table_class == 0:
@@ -170,7 +170,7 @@ class Decoder:
                     else:
                         self.ac_huffman_tables[table.destination] = table
             elif marker == Marker.DAC:
-                self.segments.append(jpeg.DefineArithmeticConditioning.decode(reader))
+                self.segments.append(jpeg.DefineArithmeticConditioning.read(reader))
             elif marker in (
                 Marker.RST0,
                 Marker.RST1,
@@ -181,30 +181,30 @@ class Decoder:
                 Marker.RST6,
                 Marker.RST7,
             ):
-                self.segments.append(jpeg.Restart.decode(reader))
+                self.segments.append(jpeg.Restart.read(reader))
                 self.segments.append(self.parse_scan(reader))
             elif marker == Marker.SOI:
-                self.segments.append(jpeg.StartOfImage.decode(reader))
+                self.segments.append(jpeg.StartOfImage.read(reader))
             elif marker == Marker.EOI:
-                self.segments.append(jpeg.EndOfImage.decode(reader))
+                self.segments.append(jpeg.EndOfImage.read(reader))
                 return
             elif marker == Marker.DQT:
-                dqt = jpeg.DefineQuantizationTables.decode(reader)
+                dqt = jpeg.DefineQuantizationTables.read(reader)
                 self.segments.append(dqt)
                 for table in dqt.tables:
                     self.quantization_tables[table.destination] = table.values
             elif marker == Marker.DNL:
-                dnl = jpeg.DefineNumberOfLines.decode(reader)
+                dnl = jpeg.DefineNumberOfLines.read(reader)
                 self.segments.append(dnl)
                 self.dnl = dnl
             elif marker == Marker.DRI:
-                dri = jpeg.DefineRestartInterval.decode(reader)
+                dri = jpeg.DefineRestartInterval.read(reader)
                 self.segments.append(dri)
                 self.dri = dri
             elif marker == Marker.EXP:
-                self.segments.append(jpeg.ExpandReferenceComponents.decode(reader))
+                self.segments.append(jpeg.ExpandReferenceComponents.read(reader))
             elif marker == Marker.SOS:
-                sos = jpeg.StartOfScan.decode(reader)
+                sos = jpeg.StartOfScan.read(reader)
                 self.segments.append(sos)
                 self.sos = sos
                 self.parse_scan(reader)
@@ -226,8 +226,8 @@ class Decoder:
                 Marker.APP14,
                 Marker.APP15,
             ):
-                self.segments.append(jpeg.ApplicationSpecificData.decode(reader))
+                self.segments.append(jpeg.ApplicationSpecificData.read(reader))
             elif marker == Marker.COM:
-                self.segments.append(jpeg.Comment.decode(reader))
+                self.segments.append(jpeg.Comment.read(reader))
             else:
                 raise Exception("Unknown marker %02x" % marker)
