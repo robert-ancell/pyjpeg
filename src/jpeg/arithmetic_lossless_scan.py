@@ -1,6 +1,5 @@
 import jpeg.arithmetic
 import jpeg.arithmetic_scan
-import jpeg.lossless
 import jpeg.stream
 
 
@@ -19,69 +18,43 @@ class ArithmeticLosslessScanComponent:
 
 
 class ArithmeticLosslessScan:
-    def __init__(
-        self,
-        samples_per_line: int,
-        samples,
-        components,
-        precision: int = 8,
-        predictor: int = 1,
-    ):
+    def __init__(self, samples_per_line: int, data_units, components):
         self.samples_per_line = samples_per_line
-        self.samples = samples
+        self.data_units = data_units
         self.components = components
-        self.precision = precision
-        self.predictor = predictor
 
     def encode(self, writer: jpeg.stream.Writer):
         writer = Writer(writer)
 
-        # FIXME: Store samples per component
-        data_units = []
-        for component_index, _ in enumerate(self.components):
-            component_samples = []
-            for i in range(len(self.samples) // len(self.components)):
-                component_samples.append(
-                    self.samples[i * len(self.components) + component_index]
-                )
-            data_units.append(
-                jpeg.lossless.encode(
-                    self.samples_per_line,
-                    component_samples,
-                    precision=self.precision,
-                    predictor=self.predictor,
-                )
+        for i, data_unit in enumerate(self.data_units):
+            # FIXME: Handle scaling factor
+            component_index = i % len(self.components)
+            sample_index = i // len(self.components)
+            x = sample_index % self.samples_per_line
+            y = sample_index // self.samples_per_line
+            left_data_unit = self.data_units[i - len(self.components)] if x > 0 else 0
+            above_data_unit = (
+                self.data_units[i - self.samples_per_line * len(self.components)]
+                if y > 0
+                else 0
             )
 
-        for i in range(len(self.samples) // len(self.components)):
-            for component_index, scan_component in enumerate(self.components):
-                component_data_units = data_units[component_index]
-                data_unit = component_data_units[i]
-                x = i % self.samples_per_line
-                y = i // self.samples_per_line
-                left_data_unit = component_data_units[i - 1] if x > 0 else 0
-                above_data_unit = (
-                    component_data_units[i - self.samples_per_line] if y > 0 else 0
-                )
-
-                writer.write_data_unit(
-                    data_unit,
-                    left_data_unit=left_data_unit,
-                    above_data_unit=above_data_unit,
-                    conditioning_bounds=self.components[
-                        component_index
-                    ].conditioning_bounds,
-                )
+            writer.write_data_unit(
+                data_unit,
+                left_data_unit=left_data_unit,
+                above_data_unit=above_data_unit,
+                conditioning_bounds=self.components[
+                    component_index
+                ].conditioning_bounds,
+            )
 
         writer.flush()
 
     def decode(
         reader: jpeg.stream.Reader,
-        number_of_data_units: int,
         samples_per_line: int,
+        number_of_data_units: int,
         components,
-        precision: int = 8,
-        predictor: int = 1,
     ):
         component_data_units = [[] for _ in range(len(components))]
         reader = Reader(reader)
@@ -109,32 +82,10 @@ class ArithmeticLosslessScan:
                 )
                 data_units.append(data_unit)
 
-        component_samples = []
-        for component_index, component in enumerate(components):
-            component_samples.append(
-                jpeg.lossless.decode(
-                    samples_per_line,
-                    component_data_units[component_index],
-                    precision=precision,
-                    predictor=predictor,
-                )
-            )
-
-        samples = []
-        while len(component_samples[0]) > 0:
-            for _ in range(samples_per_line):
-                for component_index in range(len(components)):
-                    samples.append(component_samples[component_index].pop(0))
-
-        return ArithmeticLosslessScan(
-            samples_per_line,
-            samples,
-            components,
-            precision=precision,
-            predictor=predictor,
-        )
+        return ArithmeticLosslessScan(samples_per_line, data_units, components)
 
 
+# FIXME: Merge into above class
 class Writer:
     def __init__(self, writer):
         self.writer = jpeg.arithmetic_scan.Writer(writer)
@@ -152,7 +103,11 @@ class Writer:
         self.large_mstates = make_states(14)
 
     def write_data_unit(
-        self, data_unit, left_data_unit=0, above_data_unit=0, conditioning_bounds=(0, 1)
+        self,
+        data_unit: int,
+        left_data_unit: int = 0,
+        above_data_unit: int = 0,
+        conditioning_bounds=(0, 1),
     ):
         ca = jpeg.arithmetic_scan.classify_dc(conditioning_bounds, left_data_unit)
         cb = jpeg.arithmetic_scan.classify_dc(conditioning_bounds, above_data_unit)
@@ -180,6 +135,7 @@ class Writer:
         self.writer.flush()
 
 
+# FIXME: Merge into above class
 class Reader:
     def __init__(self, reader):
         self.reader = jpeg.arithmetic_scan.Reader(reader)
@@ -197,8 +153,11 @@ class Reader:
         self.large_mstates = make_states(14)
 
     def read_data_unit(
-        self, left_data_unit=0, above_data_unit=0, conditioning_bounds=(0, 1)
-    ):
+        self,
+        left_data_unit: int = 0,
+        above_data_unit: int = 0,
+        conditioning_bounds=(0, 1),
+    ) -> int:
         ca = jpeg.arithmetic_scan.classify_dc(conditioning_bounds, left_data_unit)
         cb = jpeg.arithmetic_scan.classify_dc(conditioning_bounds, above_data_unit)
         c = ca * 5 + cb
@@ -219,10 +178,13 @@ class Reader:
 if __name__ == "__main__":
     import random
 
+    import jpeg.lossless
+
     samples = [random.randint(0, 255) for _ in range(64)]
+    data_units = jpeg.lossless.encode(8, samples)
     scan = ArithmeticLosslessScan(
         8,
-        samples,
+        data_units,
         [ArithmeticLosslessScanComponent()],
     )
     writer = jpeg.stream.BufferedWriter()
@@ -231,12 +193,10 @@ if __name__ == "__main__":
     reader = jpeg.stream.BufferedReader(writer.data)
     scan2 = ArithmeticLosslessScan.decode(
         reader,
-        64,
         8,
+        64,
         [ArithmeticLosslessScanComponent()],
     )
     assert scan2.samples_per_line == 8
-    assert scan2.samples == samples
+    assert scan2.data_units == data_units
     assert scan2.components == [ArithmeticLosslessScanComponent()]
-    assert scan2.precision == 8
-    assert scan2.predictor == 1

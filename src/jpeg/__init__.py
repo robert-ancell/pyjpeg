@@ -23,6 +23,7 @@ from jpeg.huffman_dct_scan import HuffmanDCTScan, HuffmanDCTScanComponent
 from jpeg.huffman_lossless_scan import HuffmanLosslessScan, HuffmanLosslessScanComponent
 from jpeg.huffman_optimize import optimize
 from jpeg.huffman_tables import *
+from jpeg.lossless import decode, encode
 from jpeg.quantization_tables import *
 from jpeg.rst import Restart
 from jpeg.sof import FrameComponent, StartOfFrame
