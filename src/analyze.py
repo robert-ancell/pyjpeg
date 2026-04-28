@@ -141,10 +141,10 @@ for segment in decoder.segments:
     elif isinstance(segment, jpeg.HuffmanLosslessScan) or isinstance(
         segment, jpeg.ArithmeticLosslessScan
     ):
-        print(" Lossless Values:")
+        print(" Lossless Data Units:")
         s = ""
-        for sample in segment.samples:
-            s += " %d" % sample
+        for data_unit in segment.data_units:
+            s += " %d" % data_unit
         print(s)
     elif isinstance(segment, jpeg.Restart):
         print("RST%d Restart" % segment.n)

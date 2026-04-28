@@ -74,12 +74,7 @@ class Decoder:
         )
         self.segments.append(
             jpeg.ArithmeticLosslessScan.read(
-                reader,
-                number_of_data_units,
-                self.sof.samples_per_line,
-                components,
-                precision=self.sof.precision,
-                predictor=self.sos.ss,
+                reader, self.sof.samples_per_line, number_of_data_units, components
             )
         )
 
@@ -96,14 +91,7 @@ class Decoder:
             self.number_of_lines() * self.sof.samples_per_line * len(components)
         )
         self.segments.append(
-            jpeg.HuffmanLosslessScan.read(
-                reader,
-                number_of_data_units,
-                self.sof.samples_per_line,
-                components,
-                precision=self.sof.precision,
-                predictor=self.sos.ss,
-            )
+            jpeg.HuffmanLosslessScan.read(reader, number_of_data_units, components)
         )
 
     def parse_arithmetic_dct_scan(self, reader):
