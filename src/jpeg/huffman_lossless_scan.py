@@ -68,7 +68,6 @@ if __name__ == "__main__":
 
     import jpeg.huffman_tables
     import jpeg.lossless
-    import jpeg.stream
 
     samples = [random.randint(0, 255) for _ in range(64)]
     data_units = jpeg.lossless.encode(8, samples)
