@@ -75,6 +75,13 @@ class ArithmeticDCTACSuccessiveScan:
 
         writer.flush()
 
+    def read(reader: jpeg.stream.Reader, approximate_data_units, point_transform=0):
+        updated_data_units = []
+        # FIXME
+        return ArithmeticDCTACSuccessiveScan(
+            updated_data_units, point_transform=point_transform
+        )
+
 
 if __name__ == "__main__":
     import random
@@ -105,3 +112,14 @@ if __name__ == "__main__":
         progressive_data_units.append(approximated_data_units)
         mask |= bit
         bit >>= 1
+
+    writer = jpeg.stream.BufferedWriter()
+    scan = ArithmeticDCTACSuccessiveScan(
+        progressive_data_units[1], point_transform=point_transform
+    )
+    scan.write(writer)
+
+    reader = jpeg.stream.BufferedReader(writer.data)
+    scan2 = ArithmeticDCTACSuccessiveScan.read(
+        reader, progressive_data_units[0], point_transform=point_transform
+    )
