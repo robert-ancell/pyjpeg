@@ -3,6 +3,7 @@ import jpeg.arithmetic
 
 class ArithmeticDCTDCSuccessiveScan:
     def __init__(self, data_units, point_transform=0):
+        # FIXME: Rename to dc_values
         self.data_units = data_units
         self.point_transform = point_transform
 
