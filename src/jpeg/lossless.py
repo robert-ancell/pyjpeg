@@ -1,5 +1,57 @@
-# FIXME: Make private
-def predict(predictor, a, b, c):
+def encode(width, samples, precision=8, predictor=1):
+    data_units = []
+    height = len(samples) // width
+    for y in range(height):
+        for x in range(width):
+            p = _predict_sample(
+                width, samples, x, y, precision=precision, predictor=predictor
+            )
+            diff = samples[y * width + x] - p
+            if diff > 32768:
+                diff -= 65536
+            if diff < -32767:
+                diff += 65536
+            data_units.append(diff)
+    return data_units
+
+
+def decode(width, data_units, precision=8, predictor=1):
+    samples = []
+    height = len(data_units) // width
+    for y in range(height):
+        for x in range(width):
+            p = _predict_sample(
+                width, samples, x, y, precision=precision, predictor=predictor
+            )
+            diff = data_units[y * width + x]
+            s = p + diff
+            if s > 32767:
+                s -= 65536
+            if s < -32768:
+                s += 65536
+            samples.append(s)
+    return samples
+
+
+def _predict_sample(samples_per_line, samples, x, y, precision=8, predictor=1):
+    a = samples[y * samples_per_line + (x - 1)] if x > 0 else 0
+
+    if y == 0:
+        if x == 0 and y == 0:
+            return 1 << (precision - 1)
+        else:
+            return samples[y * samples_per_line + x - 1]
+    else:
+        if x == 0:
+            return samples[y * samples_per_line + x - samples_per_line]
+        else:
+            a = samples[y * samples_per_line + x - 1]
+            b = samples[y * samples_per_line + x - samples_per_line]
+            c = samples[y * samples_per_line + x - samples_per_line - 1]
+            return _predict(predictor, a, b, c)
+
+
+def _predict(predictor, a, b, c):
     if predictor == 1:
         return a
     elif predictor == 2:
@@ -16,55 +68,6 @@ def predict(predictor, a, b, c):
         return (a + b) // 2
     else:
         raise Exception("Unknown predictor")
-
-
-def encode(width, samples, precision=8, predictor=1):
-    data_units = []
-    height = len(samples) // width
-    for y in range(height):
-        for x in range(width):
-            p = _predict(width, samples, x, y, precision=precision, predictor=predictor)
-            diff = samples[y * width + x] - p
-            if diff > 32768:
-                diff -= 65536
-            if diff < -32767:
-                diff += 65536
-            data_units.append(diff)
-    return data_units
-
-
-def decode(width, data_units, precision=8, predictor=1):
-    samples = []
-    height = len(data_units) // width
-    for y in range(height):
-        for x in range(width):
-            p = _predict(width, samples, x, y, precision=precision, predictor=predictor)
-            diff = data_units[y * width + x]
-            s = p + diff
-            if s > 32767:
-                s -= 65536
-            if s < -32768:
-                s += 65536
-            samples.append(s)
-    return samples
-
-
-def _predict(samples_per_line, samples, x, y, precision=8, predictor=1):
-    a = samples[y * samples_per_line + (x - 1)] if x > 0 else 0
-
-    if y == 0:
-        if x == 0 and y == 0:
-            return 1 << (precision - 1)
-        else:
-            return samples[y * samples_per_line + x - 1]
-    else:
-        if x == 0:
-            return samples[y * samples_per_line + x - samples_per_line]
-        else:
-            a = samples[y * samples_per_line + x - 1]
-            b = samples[y * samples_per_line + x - samples_per_line]
-            c = samples[y * samples_per_line + x - samples_per_line - 1]
-            return predict(predictor, a, b, c)
 
 
 if __name__ == "__main__":
