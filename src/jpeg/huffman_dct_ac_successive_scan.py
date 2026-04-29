@@ -113,46 +113,43 @@ class HuffmanDCTACSuccessiveScan:
         k = spectral_selection[0]
         while data_unit_index < len(updated_data_units):
             (run_length, new_ac) = scan_reader.read_ac(decoder)
+            n_zeros = 0
             eob_count = 0
             if new_ac == 0:
                 if run_length == 15:
                     # ZRL
-                    n_coefficients = 16
-                    assert k + n_coefficients <= spectral_selection[0]
+                    n_zeros = 16
                 else:
                     eob_count = scan_reader.read_eob_count(run_length) + 1
             else:
-                n_coefficients = run_length + 1
+                n_zeros = run_length
                 assert new_ac in (-1, 1)
-                assert k + n_coefficients <= spectral_selection[1]
 
-            while n_coefficients > 0 or eob_count > 0:
+            while n_zeros > 0 or eob_count > 0 or new_ac != 0:
                 coefficient = data_units[data_unit_index][k]
                 old_transformed_coefficient = jpeg.dct.transform_coefficient(
                     coefficient, point_transform + 1
                 )
-                if (
-                    n_coefficients == 1
-                    and old_transformed_coefficient == 0
-                    and new_ac != 0
-                ):
-                    updated_data_units[data_unit_index][k] = new_ac << point_transform
-                    n_coefficients -= 1
-                elif old_transformed_coefficient == 0:
-                    n_coefficients -= 1
-                else:
-                    correction_bit = (
-                        scan_reader.read_ac_correction_bit(decoder) << point_transform
-                    )
+                if old_transformed_coefficient != 0:
+                    correction_bit = scan_reader.read_ac_correction_bit(decoder)
                     if old_transformed_coefficient < 0:
                         correction_bit = -correction_bit
                     updated_data_units[data_unit_index][k] = (
-                        old_transformed_coefficient + correction_bit
-                    )
+                        old_transformed_coefficient << (point_transform + 1)
+                    ) + (correction_bit << point_transform)
+                else:
+                    if n_zeros > 0:
+                        n_zeros -= 1
+                    elif new_ac != 0:
+                        updated_data_units[data_unit_index][k] = (
+                            new_ac << point_transform
+                        )
+                        new_ac = 0
                 k += 1
                 if k == spectral_selection[1] + 1:
-                    eob_count -= 1
-                    k = 0
+                    if eob_count > 0:
+                        eob_count -= 1
+                    k = spectral_selection[0]
                     data_unit_index += 1
 
         return HuffmanDCTACSuccessiveScan(
@@ -194,9 +191,9 @@ if __name__ == "__main__":
         expected_data_unit = [0] * 64
         for i in range(1, 64):
             if data_unit[i] < 0:
-                expected_data_unit[i] = -(-data_unit[i] & 0xFFF0)
+                expected_data_unit[i] = -(-data_unit[i] & 0xFFF8)
             else:
-                expected_data_unit[i] = data_unit[i] & 0xFFF0
+                expected_data_unit[i] = data_unit[i] & 0xFFF8
         expected_data_units.append(expected_data_unit)
 
     reader = jpeg.stream.BufferedReader(writer.data)
@@ -206,5 +203,4 @@ if __name__ == "__main__":
         jpeg.huffman_tables.standard_luminance_ac_huffman_table,
         point_transform=3,
     )
-    print(expected_data_units)
-    print(scan2.data_units)
+    assert scan2.data_units == expected_data_units
