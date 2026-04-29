@@ -18,33 +18,7 @@ class HuffmanDCTACSuccessiveScan:
         self.point_transform = point_transform
 
     def write(self, writer: jpeg.stream.Writer, symbol_frequencies=None):
-        scan_writer = jpeg.scan.Writer(writer)
-
-        def get_bits(value, length):
-            bits = []
-            for i in range(length):
-                if value & (1 << (length - i - 1)) != 0:
-                    bits.append(1)
-                else:
-                    bits.append(0)
-            return bits
-
-        def get_eob_length(count):
-            assert count >= 1 and count <= 32767
-            length = 0
-            while count != 1:
-                count >>= 1
-                length += 1
-            return length
-
-        def encode_eob(count):
-            length = get_eob_length(count)
-            return get_bits(count, length)
-
-        def write_symbol(writer, encoder, symbol):
-            if symbol_frequencies is not None:
-                symbol_frequencies[symbol] += 1
-            encoder.write_symbol(writer, symbol)
+        scan_writer = jpeg.huffman_scan.Writer(writer)
 
         encoder = jpeg.huffman.Encoder(self.table)
         correction_bits = [[]]
@@ -70,27 +44,31 @@ class HuffmanDCTACSuccessiveScan:
                             correction_bits.append([])
                     else:
                         if eob_count > 0:
-                            eob_bits = encode_eob(eob_count)
-                            write_symbol(scan_writer, encoder, len(eob_bits) << 4 | 0)
-                            scan_writer.write_bits(eob_bits)
-                            scan_writer.write_bits(eob_correction_bits)
+                            scan_writer.write_eob(
+                                encoder,
+                                block_count=eob_count,
+                                symbol_frequencies=symbol_frequencies,
+                            )
+                            scan_writer.write_ac_correction_bits(eob_correction_bits)
                             eob_count = 0
                             eob_correction_bits = []
 
                         while run_length > 15:
-                            # ZRL
-                            write_symbol(scan_writer, encoder, 15 << 4 | 0)
-                            scan_writer.write_bits(correction_bits[0])
+                            scan_writer.write_zrl(
+                                encoder, symbol_frequencies=symbol_frequencies
+                            )
+                            scan_writer.write_ac_correction_bits(correction_bits[0])
                             run_length -= 16
                             correction_bits = correction_bits[1:]
                         assert len(correction_bits) == 1
 
-                        write_symbol(scan_writer, encoder, run_length << 4 | 1)
-                        if transformed_coefficient < 0:
-                            scan_writer.write_bit(0)
-                        else:
-                            scan_writer.write_bit(1)
-                        scan_writer.write_bits(correction_bits[0])
+                        scan_writer.write_ac(
+                            run_length,
+                            transformed_coefficient,
+                            encoder,
+                            symbol_frequencies=symbol_frequencies,
+                        )
+                        scan_writer.write_ac_correction_bits(correction_bits[0])
                         run_length = 0
                         correction_bits = [[]]
                 else:
@@ -108,12 +86,14 @@ class HuffmanDCTACSuccessiveScan:
                     # FIXME: If eob_count is 32767 then have to generate it now
 
         if eob_count > 0:
-            eob_bits = encode_eob(eob_count)
-            write_symbol(scan_writer, encoder, len(eob_bits) << 4 | 0)
-            scan_writer.write_bits(eob_bits)
-            scan_writer.write_bits(eob_correction_bits)
+            scan_writer.write_eob(
+                encoder,
+                block_count=eob_count,
+                symbol_frequencies=symbol_frequencies,
+            )
+            scan_writer.write_ac_correction_bits(eob_correction_bits)
 
-        scan_writer.flush(pad_bit=1)
+        scan_writer.flush()
 
 
 if __name__ == "__main__":

@@ -28,6 +28,9 @@ class Writer:
         assert ac != 0
         self._write_ac(run_length, ac, encoder, symbol_frequencies=symbol_frequencies)
 
+    def write_ac_correction_bits(self, correction_bits):
+        self.writer.write_bits(correction_bits)
+
     def flush(self):
         self.writer.flush(pad_bit=1)
 
