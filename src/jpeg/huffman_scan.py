@@ -84,7 +84,12 @@ class Reader:
         length = run_length_and_length & 0xF
         return (run_length, self._read_magnitude(length))
 
+    def read_ac_correction_bit(self, decoder):
+        return self.reader.read_bit()
+
     def read_eob_count(self, length):
+        if length == 0:
+            return 0
         self._read_magnitude(length - 1)
 
     def _read_magnitude(self, length):
