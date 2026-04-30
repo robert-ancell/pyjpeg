@@ -111,7 +111,7 @@ class HuffmanDCTACSuccessiveScan:
         decoder = jpeg.huffman.Decoder(table)
         data_unit_index = 0
         k = spectral_selection[0]
-        while data_unit_index < len(updated_data_units):
+        while data_unit_index < len(data_units):
             (run_length, new_ac) = scan_reader.read_ac(decoder)
             n_zeros = 0
             eob_count = 0
@@ -163,8 +163,10 @@ if __name__ == "__main__":
     import jpeg.dct
     import jpeg.huffman_tables
 
-    samples = [random.randint(0, 255) for _ in range(64)]
-    data_units = [jpeg.dct.quantize(jpeg.dct.fdct(samples), [1] * 64)]
+    data_units = []
+    for _ in range(4):
+        samples = [random.randint(0, 255) for _ in range(64)]
+        data_units.append(jpeg.dct.quantize(jpeg.dct.fdct(samples), [1] * 64))
 
     writer = jpeg.stream.BufferedWriter()
     scan = HuffmanDCTACSuccessiveScan(
@@ -174,27 +176,23 @@ if __name__ == "__main__":
     )
     scan.write(writer)
 
+    def mask_coefficients(data_units, mask):
+        masked_data_units = []
+        for data_unit in data_units:
+            masked_data_unit = [0] * 64
+            for i in range(1, 64):
+                if data_unit[i] < 0:
+                    masked_data_unit[i] = -(-data_unit[i] & mask)
+                else:
+                    masked_data_unit[i] = data_unit[i] & mask
+            masked_data_units.append(masked_data_unit)
+        return masked_data_units
+
     # Feed in data units with bits removed
-    approximate_data_units = []
-    for data_unit in data_units:
-        approximate_data_unit = [0] * 64
-        for i in range(1, 64):
-            if data_unit[i] < 0:
-                approximate_data_unit[i] = -(-data_unit[i] & 0xFFF0)
-            else:
-                approximate_data_unit[i] = data_unit[i] & 0xFFF0
-        approximate_data_units.append(approximate_data_unit)
+    approximate_data_units = mask_coefficients(data_units, 0xFFF0)
 
     # Expect next bit to be reconstructed
-    expected_data_units = []
-    for data_unit in data_units:
-        expected_data_unit = [0] * 64
-        for i in range(1, 64):
-            if data_unit[i] < 0:
-                expected_data_unit[i] = -(-data_unit[i] & 0xFFF8)
-            else:
-                expected_data_unit[i] = data_unit[i] & 0xFFF8
-        expected_data_units.append(expected_data_unit)
+    expected_data_units = mask_coefficients(data_units, 0xFFF8)
 
     reader = jpeg.stream.BufferedReader(writer.data)
     scan2 = HuffmanDCTACSuccessiveScan.read(

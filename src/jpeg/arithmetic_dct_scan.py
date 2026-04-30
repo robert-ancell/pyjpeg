@@ -282,6 +282,7 @@ if __name__ == "__main__":
     for _ in range(4):
         samples = [random.randint(0, 255) for _ in range(64)]
         data_units.append(jpeg.dct.quantize(jpeg.dct.fdct(samples), [1] * 64))
+
     scan = ArithmeticDCTScan(
         data_units,
         [ArithmeticDCTScanComponent()],
