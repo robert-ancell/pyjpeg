@@ -91,17 +91,27 @@ class ArithmeticDCTACSuccessiveScan:
             updated_data_units.append([0] * 64)
 
         reader = jpeg.arithmetic.Reader(reader)
-        data_unit_index = 0
-        k = spectral_selection[0]
-        for data_unit in data_units:
-            # k2 = k
-            # if reader.read_bit(eob_states[k - 1]) == 1:
-            #    k2 = spectral_selection[1]
-            # else:
-            #    while reader.read_bit(nonzero_states[k - 1]) == 0:
-            #        k2 += 1
+        for data_unit_index, data_unit in enumerate(data_units):
+            updated_data_unit = updated_data_units[data_unit_index]
 
+            eob_prev = spectral_selection[1] + 1
+            while eob_prev > spectral_selection[0]:
+                if (
+                    jpeg.dct.transform_coefficient(
+                        data_unit[eob_prev - 1], point_transform + 1
+                    )
+                    != 0
+                ):
+                    break
+                eob_prev -= 1
+
+            k = spectral_selection[0]
             while k <= spectral_selection[1]:
+                if k >= eob_prev:
+                    bit = reader.read_bit(eob_states[k - 1])
+                    if bit == 1:
+                        break
+
                 old_transformed_coefficient = jpeg.dct.transform_coefficient(
                     data_unit[k], point_transform + 1
                 )
@@ -112,6 +122,7 @@ class ArithmeticDCTACSuccessiveScan:
                         if bit == 1:
                             break
                         k += 1
+                        assert k <= spectral_selection[1]
                         old_transformed_coefficient = jpeg.dct.transform_coefficient(
                             data_unit[k], point_transform + 1
                         )
@@ -122,13 +133,13 @@ class ArithmeticDCTACSuccessiveScan:
                         new_ac = 1
                     else:
                         new_ac = -1
-                    updated_data_units[data_unit_index][k] = new_ac << point_transform
+                    updated_data_unit[k] = new_ac << point_transform
                     k += 1
                 else:
                     correction_bit = reader.read_bit(additional_states[k - 1])
                     if old_transformed_coefficient < 0:
                         correction_bit = -correction_bit
-                    updated_data_units[data_unit_index][k] = (
+                    updated_data_unit[k] = (
                         old_transformed_coefficient << (point_transform + 1)
                     ) + (correction_bit << point_transform)
                     k += 1
