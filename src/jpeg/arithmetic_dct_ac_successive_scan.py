@@ -144,7 +144,6 @@ class ArithmeticDCTACSuccessiveScan:
                     ) + (correction_bit << point_transform)
                     k += 1
 
-        # FIXME
         return ArithmeticDCTACSuccessiveScan(
             updated_data_units, point_transform=point_transform
         )
