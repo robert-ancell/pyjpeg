@@ -4,7 +4,6 @@ import struct
 import sys
 
 import jpeg
-from jpeg_decoder import *
 
 
 def print_data_unit(data_unit):
@@ -31,11 +30,10 @@ def print_data_unit(data_unit):
 
 data = open(sys.argv[1], "rb").read()
 reader = jpeg.BufferedReader(data)
-decoder = Decoder()
-decoder.decode(reader)
+stream = jpeg.Stream.read(reader)
 
 is_lossless = False
-for segment in decoder.segments:
+for segment in stream.segments:
     if isinstance(segment, jpeg.StartOfImage):
         print("SOI Start of Image")
     elif isinstance(segment, jpeg.ApplicationSpecificData):
