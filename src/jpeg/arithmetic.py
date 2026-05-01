@@ -313,8 +313,8 @@ class Reader:
 
     def _byte_in(self):
         try:
-            if self.reader.peek(1)[0] == 0xFF:
-                if self.reader.peek(2)[1] == 0:
+            if self.reader.peek_u8() == 0xFF:
+                if self.reader.peek_u8(1) == 0:
                     self.d = self.reader.read_u8()
                     self.reader.read_u8()
                 else:

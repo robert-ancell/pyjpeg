@@ -34,9 +34,9 @@ class Reader:
 
     def read_bit(self):
         if self.bit_count == 0:
-            data = self.reader.peek(1)[0]
+            data = self.reader.peek_u8()
             if data == 0xFF:
-                if self.reader.peek(2)[1] != 0:
+                if self.reader.peek_u8(1) != 0:
                     raise Exception("End of stream")
                 self.data = self.reader.read_u8()
                 self.reader.read_u8()
