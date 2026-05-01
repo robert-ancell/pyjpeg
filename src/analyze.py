@@ -34,6 +34,7 @@ reader = jpeg.BufferedReader(data)
 decoder = Decoder()
 decoder.decode(reader)
 
+is_lossless = False
 for segment in decoder.segments:
     if isinstance(segment, jpeg.StartOfImage):
         print("SOI Start of Image")
@@ -55,15 +56,12 @@ for segment in decoder.segments:
                 " %s Table %d:"
                 % ({0: "DC", 1: "AC"}[table.table_class], table.destination)
             )
-
-            def tobitstring(bits):
-                s = ""
-                for b in bits:
-                    s += str(b)
-                return s
-
-            # for code in table.table.keys():
-            #    print("  %02x: %s" % (table.table[code], tobitstring(code)))
+            for i, symbols in enumerate(table.table):
+                if len(symbols) > 0:
+                    s = "  Symbols of length %d:" % (i + 1)
+                    for symbol in symbols:
+                        s += " %02x" % symbol
+                    print(s)
     elif isinstance(segment, jpeg.DefineArithmeticConditioning):
         print("DAC Define Arithmetic Conditioning")
         for conditioning in segment.tables:
@@ -89,6 +87,7 @@ for segment in decoder.segments:
             % {False: "No", True: "Yes"}[segment.expand_vertical != 0]
         )
     elif isinstance(segment, jpeg.StartOfFrame):
+        is_lossless = segment.n in (3, 7, 11, 15)
         print(
             "SOF%d Start of Frame, %s"
             % (
@@ -121,15 +120,19 @@ for segment in decoder.segments:
                 "  Sampling Factor: %dx%d"
                 % (component.sampling_factor[0], component.sampling_factor[1])
             )
-            print("  Quantization Table: %d" % component.quantization_table_index)
+            if not is_lossless:
+                print("  Quantization Table: %d" % component.quantization_table_index)
     elif isinstance(segment, jpeg.StartOfScan):
         print("SOS Start of Scan")
         for component in segment.components:
             print(" Component %d:" % component.component_selector)
             print("  DC Table: %d" % component.dc_table)
-            print("  AC Table: %d" % component.ac_table)
-        # FIXME: Print out prediciton if lossless
-        print(" Spectral Selection: %d-%d" % (segment.ss, segment.se))
+            if not is_lossless:
+                print("  AC Table: %d" % component.ac_table)
+        if is_lossless:
+            print(" Predictor: %d" % segment.ss)
+        else:
+            print(" Spectral Selection: %d-%d" % (segment.ss, segment.se))
         print(" Previous Point Transform: %d" % segment.ah)
         print(" Point Transform: %d" % segment.al)
     elif isinstance(segment, jpeg.HuffmanDCTScan) or isinstance(
