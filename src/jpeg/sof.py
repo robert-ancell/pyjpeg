@@ -27,16 +27,19 @@ class FrameComponent:
         self.sampling_factor = sampling_factor
         self.quantization_table_index = quantization_table_index
 
+    @classmethod
     def dct(
-        id: int, sampling_factor: tuple = (1, 1), quantization_table_index: int = 0
+        cls, id: int, sampling_factor: tuple = (1, 1), quantization_table_index: int = 0
     ):
-        return FrameComponent(id, sampling_factor, quantization_table_index)
+        return cls(id, sampling_factor, quantization_table_index)
 
-    def lossless(id: int, sampling_factor: tuple = (1, 1)):
-        return FrameComponent(id, sampling_factor, 0)
+    @classmethod
+    def lossless(cls, id: int, sampling_factor: tuple = (1, 1)):
+        return cls(id, sampling_factor, 0)
 
-    def ls(id: int, sampling_factor: tuple = (1, 1)):
-        return FrameComponent(id, sampling_factor, 0)
+    @classmethod
+    def ls(cls, id: int, sampling_factor: tuple = (1, 1)):
+        return cls(id, sampling_factor, 0)
 
     def __eq__(self, other):
         return (
@@ -65,12 +68,13 @@ class StartOfFrame(jpeg.segment.Segment):
         self.samples_per_line = samples_per_line
         self.components = components
 
-    def baseline(number_of_lines: int, samples_per_line: int, components):
-        return StartOfFrame(
-            FrameType.BASELINE, 8, number_of_lines, samples_per_line, components
-        )
+    @classmethod
+    def baseline(cls, number_of_lines: int, samples_per_line: int, components):
+        return cls(FrameType.BASELINE, 8, number_of_lines, samples_per_line, components)
 
+    @classmethod
     def extended(
+        cls,
         number_of_lines: int,
         samples_per_line: int,
         components,
@@ -81,9 +85,11 @@ class StartOfFrame(jpeg.segment.Segment):
             n = FrameType.EXTENDED_ARITHMETIC
         else:
             n = FrameType.EXTENDED_HUFFMAN
-        return StartOfFrame(n, precision, number_of_lines, samples_per_line, components)
+        return cls(n, precision, number_of_lines, samples_per_line, components)
 
+    @classmethod
     def progressive(
+        cls,
         number_of_lines: int,
         samples_per_line: int,
         components,
@@ -94,9 +100,11 @@ class StartOfFrame(jpeg.segment.Segment):
             n = FrameType.PROGRESSIVE_ARITHMETIC
         else:
             n = FrameType.PROGRESSIVE_HUFFMAN
-        return StartOfFrame(n, precision, number_of_lines, samples_per_line, components)
+        return cls(n, precision, number_of_lines, samples_per_line, components)
 
+    @classmethod
     def lossless(
+        cls,
         number_of_lines: int,
         samples_per_line: int,
         components,
@@ -107,10 +115,13 @@ class StartOfFrame(jpeg.segment.Segment):
             n = FrameType.LOSSLESS_ARITHMETIC
         else:
             n = FrameType.LOSSLESS_HUFFMAN
-        return StartOfFrame(n, precision, number_of_lines, samples_per_line, components)
+        return cls(n, precision, number_of_lines, samples_per_line, components)
 
-    def ls(number_of_lines: int, samples_per_line: int, components, precision: int = 8):
-        return StartOfFrame(
+    @classmethod
+    def ls(
+        cls, number_of_lines: int, samples_per_line: int, components, precision: int = 8
+    ):
+        return cls(
             FrameType.LS, precision, number_of_lines, samples_per_line, components
         )
 
@@ -144,7 +155,8 @@ class StartOfFrame(jpeg.segment.Segment):
             )
             writer.write_u8(component.quantization_table_index)
 
-    def read(reader: jpeg.io.Reader):
+    @classmethod
+    def read(cls, reader: jpeg.io.Reader):
         marker = reader.read_marker()
         assert marker in (
             jpeg.marker.Marker.SOF0,
@@ -183,7 +195,7 @@ class StartOfFrame(jpeg.segment.Segment):
                     quantization_table_index,
                 )
             )
-        return StartOfFrame(
+        return cls(
             n,
             precision,
             number_of_lines,

@@ -45,7 +45,8 @@ class HuffmanLosslessScan(jpeg.segment.Segment):
 
         scan_writer.flush()
 
-    def read(reader, number_of_data_units, components):
+    @classmethod
+    def read(cls, reader, number_of_data_units, components):
         scan_reader = jpeg.huffman_scan.Reader(reader)
         dc_decoders = []
         for scan_component in components:
@@ -57,7 +58,7 @@ class HuffmanLosslessScan(jpeg.segment.Segment):
             data_unit = scan_reader.read_dc(dc_decoders[component_index])
             data_units.append(data_unit)
 
-        return HuffmanLosslessScan(
+        return cls(
             data_units,
             components,
         )

@@ -11,12 +11,13 @@ class Comment(jpeg.segment.Segment):
         writer.write_u16(2 + len(self.data))
         writer.write(self.data)
 
-    def read(reader: jpeg.io.Reader):
+    @classmethod
+    def read(cls, reader: jpeg.io.Reader):
         marker = reader.read_marker()
         assert marker == jpeg.marker.Marker.COM
         length = reader.read_u16()
         data = reader.read(length - 2)
-        return Comment(data)
+        return cls(data)
 
     def __eq__(self, other):
         return isinstance(other, Comment) and other.data == self.data

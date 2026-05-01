@@ -8,11 +8,13 @@ class ScanComponent:
         self.dc_table = dc_table
         self.ac_table = ac_table
 
-    def dct(component_selector, dc_table, ac_table):
-        return ScanComponent(component_selector, dc_table, ac_table)
+    @classmethod
+    def dct(cls, component_selector, dc_table, ac_table):
+        return cls(component_selector, dc_table, ac_table)
 
-    def lossless(component_selector, table):
-        return ScanComponent(component_selector, table, 0)
+    @classmethod
+    def lossless(cls, component_selector, table):
+        return cls(component_selector, table, 0)
 
     def __eq__(self, other):
         return (
@@ -38,21 +40,24 @@ class StartOfScan(jpeg.segment.Segment):
         self.ah = ah
         self.al = al
 
+    @classmethod
     def dct(
+        cls,
         components,
         spectral_selection=(0, 63),
         point_transform=0,
         previous_point_transform=0,
     ):
-        return StartOfScan(
+        return cls(
             components,
             spectral_selection,
             previous_point_transform,
             point_transform,
         )
 
-    def lossless(components, predictor=1, point_transform=0):
-        return StartOfScan(components, (predictor, 0), 0, point_transform)
+    @classmethod
+    def lossless(cls, components, predictor=1, point_transform=0):
+        return cls(components, (predictor, 0), 0, point_transform)
 
     def write(self, writer: jpeg.io.Writer):
         writer.write_marker(jpeg.marker.Marker.SOS)
@@ -65,7 +70,8 @@ class StartOfScan(jpeg.segment.Segment):
         writer.write_u8(self.spectral_selection[1])
         writer.write_u8(self.ah << 4 | self.al)
 
-    def read(reader: jpeg.io.Reader):
+    @classmethod
+    def read(cls, reader: jpeg.io.Reader):
         marker = reader.read_marker()
         assert marker == jpeg.marker.Marker.SOS
         length = reader.read_u16()
@@ -85,7 +91,7 @@ class StartOfScan(jpeg.segment.Segment):
         a = reader.read_u8()
         ah = a >> 4
         al = a & 0x0F
-        return StartOfScan(components, spectral_selection, ah, al)
+        return cls(components, spectral_selection, ah, al)
 
     def __eq__(self, other):
         return (

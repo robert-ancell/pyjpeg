@@ -17,7 +17,8 @@ class ExpandReferenceComponents(jpeg.segment.Segment):
             value |= 0x01
         writer.write_u8(value)
 
-    def read(reader: jpeg.io.Reader):
+    @classmethod
+    def read(cls, reader: jpeg.io.Reader):
         marker = reader.read_marker()
         assert marker == jpeg.marker.Marker.EXP
         length = reader.read_u16()
@@ -27,7 +28,7 @@ class ExpandReferenceComponents(jpeg.segment.Segment):
         assert expand_horizontal in (0, 1)
         expand_vertical = expand & 0x0F
         assert expand_vertical in (0, 1)
-        return ExpandReferenceComponents(expand_horizontal != 0, expand_vertical != 0)
+        return cls(expand_horizontal != 0, expand_vertical != 0)
 
     def __eq__(self, other):
         return (

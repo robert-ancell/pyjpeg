@@ -95,7 +95,9 @@ class HuffmanDCTACSuccessiveScan(jpeg.segment.Segment):
 
         scan_writer.flush()
 
+    @classmethod
     def read(
+        cls,
         reader: jpeg.io.Reader,
         data_units,
         table,
@@ -152,9 +154,7 @@ class HuffmanDCTACSuccessiveScan(jpeg.segment.Segment):
                     k = spectral_selection[0]
                     data_unit_index += 1
 
-        return HuffmanDCTACSuccessiveScan(
-            updated_data_units, table, point_transform=point_transform
-        )
+        return cls(updated_data_units, table, point_transform=point_transform)
 
 
 if __name__ == "__main__":

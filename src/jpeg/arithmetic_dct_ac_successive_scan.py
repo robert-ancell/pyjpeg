@@ -76,7 +76,9 @@ class ArithmeticDCTACSuccessiveScan(jpeg.segment.Segment):
 
         writer.flush()
 
+    @classmethod
     def read(
+        cls,
         reader: jpeg.io.Reader,
         approximate_data_units,
         spectral_selection=(1, 63),
@@ -144,9 +146,7 @@ class ArithmeticDCTACSuccessiveScan(jpeg.segment.Segment):
                     ) + (correction_bit << point_transform)
                     k += 1
 
-        return ArithmeticDCTACSuccessiveScan(
-            updated_data_units, point_transform=point_transform
-        )
+        return cls(updated_data_units, point_transform=point_transform)
 
 
 if __name__ == "__main__":

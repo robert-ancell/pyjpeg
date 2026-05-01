@@ -68,7 +68,9 @@ class ArithmeticDCTScan(jpeg.segment.Segment):
 
         scan_writer.flush()
 
+    @classmethod
     def read(
+        cls,
         reader: jpeg.io.Reader,
         number_of_data_units,
         components,
@@ -101,7 +103,7 @@ class ArithmeticDCTScan(jpeg.segment.Segment):
             prev_dc_diff[component_index] = dc - prev_dc[component_index]
             prev_dc[component_index] = dc
 
-        return ArithmeticDCTScan(
+        return cls(
             data_units,
             components,
             spectral_selection=spectral_selection,

@@ -16,16 +16,15 @@ class HuffmanDCTDCSuccessiveScan(jpeg.segment.Segment):
 
         scan_writer.flush(pad_bit=1)
 
-    def read(reader: jpeg.io.Reader, data_units, point_transform=0):
+    @classmethod
+    def read(cls, reader: jpeg.io.Reader, data_units, point_transform=0):
         scan_reader = jpeg.scan.Reader(reader)
         updated_data_units = []
         for data_unit in data_units:
             updated_data_unit = data_unit[:]
             updated_data_unit[0] += scan_reader.read_bit() << point_transform
             updated_data_units.append(updated_data_unit)
-        return HuffmanDCTDCSuccessiveScan(
-            updated_data_units, point_transform=point_transform
-        )
+        return cls(updated_data_units, point_transform=point_transform)
 
 
 if __name__ == "__main__":

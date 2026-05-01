@@ -42,7 +42,8 @@ class DefineQuantizationTables(jpeg.segment.Segment):
                 else:
                     writer.write_u16(value)
 
-    def read(reader: jpeg.io.Reader):
+    @classmethod
+    def read(cls, reader: jpeg.io.Reader):
         marker = reader.read_marker()
         assert marker == jpeg.marker.Marker.DQT
         length = reader.read_u16()
@@ -64,7 +65,7 @@ class DefineQuantizationTables(jpeg.segment.Segment):
                 offset += 129
             tables.append(QuantizationTable(destination, values, precision=precision))
         assert offset == length
-        return DefineQuantizationTables(tables)
+        return cls(tables)
 
     def __eq__(self, other):
         return (

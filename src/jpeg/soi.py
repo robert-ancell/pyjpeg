@@ -9,9 +9,10 @@ class StartOfImage(jpeg.segment.Segment):
     def write(self, writer: jpeg.io.Writer):
         writer.write_marker(jpeg.marker.Marker.SOI)
 
-    def read(reader: jpeg.io.Reader):
+    @classmethod
+    def read(cls, reader: jpeg.io.Reader):
         assert reader.read_marker() == jpeg.marker.Marker.SOI
-        return StartOfImage()
+        return cls()
 
     def __eq__(self, other):
         return isinstance(other, StartOfImage)

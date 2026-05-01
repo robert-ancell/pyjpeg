@@ -86,7 +86,9 @@ class HuffmanDCTScan(jpeg.segment.Segment):
                     i += 1
         scan_writer.flush()
 
+    @classmethod
     def read(
+        cls,
         reader: jpeg.io.Reader,
         number_of_data_units,
         components,
@@ -120,7 +122,7 @@ class HuffmanDCTScan(jpeg.segment.Segment):
             data_units.append(data_unit)
             prev_dc[component_index] = data_unit[0]
 
-        return HuffmanDCTScan(
+        return cls(
             data_units,
             components,
             spectral_selection=spectral_selection,

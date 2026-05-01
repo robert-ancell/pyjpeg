@@ -50,7 +50,9 @@ class ArithmeticLosslessScan(jpeg.segment.Segment):
 
         writer.flush()
 
+    @classmethod
     def read(
+        cls,
         reader: jpeg.io.Reader,
         samples_per_line: int,
         number_of_data_units: int,
@@ -82,7 +84,7 @@ class ArithmeticLosslessScan(jpeg.segment.Segment):
                 )
                 data_units.append(data_unit)
 
-        return ArithmeticLosslessScan(samples_per_line, data_units, components)
+        return cls(samples_per_line, data_units, components)
 
     def __eq__(self, other):
         return (

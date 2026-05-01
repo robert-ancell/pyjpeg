@@ -12,14 +12,15 @@ class DefineNumberOfLines(jpeg.segment.Segment):
         writer.write_u16(4)
         writer.write_u16(self.number_of_lines)
 
-    def read(reader: jpeg.io.Reader):
+    @classmethod
+    def read(cls, reader: jpeg.io.Reader):
         marker = reader.read_marker()
         assert marker == jpeg.marker.Marker.DNL
         length = reader.read_u16()
         assert length == 4
         number_of_lines = reader.read_u16()
         assert number_of_lines > 0
-        return DefineNumberOfLines(number_of_lines)
+        return cls(number_of_lines)
 
     def __eq__(self, other):
         return (

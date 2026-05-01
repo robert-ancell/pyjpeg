@@ -10,10 +10,11 @@ class Restart(jpeg.segment.Segment):
     def write(self, writer: jpeg.io.Writer):
         writer.write_marker(jpeg.marker.Marker.RST0 + self.index)
 
-    def read(reader: jpeg.io.Reader):
+    @classmethod
+    def read(cls, reader: jpeg.io.Reader):
         marker = reader.read_marker()
         assert marker >= jpeg.marker.Marker.RST0 and marker <= jpeg.marker.Marker.RST7
-        return Restart(marker - jpeg.marker.Marker.RST0)
+        return cls(marker - jpeg.marker.Marker.RST0)
 
     def __repr__(self):
         return f"Restart({self.index})"

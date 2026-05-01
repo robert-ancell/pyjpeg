@@ -51,7 +51,8 @@ class DefineHuffmanTables(jpeg.segment.Segment):
                 for symbol in symbols:
                     writer.write_u8(symbol)
 
-    def read(reader: jpeg.io.Reader):
+    @classmethod
+    def read(cls, reader: jpeg.io.Reader):
         marker = reader.read_marker()
         assert marker == jpeg.marker.Marker.DHT
         length = reader.read_u16()
@@ -75,7 +76,7 @@ class DefineHuffmanTables(jpeg.segment.Segment):
                 table.append(symbols)
             tables.append(HuffmanTable(table_class, destination, table))
         assert offset == length
-        return DefineHuffmanTables(tables)
+        return cls(tables)
 
     def __eq__(self, other):
         return isinstance(other, DefineHuffmanTables) and other.tables == self.tables

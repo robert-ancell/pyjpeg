@@ -40,7 +40,8 @@ class DefineArithmeticConditioning(jpeg.segment.Segment):
             writer.write_u8(table.table_class << 4 | table.destination)
             writer.write_u8(table.value)
 
-    def read(reader: jpeg.io.Reader):
+    @classmethod
+    def read(cls, reader: jpeg.io.Reader):
         marker = reader.read_marker()
         assert marker == jpeg.marker.Marker.DAC
         length = reader.read_u16()
@@ -53,7 +54,7 @@ class DefineArithmeticConditioning(jpeg.segment.Segment):
             destination = table_class_and_destination & 0x0F
             value = reader.read_u8()
             tables.append(ArithmeticConditioning(table_class, destination, value))
-        return DefineArithmeticConditioning(tables)
+        return cls(tables)
 
     def __eq__(self, other):
         return (

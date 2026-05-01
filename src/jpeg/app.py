@@ -116,14 +116,15 @@ class ApplicationSpecificData:
         writer.write_u16(2 + len(self.data))
         writer.write(self.data)
 
-    def read(reader: jpeg.io.Reader):
+    @classmethod
+    def read(cls, reader: jpeg.io.Reader):
         marker = reader.read_marker()
         assert marker >= jpeg.marker.Marker.APP0 and marker <= jpeg.marker.Marker.APP15
         n = marker - jpeg.marker.Marker.APP0
         length = reader.read_u16()
         assert length > 2
         data = reader.read(length - 2)
-        return ApplicationSpecificData(n, data)
+        return cls(n, data)
 
     def __eq__(self, other):
         return (

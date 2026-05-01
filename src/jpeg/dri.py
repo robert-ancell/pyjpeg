@@ -11,13 +11,14 @@ class DefineRestartInterval(jpeg.segment.Segment):
         writer.write_u16(4)
         writer.write_u16(self.restart_interval)
 
-    def read(reader: jpeg.io.Reader):
+    @classmethod
+    def read(cls, reader: jpeg.io.Reader):
         marker = reader.read_marker()
         assert marker == jpeg.marker.Marker.DRI
         length = reader.read_u16()
         assert length == 4
         restart_interval = reader.read_u16()
-        return DefineRestartInterval(restart_interval)
+        return cls(restart_interval)
 
     def __eq__(self, other):
         return (
