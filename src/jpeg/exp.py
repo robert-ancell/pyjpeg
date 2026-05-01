@@ -1,5 +1,5 @@
 import jpeg.marker
-import jpeg.stream
+import jpeg.segment
 
 
 class ExpandReferenceComponents:
@@ -7,7 +7,7 @@ class ExpandReferenceComponents:
         self.expand_horizontal = expand_horizontal
         self.expand_vertical = expand_vertical
 
-    def write(self, writer: jpeg.stream.Writer):
+    def write(self, writer: jpeg.io.Writer):
         writer.write_marker(jpeg.marker.Marker.EXP)
         writer.write_u16(3)
         value = 0
@@ -17,7 +17,7 @@ class ExpandReferenceComponents:
             value |= 0x01
         writer.write_u8(value)
 
-    def read(reader: jpeg.stream.Reader):
+    def read(reader: jpeg.io.Reader):
         marker = reader.read_marker()
         assert marker == jpeg.marker.Marker.EXP
         length = reader.read_u16()
@@ -34,11 +34,11 @@ class ExpandReferenceComponents:
 
 
 if __name__ == "__main__":
-    writer = jpeg.stream.BufferedWriter()
+    writer = jpeg.io.BufferedWriter()
     ExpandReferenceComponents(True, False).write(writer)
     assert writer.data == b"\xff\xdf\x00\x03\x10"
 
-    reader = jpeg.stream.BufferedReader(writer.data)
+    reader = jpeg.io.BufferedReader(writer.data)
     exp = ExpandReferenceComponents.read(reader)
     assert exp.expand_horizontal == True
     assert exp.expand_vertical == False

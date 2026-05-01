@@ -1,26 +1,29 @@
 import jpeg.marker
-import jpeg.stream
+import jpeg.segment
 
 
-class EndOfImage(jpeg.stream.Segment):
+class EndOfImage(jpeg.segment.Segment):
     def __init__(self):
         pass
 
-    def write(self, writer: jpeg.stream.Writer):
+    def write(self, writer: jpeg.io.Writer):
         writer.write_marker(jpeg.marker.Marker.EOI)
 
-    def read(reader: jpeg.stream.Reader):
+    def read(reader: jpeg.io.Reader):
         assert reader.read_marker() == jpeg.marker.Marker.EOI
         return EndOfImage()
+
+    def __eq__(self, other):
+        return isinstance(other, EndOfImage)
 
     def __repr__(self):
         return "EndOfImage()"
 
 
 if __name__ == "__main__":
-    writer = jpeg.stream.BufferedWriter()
+    writer = jpeg.io.BufferedWriter()
     EndOfImage().write(writer)
     assert writer.data == b"\xff\xd9"
 
-    reader = jpeg.stream.BufferedReader(writer.data)
+    reader = jpeg.io.BufferedReader(writer.data)
     EndOfImage.read(reader)

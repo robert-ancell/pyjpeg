@@ -1,5 +1,5 @@
 import jpeg.marker
-import jpeg.stream
+import jpeg.segment
 
 
 class ScanComponent:
@@ -55,7 +55,7 @@ class StartOfScan:
     def lossless(components, predictor=1, point_transform=0):
         return StartOfScan(components, predictor, 0, 0, point_transform)
 
-    def write(self, writer: jpeg.stream.Writer):
+    def write(self, writer: jpeg.io.Writer):
         writer.write_marker(jpeg.marker.Marker.SOS)
         writer.write_u16(6 + len(self.components) * 2)
         writer.write_u8(len(self.components))
@@ -66,7 +66,7 @@ class StartOfScan:
         writer.write_u8(self.se)
         writer.write_u8(self.ah << 4 | self.al)
 
-    def read(reader: jpeg.stream.Reader):
+    def read(reader: jpeg.io.Reader):
         marker = reader.read_marker()
         assert marker == jpeg.marker.Marker.SOS
         length = reader.read_u16()
@@ -92,13 +92,13 @@ class StartOfScan:
 
 
 if __name__ == "__main__":
-    writer = jpeg.stream.BufferedWriter()
+    writer = jpeg.io.BufferedWriter()
     StartOfScan([ScanComponent(42, 0, 1), ScanComponent(43, 2, 3)], 1, 62, 2, 15).write(
         writer
     )
     assert writer.data == b"\xff\xda\x00\x0a\x02\x2a\x01\x2b\x23\x01\x3e\x2f"
 
-    reader = jpeg.stream.BufferedReader(writer.data)
+    reader = jpeg.io.BufferedReader(writer.data)
     sos = StartOfScan.read(reader)
     assert sos.components == [ScanComponent(42, 0, 1), ScanComponent(43, 2, 3)]
     assert sos.ss == 1

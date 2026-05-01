@@ -1,5 +1,5 @@
 import jpeg.marker
-import jpeg.stream
+import jpeg.segment
 
 
 class Restart:
@@ -7,10 +7,10 @@ class Restart:
         assert index >= 0 and index <= 7
         self.index = index
 
-    def write(self, writer: jpeg.stream.Writer):
+    def write(self, writer: jpeg.io.Writer):
         writer.write_marker(jpeg.marker.Marker.RST0 + self.index)
 
-    def read(reader: jpeg.stream.Reader):
+    def read(reader: jpeg.io.Reader):
         marker = reader.read_marker()
         assert marker >= jpeg.marker.Marker.RST0 and marker <= jpeg.marker.Marker.RST7
         return Restart(marker - jpeg.marker.Marker.RST0)
@@ -20,11 +20,11 @@ class Restart:
 
 
 if __name__ == "__main__":
-    writer = jpeg.stream.BufferedWriter()
+    writer = jpeg.io.BufferedWriter()
 
     Restart(5).write(writer)
     assert writer.data == b"\xff\xd5"
 
-    reader = jpeg.stream.BufferedReader(writer.data)
+    reader = jpeg.io.BufferedReader(writer.data)
     rst = Restart.read(reader)
     assert rst.index == 5

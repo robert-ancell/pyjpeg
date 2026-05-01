@@ -1,17 +1,17 @@
 import jpeg.marker
-import jpeg.stream
+import jpeg.segment
 
 
 class DefineRestartInterval:
     def __init__(self, restart_interval):
         self.restart_interval = restart_interval
 
-    def write(self, writer: jpeg.stream.Writer):
+    def write(self, writer: jpeg.io.Writer):
         writer.write_marker(jpeg.marker.Marker.DRI)
         writer.write_u16(4)
         writer.write_u16(self.restart_interval)
 
-    def read(reader: jpeg.stream.Reader):
+    def read(reader: jpeg.io.Reader):
         marker = reader.read_marker()
         assert marker == jpeg.marker.Marker.DRI
         length = reader.read_u16()
@@ -24,10 +24,10 @@ class DefineRestartInterval:
 
 
 if __name__ == "__main__":
-    writer = jpeg.stream.BufferedWriter()
+    writer = jpeg.io.BufferedWriter()
     DefineRestartInterval(123).write(writer)
     assert writer.data == b"\xff\xdd\x00\x04\x00\x7b"
 
-    reader = jpeg.stream.BufferedReader(writer.data)
+    reader = jpeg.io.BufferedReader(writer.data)
     rst = DefineRestartInterval.read(reader)
     assert rst.restart_interval == 123

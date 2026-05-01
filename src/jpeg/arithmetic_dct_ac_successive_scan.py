@@ -1,6 +1,6 @@
 import jpeg.arithmetic
 import jpeg.dct
-import jpeg.stream
+import jpeg.segment
 
 
 class ArithmeticDCTACSuccessiveScan:
@@ -11,7 +11,7 @@ class ArithmeticDCTACSuccessiveScan:
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
 
-    def write(self, writer: jpeg.stream.Writer):
+    def write(self, writer: jpeg.io.Writer):
         eob_states = [jpeg.arithmetic.State() for _ in range(63)]
         nonzero_states = [jpeg.arithmetic.State() for _ in range(63)]
         additional_states = [jpeg.arithmetic.State() for _ in range(63)]
@@ -77,7 +77,7 @@ class ArithmeticDCTACSuccessiveScan:
         writer.flush()
 
     def read(
-        reader: jpeg.stream.Reader,
+        reader: jpeg.io.Reader,
         approximate_data_units,
         spectral_selection=(1, 63),
         point_transform: int = 0,
@@ -159,7 +159,7 @@ if __name__ == "__main__":
         samples = [random.randint(0, 255) for _ in range(64)]
         data_units.append(jpeg.dct.quantize(jpeg.dct.fdct(samples), [1] * 64))
 
-    writer = jpeg.stream.BufferedWriter()
+    writer = jpeg.io.BufferedWriter()
     scan = ArithmeticDCTACSuccessiveScan(data_units, point_transform=3)
     scan.write(writer)
 
@@ -181,7 +181,7 @@ if __name__ == "__main__":
     # Expect next bit to be reconstructed
     expected_data_units = mask_coefficients(data_units, 0xFFF8)
 
-    reader = jpeg.stream.BufferedReader(writer.data)
+    reader = jpeg.io.BufferedReader(writer.data)
     scan2 = ArithmeticDCTACSuccessiveScan.read(
         reader, approximate_data_units, point_transform=3
     )

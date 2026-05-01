@@ -1,7 +1,7 @@
 import struct
 
 import jpeg.marker
-import jpeg.stream
+import jpeg.segment
 
 
 class Density:
@@ -111,12 +111,12 @@ class ApplicationSpecificData:
             color_space,
         )
 
-    def write(self, writer: jpeg.stream.Writer):
+    def write(self, writer: jpeg.io.Writer):
         writer.write_marker(jpeg.marker.Marker.APP0 + self.n)
         writer.write_u16(2 + len(self.data))
         writer.write(self.data)
 
-    def read(reader: jpeg.stream.Reader):
+    def read(reader: jpeg.io.Reader):
         marker = reader.read_marker()
         assert marker >= jpeg.marker.Marker.APP0 and marker <= jpeg.marker.Marker.APP15
         n = marker - jpeg.marker.Marker.APP0
@@ -137,11 +137,11 @@ class ApplicationSpecificData:
 
 
 if __name__ == "__main__":
-    writer = jpeg.stream.BufferedWriter()
+    writer = jpeg.io.BufferedWriter()
     ApplicationSpecificData(15, b"\xde\xad\xbe\xef").write(writer)
     assert writer.data == b"\xff\xef\x00\x06\xde\xad\xbe\xef"
 
-    reader = jpeg.stream.BufferedReader(writer.data)
+    reader = jpeg.io.BufferedReader(writer.data)
     app = ApplicationSpecificData.read(reader)
     assert app.n == 15
     assert app.data == b"\xde\xad\xbe\xef"

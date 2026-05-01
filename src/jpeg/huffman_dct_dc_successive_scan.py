@@ -1,5 +1,5 @@
 import jpeg.scan
-import jpeg.stream
+import jpeg.segment
 
 
 class HuffmanDCTDCSuccessiveScan:
@@ -19,7 +19,7 @@ class HuffmanDCTDCSuccessiveScan:
 
         scan_writer.flush(pad_bit=1)
 
-    def read(reader: jpeg.stream.Reader, number_of_data_units, point_transform=0):
+    def read(reader: jpeg.io.Reader, number_of_data_units, point_transform=0):
         scan_reader = jpeg.scan.Reader(reader)
         data_units = []
         for _ in range(number_of_data_units):
@@ -38,11 +38,11 @@ if __name__ == "__main__":
     samples = [random.randint(0, 255) for _ in range(64)]
     data_units = [jpeg.dct.quantize(jpeg.dct.fdct(samples), [1] * 64)]
 
-    writer = jpeg.stream.BufferedWriter()
+    writer = jpeg.io.BufferedWriter()
     scan = HuffmanDCTDCSuccessiveScan(data_units)
     scan.write(writer)
 
-    reader = jpeg.stream.BufferedReader(writer.data)
+    reader = jpeg.io.BufferedReader(writer.data)
     scan2 = HuffmanDCTDCSuccessiveScan.read(reader, 1)
 
     # FIXME

@@ -109,9 +109,9 @@ class Reader:
 if __name__ == "__main__":
     import jpeg.huffman
     import jpeg.huffman_tables
-    import jpeg.stream
+    import jpeg.segment
 
-    writer = jpeg.stream.BufferedWriter()
+    writer = jpeg.io.BufferedWriter()
     scan_writer = Writer(writer)
     dc_encoder = jpeg.huffman.Encoder(
         jpeg.huffman_tables.standard_luminance_dc_huffman_table
@@ -125,7 +125,7 @@ if __name__ == "__main__":
     scan_writer.write_eob(ac_encoder)
     scan_writer.flush()
 
-    reader = jpeg.stream.BufferedReader(writer.data)
+    reader = jpeg.io.BufferedReader(writer.data)
     scan_reader = Reader(reader)
     dc_decoder = jpeg.huffman.Decoder(
         jpeg.huffman_tables.standard_luminance_dc_huffman_table

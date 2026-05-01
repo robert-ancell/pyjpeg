@@ -1,7 +1,7 @@
-import jpeg.stream
+import jpeg.segment
 
 
-class NullWriter(jpeg.stream.Writer):
+class NullWriter(jpeg.io.Writer):
     def write(self, data):
         pass
 

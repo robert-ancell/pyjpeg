@@ -23,10 +23,12 @@ from jpeg.huffman_dct_scan import HuffmanDCTScan, HuffmanDCTScanComponent
 from jpeg.huffman_lossless_scan import HuffmanLosslessScan, HuffmanLosslessScanComponent
 from jpeg.huffman_optimize import optimize
 from jpeg.huffman_tables import *
+from jpeg.io import BufferedReader, BufferedWriter, Reader, Writer
 from jpeg.lossless import decode, encode
 from jpeg.quantization_tables import *
 from jpeg.rst import Restart
+from jpeg.segment import Segment
 from jpeg.sof import FrameComponent, StartOfFrame
 from jpeg.soi import StartOfImage
 from jpeg.sos import ScanComponent, StartOfScan
-from jpeg.stream import BufferedReader, BufferedWriter, Reader, Writer
+from jpeg.stream import Stream

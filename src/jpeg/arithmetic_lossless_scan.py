@@ -1,6 +1,6 @@
 import jpeg.arithmetic
 import jpeg.arithmetic_scan
-import jpeg.stream
+import jpeg.segment
 
 
 class ArithmeticLosslessScanComponent:
@@ -23,7 +23,7 @@ class ArithmeticLosslessScan:
         self.data_units = data_units
         self.components = components
 
-    def write(self, writer: jpeg.stream.Writer):
+    def write(self, writer: jpeg.io.Writer):
         writer = Writer(writer)
 
         for i, data_unit in enumerate(self.data_units):
@@ -51,7 +51,7 @@ class ArithmeticLosslessScan:
         writer.flush()
 
     def read(
-        reader: jpeg.stream.Reader,
+        reader: jpeg.io.Reader,
         samples_per_line: int,
         number_of_data_units: int,
         components,
@@ -181,16 +181,16 @@ if __name__ == "__main__":
     import jpeg.lossless
 
     samples = [random.randint(0, 255) for _ in range(64)]
-    data_units = jpeg.lossless.write(8, samples)
+    data_units = jpeg.lossless.encode(8, samples)
     scan = ArithmeticLosslessScan(
         8,
         data_units,
         [ArithmeticLosslessScanComponent()],
     )
-    writer = jpeg.stream.BufferedWriter()
+    writer = jpeg.io.BufferedWriter()
     scan.write(writer)
 
-    reader = jpeg.stream.BufferedReader(writer.data)
+    reader = jpeg.io.BufferedReader(writer.data)
     scan2 = ArithmeticLosslessScan.read(
         reader,
         8,

@@ -1,7 +1,7 @@
 import jpeg.dct
 import jpeg.huffman
 import jpeg.scan
-import jpeg.stream
+import jpeg.segment
 
 
 class HuffmanDCTACSuccessiveScan:
@@ -17,7 +17,7 @@ class HuffmanDCTACSuccessiveScan:
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
 
-    def write(self, writer: jpeg.stream.Writer, symbol_frequencies=None):
+    def write(self, writer: jpeg.io.Writer, symbol_frequencies=None):
         scan_writer = jpeg.huffman_scan.Writer(writer)
 
         encoder = jpeg.huffman.Encoder(self.table)
@@ -96,7 +96,7 @@ class HuffmanDCTACSuccessiveScan:
         scan_writer.flush()
 
     def read(
-        reader: jpeg.stream.Reader,
+        reader: jpeg.io.Reader,
         data_units,
         table,
         spectral_selection=(1, 63),
@@ -168,7 +168,7 @@ if __name__ == "__main__":
         samples = [random.randint(0, 255) for _ in range(64)]
         data_units.append(jpeg.dct.quantize(jpeg.dct.fdct(samples), [1] * 64))
 
-    writer = jpeg.stream.BufferedWriter()
+    writer = jpeg.io.BufferedWriter()
     scan = HuffmanDCTACSuccessiveScan(
         data_units,
         jpeg.huffman_tables.standard_luminance_ac_huffman_table,
@@ -194,7 +194,7 @@ if __name__ == "__main__":
     # Expect next bit to be reconstructed
     expected_data_units = mask_coefficients(data_units, 0xFFF8)
 
-    reader = jpeg.stream.BufferedReader(writer.data)
+    reader = jpeg.io.BufferedReader(writer.data)
     scan2 = HuffmanDCTACSuccessiveScan.read(
         reader,
         approximate_data_units,
