@@ -2,6 +2,12 @@ import jpeg.marker
 import jpeg.segment
 
 
+class LSEId:
+    PRESET_PARAMETERS = 1
+    MAPPING_TABLE = 2
+    MAPPING_TABLE_CONTINUATION = 3
+
+
 class LSPresetParameters(jpeg.segment.Segment):
     def __init__(self, maxval=255, t1=3, t2=7, t3=21, reset=64):
         self.maxval = maxval
@@ -13,7 +19,7 @@ class LSPresetParameters(jpeg.segment.Segment):
     def write(self, writer: jpeg.io.Writer):
         writer.write_marker(jpeg.marker.Marker.DNL)
         writer.write_u16(13)
-        id = 1
+        id = LSEId.PRESET_PARAMETERS
         writer.write_u8(id)
         writer.write_u16(self.maxval)
         writer.write_u16(self.t1)
@@ -28,7 +34,7 @@ class LSPresetParameters(jpeg.segment.Segment):
         length = reader.read_u16()
         assert length == 13
         id = reader.read_u8()
-        assert id == 1
+        assert id == LSEId.PRESET_PARAMETERS
         maxval = reader.read_u16()
         t1 = reader.read_u16()
         t2 = reader.read_u16()
