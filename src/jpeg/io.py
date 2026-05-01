@@ -44,10 +44,10 @@ class Reader:
 
 class BufferedWriter(Writer):
     def __init__(self):
-        self.data = b""
+        self.data = bytearray()
 
     def write_u8(self, data):
-        self.data += bytes([data])
+        self.data.append(data)
 
 
 class BufferedReader(Reader):
