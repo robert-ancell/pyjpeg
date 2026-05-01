@@ -3,7 +3,6 @@ import jpeg.io
 import jpeg.segment
 import jpeg.soi
 from jpeg.marker import Marker
-from src.analyze import segment
 
 
 class Stream:
