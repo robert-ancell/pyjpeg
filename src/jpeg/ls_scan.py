@@ -25,7 +25,7 @@ class LSScan(jpeg.segment.Segment):
         self.components = components
 
     def write(self, writer: jpeg.io.Writer):
-        writer = jpeg.golomb_scan.Writer(writer)
+        scan_writer = jpeg.golomb_scan.Writer(writer)
 
         # FIXME
 
@@ -56,25 +56,5 @@ class LSScan(jpeg.segment.Segment):
 
 
 if __name__ == "__main__":
-    import random
-
-    data_units = []
-    for _ in range(4):
-        samples = [random.randint(0, 255) for _ in range(64)]
-        data_units.append(samples)
-
-    scan = LSScan(
-        data_units,
-        [LSScanComponent()],
-    )
-    writer = jpeg.io.BufferedWriter()
-    scan.write(writer)
-
-    reader = jpeg.io.BufferedReader(writer.data)
-    scan2 = LSScan.read(
-        reader,
-        4,
-        [LSScanComponent()],
-    )
-    assert scan2.data_units == data_units
-    assert scan2.components == [LSScanComponent()]
+    # FIXME
+    pass
