@@ -34,6 +34,7 @@ class StartOfScan:
         assert al >= 0 and al <= 15
         self.components = components
         self.spectral_selection = spectral_selection
+        # FIXME: Replace with better names
         self.ah = ah
         self.al = al
 

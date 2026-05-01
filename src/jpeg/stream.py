@@ -40,6 +40,8 @@ class Stream:
                     return _parse_huffman_lossless_scan(
                         reader, sof, sos, dc_huffman_tables=dc_huffman_tables
                     )
+            elif sof.is_ls():
+                return _parse_ls_scan(reader)
             else:
                 if sof.is_arithmetic():
                     return _parse_arithmetic_dct_scan(
@@ -73,7 +75,7 @@ class Stream:
                 Marker.SOF11,
                 Marker.SOF13,
                 Marker.SOF14,
-                Marker.SOF15,
+                Marker.SOF55,
             ):
                 sof = jpeg.StartOfFrame.read(reader)
                 segments.append(sof)
@@ -236,6 +238,10 @@ def _parse_arithmetic_lossless_scan(
     return jpeg.ArithmeticLosslessScan.read(
         reader, sof.samples_per_line, number_of_data_units, components
     )
+
+
+def _parse_ls_scan(reader):
+    return jpeg.LSScan.read(reader, 0, [jpeg.LSScanComponent()])
 
 
 if __name__ == "__main__":

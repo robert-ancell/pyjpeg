@@ -32,7 +32,10 @@ class FrameComponent:
     ):
         return FrameComponent(id, sampling_factor, quantization_table_index)
 
-    def lossless(id, sampling_factor: tuple = (1, 1)):
+    def lossless(id: int, sampling_factor: tuple = (1, 1)):
+        return FrameComponent(id, sampling_factor, 0)
+
+    def ls(id: int, sampling_factor: tuple = (1, 1)):
         return FrameComponent(id, sampling_factor, 0)
 
     def __eq__(self, other):
@@ -63,7 +66,9 @@ class StartOfFrame:
         self.components = components
 
     def baseline(number_of_lines: int, samples_per_line: int, components):
-        return StartOfFrame(0, 8, number_of_lines, samples_per_line, components)
+        return StartOfFrame(
+            FrameType.BASELINE, 8, number_of_lines, samples_per_line, components
+        )
 
     def extended(
         number_of_lines: int,
@@ -73,9 +78,9 @@ class StartOfFrame:
         arithmetic: bool = False,
     ):
         if arithmetic:
-            n = 9
+            n = FrameType.EXTENDED_ARITHMETIC
         else:
-            n = 1
+            n = FrameType.EXTENDED_HUFFMAN
         return StartOfFrame(n, precision, number_of_lines, samples_per_line, components)
 
     def progressive(
@@ -86,9 +91,9 @@ class StartOfFrame:
         arithmetic: bool = False,
     ):
         if arithmetic:
-            n = 10
+            n = FrameType.PROGRESSIVE_ARITHMETIC
         else:
-            n = 2
+            n = FrameType.PROGRESSIVE_HUFFMAN
         return StartOfFrame(n, precision, number_of_lines, samples_per_line, components)
 
     def lossless(
@@ -99,10 +104,15 @@ class StartOfFrame:
         arithmetic: bool = False,
     ):
         if arithmetic:
-            n = 11
+            n = FrameType.LOSSLESS_ARITHMETIC
         else:
-            n = 3
+            n = FrameType.LOSSLESS_HUFFMAN
         return StartOfFrame(n, precision, number_of_lines, samples_per_line, components)
+
+    def ls(number_of_lines: int, samples_per_line: int, components, precision: int = 8):
+        return StartOfFrame(
+            FrameType.LS, precision, number_of_lines, samples_per_line, components
+        )
 
     def is_arithmetic(self):
         return self.n in (
@@ -116,6 +126,9 @@ class StartOfFrame:
 
     def is_lossless(self):
         return self.n in (FrameType.LOSSLESS_HUFFMAN, FrameType.LOSSLESS_ARITHMETIC)
+
+    def is_ls(self):
+        return self.n == FrameType.LS
 
     def write(self, writer: jpeg.io.Writer):
         writer.write_marker(jpeg.marker.Marker.SOF0 + self.n)
