@@ -1,3 +1,5 @@
+import jpeg.huffman_optimize
+import jpeg.lossless
 from jpeg.app import (
     AdobeColorSpace,
     ApplicationSpecificData,
@@ -21,10 +23,8 @@ from jpeg.huffman_dct_ac_successive_scan import HuffmanDCTACSuccessiveScan
 from jpeg.huffman_dct_dc_successive_scan import HuffmanDCTDCSuccessiveScan
 from jpeg.huffman_dct_scan import HuffmanDCTScan, HuffmanDCTScanComponent
 from jpeg.huffman_lossless_scan import HuffmanLosslessScan, HuffmanLosslessScanComponent
-from jpeg.huffman_optimize import optimize
 from jpeg.huffman_tables import *
 from jpeg.io import BufferedReader, BufferedWriter, Reader, Writer
-from jpeg.lossless import decode, encode
 from jpeg.quantization_tables import *
 from jpeg.rst import Restart
 from jpeg.segment import Segment
