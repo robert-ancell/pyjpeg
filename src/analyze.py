@@ -128,9 +128,12 @@ for segment in stream.segments:
             if not is_lossless:
                 print("  AC Table: %d" % component.ac_table)
         if is_lossless:
-            print(" Predictor: %d" % segment.ss)
+            print(" Predictor: %d" % segment.spectral_selection[0])
         else:
-            print(" Spectral Selection: %d-%d" % (segment.ss, segment.se))
+            print(
+                " Spectral Selection: %d-%d"
+                % (segment.spectral_selection[0], segment.spectral_selection[1])
+            )
         print(" Previous Point Transform: %d" % segment.ah)
         print(" Point Transform: %d" % segment.al)
     elif isinstance(segment, jpeg.HuffmanDCTScan) or isinstance(

@@ -27,14 +27,13 @@ class ScanComponent:
 
 
 class StartOfScan:
-    def __init__(self, components, ss, se, ah, al):
-        assert ss >= 0 and ss <= 255
-        assert se >= 0 and se <= 255
+    def __init__(self, components, spectral_selection, ah, al):
+        assert spectral_selection[0] >= 0 and spectral_selection[0] <= 255
+        assert spectral_selection[1] >= 0 and spectral_selection[1] <= 255
         assert ah >= 0 and ah <= 15
         assert al >= 0 and al <= 15
         self.components = components
-        self.ss = ss
-        self.se = se
+        self.spectral_selection = spectral_selection
         self.ah = ah
         self.al = al
 
@@ -46,14 +45,13 @@ class StartOfScan:
     ):
         return StartOfScan(
             components,
-            spectral_selection[0],
-            spectral_selection[1],
+            spectral_selection,
             previous_point_transform,
             point_transform,
         )
 
     def lossless(components, predictor=1, point_transform=0):
-        return StartOfScan(components, predictor, 0, 0, point_transform)
+        return StartOfScan(components, (predictor, 0), 0, point_transform)
 
     def write(self, writer: jpeg.io.Writer):
         writer.write_marker(jpeg.marker.Marker.SOS)
@@ -62,8 +60,8 @@ class StartOfScan:
         for component in self.components:
             writer.write_u8(component.component_selector)
             writer.write_u8(component.dc_table << 4 | component.ac_table)
-        writer.write_u8(self.ss)
-        writer.write_u8(self.se)
+        writer.write_u8(self.spectral_selection[0])
+        writer.write_u8(self.spectral_selection[1])
         writer.write_u8(self.ah << 4 | self.al)
 
     def read(reader: jpeg.io.Reader):
@@ -82,36 +80,35 @@ class StartOfScan:
             components.append(ScanComponent(component_selector, dc_table, ac_table))
         ss = reader.read_u8()
         se = reader.read_u8()
+        spectral_selection = (ss, se)
         a = reader.read_u8()
         ah = a >> 4
         al = a & 0x0F
-        return StartOfScan(components, ss, se, ah, al)
+        return StartOfScan(components, spectral_selection, ah, al)
 
     def __eq__(self, other):
         return (
             isinstance(other, StartOfScan)
             and other.components == self.components
-            and other.ss == self.ss
-            and other.se == self.se
+            and other.spectral_selection == self.spectral_selection
             and other.ah == self.ah
             and other.al == self.al
         )
 
     def __repr__(self):
-        return f"StartOfScan({self.components}, {self.ss}, {self.se}, {self.ah}, {self.al})"
+        return f"StartOfScan({self.components}, {self.spectral_selection}, {self.ah}, {self.al})"
 
 
 if __name__ == "__main__":
     writer = jpeg.io.BufferedWriter()
-    StartOfScan([ScanComponent(42, 0, 1), ScanComponent(43, 2, 3)], 1, 62, 2, 15).write(
-        writer
-    )
+    StartOfScan(
+        [ScanComponent(42, 0, 1), ScanComponent(43, 2, 3)], (1, 62), 2, 15
+    ).write(writer)
     assert writer.data == b"\xff\xda\x00\x0a\x02\x2a\x01\x2b\x23\x01\x3e\x2f"
 
     reader = jpeg.io.BufferedReader(writer.data)
     sos = StartOfScan.read(reader)
     assert sos.components == [ScanComponent(42, 0, 1), ScanComponent(43, 2, 3)]
-    assert sos.ss == 1
-    assert sos.se == 62
+    assert sos.spectral_selection == (1, 62)
     assert sos.ah == 2
     assert sos.al == 15
