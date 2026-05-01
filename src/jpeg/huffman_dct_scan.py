@@ -23,7 +23,7 @@ class HuffmanDCTScanComponent:
         return f"HuffmanDCTScanComponent({self.dc_table}, {self.ac_table}, sampling_factor={self.sampling_factor})"
 
 
-class HuffmanDCTScan:
+class HuffmanDCTScan(jpeg.segment.Segment):
     def __init__(
         self,
         data_units,
@@ -137,7 +137,7 @@ class HuffmanDCTScan:
         )
 
     def __repr__(self):
-        return f"HuffmanDCTScan(data_units={self.data_units}, components={self.components}, spectral_selection={self.spectral_selection}, point_transform={self.point_transform})"
+        return f"HuffmanDCTScan({self.data_units}, {self.components}, spectral_selection={self.spectral_selection}, point_transform={self.point_transform})"
 
 
 # FIXME: Merge into above class
