@@ -16,6 +16,10 @@ class ScanComponent:
     def lossless(cls, component_selector, table):
         return cls(component_selector, table, 0)
 
+    @classmethod
+    def ls(cls, component_selector, mapping_table: int = 0):
+        return cls(component_selector, mapping_table >> 4, mapping_table & 0xF)
+
     def __eq__(self, other):
         return (
             isinstance(other, ScanComponent)
@@ -45,8 +49,8 @@ class StartOfScan(jpeg.segment.Segment):
         cls,
         components,
         spectral_selection=(0, 63),
-        point_transform=0,
-        previous_point_transform=0,
+        point_transform: int = 0,
+        previous_point_transform: int = 0,
     ):
         return cls(
             components,
@@ -56,8 +60,12 @@ class StartOfScan(jpeg.segment.Segment):
         )
 
     @classmethod
-    def lossless(cls, components, predictor=1, point_transform=0):
+    def lossless(cls, components, predictor: int = 1, point_transform: int = 0):
         return cls(components, (predictor, 0), 0, point_transform)
+
+    @classmethod
+    def ls(cls, components, near: int = 0, ilv: int = 0, point_transform: int = 0):
+        return cls(components, spectral_selection, 0, point_transform)
 
     def write(self, writer: jpeg.io.Writer):
         writer.write_marker(jpeg.marker.Marker.SOS)

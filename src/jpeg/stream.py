@@ -3,6 +3,7 @@ import jpeg.io
 import jpeg.segment
 import jpeg.soi
 from jpeg.marker import Marker
+from src.analyze import segment
 
 
 class Stream:
@@ -146,6 +147,8 @@ class Stream:
                 Marker.APP15,
             ):
                 segments.append(jpeg.ApplicationSpecificData.read(reader))
+            elif marker == Marker.LSE:
+                segments.append(jpeg.LSPresetParameters.read(reader))
             elif marker == Marker.COM:
                 segments.append(jpeg.Comment.read(reader))
             else:

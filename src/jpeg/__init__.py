@@ -26,6 +26,7 @@ from jpeg.huffman_lossless_scan import HuffmanLosslessScan, HuffmanLosslessScanC
 from jpeg.huffman_tables import *
 from jpeg.io import BufferedReader, BufferedWriter, Reader, Writer
 from jpeg.ls_scan import LSScan, LSScanComponent
+from jpeg.lse import LSPresetParameters
 from jpeg.quantization_tables import *
 from jpeg.rst import Restart
 from jpeg.segment import Segment
