@@ -17,7 +17,7 @@ class HuffmanLosslessScanComponent:
         return f"HuffmanLosslessScanComponent({self.table})"
 
 
-class HuffmanLosslessScan:
+class HuffmanLosslessScan(jpeg.segment.Segment):
     def __init__(self, data_units, components):
         self.data_units = data_units
         self.components = components
@@ -61,6 +61,16 @@ class HuffmanLosslessScan:
             data_units,
             components,
         )
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, HuffmanLosslessScan)
+            and other.data_units == self.data_units
+            and other.components == self.components
+        )
+
+    def __repr__(self):
+        return f"HuffmanLosslessScan({self.data_units}, {self.components})"
 
 
 if __name__ == "__main__":

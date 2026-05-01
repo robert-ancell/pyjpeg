@@ -29,7 +29,7 @@ class ArithmeticConditioning:
             return f"ArithmeticConditioning.ac({self.destination}, {self.value})"
 
 
-class DefineArithmeticConditioning:
+class DefineArithmeticConditioning(jpeg.segment.Segment):
     def __init__(self, tables):
         self.tables = tables
 

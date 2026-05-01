@@ -26,7 +26,7 @@ class ScanComponent:
         return f"ScanComponent({self.component_selector}, {self.dc_table}, {self.ac_table})"
 
 
-class StartOfScan:
+class StartOfScan(jpeg.segment.Segment):
     def __init__(self, components, spectral_selection, ah, al):
         assert spectral_selection[0] >= 0 and spectral_selection[0] <= 255
         assert spectral_selection[1] >= 0 and spectral_selection[1] <= 255

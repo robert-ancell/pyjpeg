@@ -3,7 +3,7 @@ import jpeg.dct
 import jpeg.segment
 
 
-class ArithmeticDCTACSuccessiveScan:
+class ArithmeticDCTACSuccessiveScan(jpeg.segment.Segment):
     def __init__(
         self, data_units, spectral_selection=(1, 63), point_transform: int = 0
     ):

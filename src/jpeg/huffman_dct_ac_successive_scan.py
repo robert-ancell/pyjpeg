@@ -4,7 +4,7 @@ import jpeg.scan
 import jpeg.segment
 
 
-class HuffmanDCTACSuccessiveScan:
+class HuffmanDCTACSuccessiveScan(jpeg.segment.Segment):
     def __init__(
         self,
         data_units,

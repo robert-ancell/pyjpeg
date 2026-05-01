@@ -17,7 +17,7 @@ class ArithmeticLosslessScanComponent:
         return f"ArithmeticLosslessScanComponent(conditioning_bounds={self.conditioning_bounds})"
 
 
-class ArithmeticLosslessScan:
+class ArithmeticLosslessScan(jpeg.segment.Segment):
     def __init__(self, samples_per_line: int, data_units, components):
         self.samples_per_line = samples_per_line
         self.data_units = data_units

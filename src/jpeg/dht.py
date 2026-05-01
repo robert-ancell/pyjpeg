@@ -31,7 +31,7 @@ class HuffmanTable:
             return f"HuffmanTable.ac({self.destination}, {self.table})"
 
 
-class DefineHuffmanTables:
+class DefineHuffmanTables(jpeg.segment.Segment):
     def __init__(self, tables):
         self.tables = tables
 

@@ -2,7 +2,7 @@ import jpeg.arithmetic
 import jpeg.io
 
 
-class ArithmeticDCTDCSuccessiveScan:
+class ArithmeticDCTDCSuccessiveScan(jpeg.segment.Segment):
     def __init__(self, data_units, point_transform=0):
         self.data_units = data_units
         self.point_transform = point_transform

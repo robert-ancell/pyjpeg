@@ -2,7 +2,7 @@ import jpeg.marker
 import jpeg.segment
 
 
-class DefineNumberOfLines:
+class DefineNumberOfLines(jpeg.segment.Segment):
     def __init__(self, number_of_lines: int):
         assert number_of_lines > 0 and number_of_lines <= 65535
         self.number_of_lines = number_of_lines

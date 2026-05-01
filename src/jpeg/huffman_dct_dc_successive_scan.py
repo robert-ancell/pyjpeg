@@ -2,7 +2,7 @@ import jpeg.io
 import jpeg.scan
 
 
-class HuffmanDCTDCSuccessiveScan:
+class HuffmanDCTDCSuccessiveScan(jpeg.segment.Segment):
     def __init__(self, data_units, point_transform=0):
         self.data_units = data_units
         self.point_transform = point_transform

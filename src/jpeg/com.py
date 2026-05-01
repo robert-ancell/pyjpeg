@@ -2,7 +2,7 @@ import jpeg.marker
 import jpeg.segment
 
 
-class Comment:
+class Comment(jpeg.segment.Segment):
     def __init__(self, data: bytes):
         self.data = data
 

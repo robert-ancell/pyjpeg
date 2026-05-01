@@ -50,7 +50,7 @@ class FrameComponent:
         return f"FrameComponent({self.id}, {self.sampling_factor}, {self.quantization_table_index})"
 
 
-class StartOfFrame:
+class StartOfFrame(jpeg.segment.Segment):
     def __init__(
         self,
         n: int,

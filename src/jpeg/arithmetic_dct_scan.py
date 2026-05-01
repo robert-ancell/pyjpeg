@@ -22,7 +22,7 @@ class ArithmeticDCTScanComponent:
         return f"ArithmeticDCTScanComponent(sampling_factor={self.sampling_factor}, conditioning_bounds={self.conditioning_bounds}, kx={self.kx})"
 
 
-class ArithmeticDCTScan:
+class ArithmeticDCTScan(jpeg.segment.Segment):
     def __init__(
         self,
         data_units,

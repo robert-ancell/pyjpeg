@@ -20,7 +20,7 @@ class QuantizationTable:
         return f"QuantizationTable({self.destination}, {self.values}, precision={self.precision})"
 
 
-class DefineQuantizationTables:
+class DefineQuantizationTables(jpeg.segment.Segment):
     def __init__(self, tables):
         self.tables = tables
 

@@ -2,7 +2,7 @@ import jpeg.marker
 import jpeg.segment
 
 
-class DefineRestartInterval:
+class DefineRestartInterval(jpeg.segment.Segment):
     def __init__(self, restart_interval):
         self.restart_interval = restart_interval
 

@@ -2,7 +2,7 @@ import jpeg.marker
 import jpeg.segment
 
 
-class Restart:
+class Restart(jpeg.segment.Segment):
     def __init__(self, index: int):
         assert index >= 0 and index <= 7
         self.index = index
