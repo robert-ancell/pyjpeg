@@ -77,6 +77,9 @@ class DefineHuffmanTables:
         assert offset == length
         return DefineHuffmanTables(tables)
 
+    def __eq__(self, other):
+        return isinstance(other, DefineHuffmanTables) and other.tables == self.tables
+
     def __repr__(self):
         return f"DefineHuffmanTables({self.tables})"
 

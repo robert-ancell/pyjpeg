@@ -108,6 +108,18 @@ class ArithmeticDCTScan:
             point_transform=point_transform,
         )
 
+    def __eq__(self, other):
+        return (
+            isinstance(other, ArithmeticDCTScan)
+            and other.data_units == self.data_units
+            and other.components == self.components
+            and other.spectral_selection == self.spectral_selection
+            and other.point_transform == self.point_transform
+        )
+
+    def __repr__(self):
+        return f"ArithmeticDCTScan({self.data_units}, {self.components}, spectral_selection={self.spectral_selection}, point_transform={self.point_transform})"
+
 
 # FIXME: Merge into above class
 class Writer:

@@ -55,6 +55,12 @@ class DefineArithmeticConditioning:
             tables.append(ArithmeticConditioning(table_class, destination, value))
         return DefineArithmeticConditioning(tables)
 
+    def __eq__(self, other):
+        return (
+            isinstance(other, DefineArithmeticConditioning)
+            and other.tables == self.tables
+        )
+
     def __repr__(self):
         return f"DefineArithmeticConditioning({self.tables})"
 

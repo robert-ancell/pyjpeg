@@ -87,6 +87,16 @@ class StartOfScan:
         al = a & 0x0F
         return StartOfScan(components, ss, se, ah, al)
 
+    def __eq__(self, other):
+        return (
+            isinstance(other, StartOfScan)
+            and other.components == self.components
+            and other.ss == self.ss
+            and other.se == self.se
+            and other.ah == self.ah
+            and other.al == self.al
+        )
+
     def __repr__(self):
         return f"StartOfScan({self.components}, {self.ss}, {self.se}, {self.ah}, {self.al})"
 

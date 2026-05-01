@@ -20,15 +20,6 @@ class Decoder:
         self.sos = None
         self.dnl = None
 
-    def is_arithmetic(self):
-        return self.sof is not None and self.sof.n >= 8
-
-    def is_lossless(self):
-        return self.sof is not None and self.sof.n in (
-            SOF_LOSSLESS_HUFFMAN,
-            SOF_LOSSLESS_ARITHMETIC,
-        )
-
     def number_of_lines(self):
         if self.dnl is not None:
             return self.dnl.number_of_lines
@@ -36,7 +27,7 @@ class Decoder:
 
     # FIXME: Take into consideration sampling factors
     def size_in_data_units(self):
-        if self.is_lossless():
+        if self.sof.is_lossless():
             return (self.sof.samples_per_line, self.number_of_lines())
         else:
             width = (self.sof.samples_per_line + 7) // 8
@@ -47,13 +38,13 @@ class Decoder:
         assert self.sof is not None
         assert self.sos is not None
 
-        if self.is_lossless():
-            if self.is_arithmetic():
+        if self.sof.is_lossless():
+            if self.sof.is_arithmetic():
                 self.parse_arithmetic_lossless_scan(reader)
             else:
                 self.parse_huffman_lossless_scan(reader)
         else:
-            if self.is_arithmetic():
+            if self.sof.is_arithmetic():
                 self.parse_arithmetic_dct_scan(reader)
             else:
                 self.parse_huffman_dct_scan(reader)

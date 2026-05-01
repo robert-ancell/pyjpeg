@@ -18,6 +18,9 @@ class Comment:
         data = reader.read(length - 2)
         return Comment(data)
 
+    def __eq__(self, other):
+        return isinstance(other, Comment) and other.data == self.data
+
     def __repr__(self):
         return f"Comment({self.data})"
 

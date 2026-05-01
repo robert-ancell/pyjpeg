@@ -28,7 +28,7 @@ from jpeg.io import BufferedReader, BufferedWriter, Reader, Writer
 from jpeg.quantization_tables import *
 from jpeg.rst import Restart
 from jpeg.segment import Segment
-from jpeg.sof import FrameComponent, StartOfFrame
+from jpeg.sof import FrameComponent, FrameType, StartOfFrame
 from jpeg.soi import StartOfImage
 from jpeg.sos import ScanComponent, StartOfScan
 from jpeg.stream import Stream

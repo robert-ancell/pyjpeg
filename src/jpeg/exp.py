@@ -29,6 +29,13 @@ class ExpandReferenceComponents:
         assert expand_vertical in (0, 1)
         return ExpandReferenceComponents(expand_horizontal != 0, expand_vertical != 0)
 
+    def __eq__(self, other):
+        return (
+            isinstance(other, ExpandReferenceComponents)
+            and other.expand_horizontal == self.expand_horizontal
+            and other.expand_vertical == self.expand_vertical
+        )
+
     def __repr__(self):
         return f"ExpandReferenceComponents({self.expand_horizontal}, {self.expand_vertical})"
 

@@ -66,6 +66,11 @@ class DefineQuantizationTables:
         assert offset == length
         return DefineQuantizationTables(tables)
 
+    def __eq__(self, other):
+        return (
+            isinstance(other, DefineQuantizationTables) and other.tables == self.tables
+        )
+
     def __repr__(self):
         return f"DefineQuantizationTables({self.tables})"
 

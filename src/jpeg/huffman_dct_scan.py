@@ -5,6 +5,7 @@ import jpeg.segment
 
 
 class HuffmanDCTScanComponent:
+    # FIXME: Default to zero for tables
     def __init__(self, dc_table, ac_table, sampling_factor=(1, 1)):
         self.dc_table = dc_table
         self.ac_table = ac_table
@@ -30,6 +31,8 @@ class HuffmanDCTScan:
         spectral_selection=(0, 63),
         point_transform=0,
     ):
+        assert len(components) > 0
+
         self.data_units = data_units
         self.components = components
         self.spectral_selection = spectral_selection
@@ -90,6 +93,8 @@ class HuffmanDCTScan:
         spectral_selection=(0, 63),
         point_transform=0,
     ):
+        assert len(components) > 0
+
         scan_reader = Reader(
             reader,
             spectral_selection=spectral_selection,
@@ -121,6 +126,18 @@ class HuffmanDCTScan:
             spectral_selection=spectral_selection,
             point_transform=point_transform,
         )
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, HuffmanDCTScan)
+            and other.data_units == self.data_units
+            and other.components == self.components
+            and other.spectral_selection == self.spectral_selection
+            and other.point_transform == self.point_transform
+        )
+
+    def __repr__(self):
+        return f"HuffmanDCTScan(data_units={self.data_units}, components={self.components}, spectral_selection={self.spectral_selection}, point_transform={self.point_transform})"
 
 
 # FIXME: Merge into above class

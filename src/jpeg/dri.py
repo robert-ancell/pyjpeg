@@ -19,6 +19,12 @@ class DefineRestartInterval:
         restart_interval = reader.read_u16()
         return DefineRestartInterval(restart_interval)
 
+    def __eq__(self, other):
+        return (
+            isinstance(other, DefineRestartInterval)
+            and other.restart_interval == self.restart_interval
+        )
+
     def __repr__(self):
         return f"DefineRestartInterval({self.restart_interval})"
 

@@ -125,6 +125,13 @@ class ApplicationSpecificData:
         data = reader.read(length - 2)
         return ApplicationSpecificData(n, data)
 
+    def __eq__(self, other):
+        return (
+            isinstance(other, ApplicationSpecificData)
+            and other.n == self.n
+            and other.data == self.data
+        )
+
     def __repr__(self):
         if self.is_jfif():
             (version, density, thumbnail_size, thumbnail_data) = self.get_jfif()

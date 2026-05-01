@@ -21,6 +21,12 @@ class DefineNumberOfLines:
         assert number_of_lines > 0
         return DefineNumberOfLines(number_of_lines)
 
+    def __eq__(self, other):
+        return (
+            isinstance(other, DefineNumberOfLines)
+            and other.number_of_lines == self.number_of_lines
+        )
+
     def __repr__(self):
         return f"DefineNumberOfLines({self.number_of_lines})"
 

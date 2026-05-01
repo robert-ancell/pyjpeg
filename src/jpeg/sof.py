@@ -2,6 +2,25 @@ import jpeg.marker
 import jpeg.segment
 
 
+class FrameType:
+    BASELINE = 0
+    EXTENDED_HUFFMAN = 1
+    PROGRESSIVE_HUFFMAN = 2
+    LOSSLESS_HUFFMAN = 3
+    DIFFERENTIAL_SEQUENTIAL_HUFFMAN = 5
+    DIFFERENTIAL_PROGRESSIVE_HUFFMAN = 6
+    DIFFERENTIAL_LOSSLESS_HUFFMAN = 7
+    EXTENDED_ARITHMETIC = 9
+    PROGRESSIVE_ARITHMETIC = 10
+    LOSSLESS_ARITHMETIC = 11
+    DIFFERENTIAL_SEQUENTIAL_ARITHMETIC = 13
+    DIFFERENTIAL_PROGRESSIVE_ARITHMETIC = 14
+    DIFFERENTIAL_LOSSLESS_ARITHMETIC = 15
+    DEFINE_HIERARCHICAL_PROGRESSION = 30
+    LS = 55
+    LS_EXTENSION = 57
+
+
 class FrameComponent:
     def __init__(self, id: int, sampling_factor: tuple, quantization_table_index: int):
         self.id = id
@@ -85,6 +104,19 @@ class StartOfFrame:
             n = 3
         return StartOfFrame(n, precision, number_of_lines, samples_per_line, components)
 
+    def is_arithmetic(self):
+        return self.n in (
+            FrameType.EXTENDED_ARITHMETIC,
+            FrameType.PROGRESSIVE_ARITHMETIC,
+            FrameType.LOSSLESS_ARITHMETIC,
+            FrameType.DIFFERENTIAL_SEQUENTIAL_ARITHMETIC,
+            FrameType.DIFFERENTIAL_PROGRESSIVE_ARITHMETIC,
+            FrameType.DIFFERENTIAL_LOSSLESS_ARITHMETIC,
+        )
+
+    def is_lossless(self):
+        return self.n in (FrameType.LOSSLESS_HUFFMAN, FrameType.LOSSLESS_ARITHMETIC)
+
     def write(self, writer: jpeg.io.Writer):
         writer.write_marker(jpeg.marker.Marker.SOF0 + self.n)
         writer.write_u16(8 + len(self.components) * 3)
@@ -144,6 +176,16 @@ class StartOfFrame:
             number_of_lines,
             samples_per_line,
             components,
+        )
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, StartOfFrame)
+            and other.n == self.n
+            and other.precision == self.precision
+            and other.number_of_lines == self.number_of_lines
+            and other.samples_per_line == self.samples_per_line
+            and other.components == self.components
         )
 
     def __repr__(self):

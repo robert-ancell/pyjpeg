@@ -84,6 +84,17 @@ class ArithmeticLosslessScan:
 
         return ArithmeticLosslessScan(samples_per_line, data_units, components)
 
+    def __eq__(self, other):
+        return (
+            isinstance(other, ArithmeticLosslessScan)
+            and other.samples_per_line == self.samples_per_line
+            and other.data_units == self.data_units
+            and other.components == self.components
+        )
+
+    def __repr__(self):
+        return f"ArithmeticLosslessScan({self.samples_per_line}, {self.data_units}, {self.components})"
+
 
 # FIXME: Merge into above class
 class Writer:
