@@ -75,6 +75,7 @@ class Stream:
                 Marker.SOF11,
                 Marker.SOF13,
                 Marker.SOF14,
+                Marker.SOF15,
                 Marker.SOF55,
             ):
                 sof = jpeg.StartOfFrame.read(reader)
