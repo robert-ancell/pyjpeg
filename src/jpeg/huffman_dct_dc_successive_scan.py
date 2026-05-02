@@ -46,6 +46,7 @@ if __name__ == "__main__":
         for data_unit in data_units:
             masked_data_unit = [0] * 64
             masked_data_unit[0] = data_unit[0] & mask
+            masked_data_units.append(masked_data_unit)
         return masked_data_units
 
     # Feed in data units with bits removed
