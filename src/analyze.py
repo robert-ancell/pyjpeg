@@ -152,7 +152,7 @@ for segment in stream.segments:
             s += " %d" % data_unit
         print(s)
     elif isinstance(segment, jpeg.Restart):
-        print("RST%d Restart" % segment.n)
+        print("RST%d Restart" % segment.index)
     elif isinstance(segment, jpeg.DefineNumberOfLines):
         print("DNL Define Number of Lines")
         print(" Number of lines: %d" % segment.number_of_lines)
