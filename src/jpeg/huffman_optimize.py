@@ -2,7 +2,7 @@ import jpeg.segment
 
 
 class NullWriter(jpeg.io.Writer):
-    def write(self, data):
+    def write_u8(self, data):
         pass
 
 
