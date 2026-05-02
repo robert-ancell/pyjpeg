@@ -88,9 +88,11 @@ class Reader:
         return self.reader.read_bit()
 
     def read_eob_count(self, length):
-        if length == 0:
-            return 0
-        self._read_magnitude(length - 1)
+        count = 0
+        for i in range(length):
+            bit = self.reader.read_bit()
+            count = (count << 1) | bit
+        return count
 
     def _read_magnitude(self, length):
         if length == 0:
