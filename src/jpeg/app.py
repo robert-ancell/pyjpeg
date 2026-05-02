@@ -16,14 +16,17 @@ class Density:
         self.x = x
         self.y = y
 
-    def aspect_ratio(x, y):
-        return Density(DensityUnit.ASPECT_RATIO, x, y)
+    @classmethod
+    def aspect_ratio(cls, x, y):
+        return cls(DensityUnit.ASPECT_RATIO, x, y)
 
-    def dpi(x, y):
-        return Density(DensityUnit.DPI, x, y)
+    @classmethod
+    def dpi(cls, x, y):
+        return cls(DensityUnit.DPI, x, y)
 
-    def dpcm(x, y):
-        return Density(DensityUnit.DPCM, x, y)
+    @classmethod
+    def dpcm(cls, x, y):
+        return cls(DensityUnit.DPCM, x, y)
 
 
 class AdobeColorSpace:
