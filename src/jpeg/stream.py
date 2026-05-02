@@ -23,7 +23,7 @@ class Stream:
         sof = None
         dri = None
         sos = None
-        dnl = segments
+        dnl = None
 
         def parse_scan():
             assert sof is not None
