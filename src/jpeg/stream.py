@@ -13,7 +13,8 @@ class Stream:
         for segment in self.segments:
             segment.write(writer)
 
-    def read(reader: jpeg.io.Reader):
+    @classmethod
+    def read(cls, reader: jpeg.io.Reader):
         quantization_tables = [[1] * 64, [1] * 64, [1] * 64, [1] * 64]
         dc_arithmetic_conditioning_bounds = [(0, 1), (0, 1), (0, 1), (0, 1)]
         ac_arithmetic_kx = [5, 5, 5, 5]
@@ -107,7 +108,7 @@ class Stream:
                 segments.append(jpeg.StartOfImage.read(reader))
             elif marker == Marker.EOI:
                 segments.append(jpeg.EndOfImage.read(reader))
-                return Stream(segments)
+                return cls(segments)
             elif marker == Marker.DQT:
                 dqt = jpeg.DefineQuantizationTables.read(reader)
                 segments.append(dqt)
