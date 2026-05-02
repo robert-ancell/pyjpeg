@@ -150,7 +150,7 @@ if __name__ == "__main__":
     writer = jpeg.io.BufferedWriter()
     LSPresetParameters(maxval=255, t1=3, t2=7, t3=21, reset=64).write(writer)
     assert (
-        writer.data == b"\xff\xdc\x00\x0d\x01\x00\xff\x00\x03\x00\x07\x00\x15\x00\x40"
+        writer.data == b"\xff\xf8\x00\x0d\x01\x00\xff\x00\x03\x00\x07\x00\x15\x00\x40"
     )
 
     reader = jpeg.io.BufferedReader(writer.data)
