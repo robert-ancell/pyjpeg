@@ -20,10 +20,7 @@ class Writer:
             self.write_bit(bit)
 
     def flush(self, pad_bit=1):
-        if self.bit_count == 0:
-            return
-        n_padding = 8 - self.bit_count
-        for i in range(n_padding):
+        while self.bit_count != 0:
             self.write_bit(pad_bit)
 
 
