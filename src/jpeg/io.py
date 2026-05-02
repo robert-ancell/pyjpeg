@@ -41,6 +41,12 @@ class Reader:
     def read_u16(self):
         return self.read_u8() << 8 | self.read_u8()
 
+    def read(self, length):
+        data = []
+        for _ in range(length):
+            data.append(self.read_u8())
+        return bytes(data)
+
 
 class BufferedWriter(Writer):
     def __init__(self):

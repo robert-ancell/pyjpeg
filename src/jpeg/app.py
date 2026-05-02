@@ -123,10 +123,8 @@ class ApplicationSpecificData:
         n = marker - jpeg.marker.Marker.APP0
         length = reader.read_u16()
         assert length > 2
-        data = []
-        for _ in range(length - 2):
-            data.append(reader.read_u8())
-        return cls(n, bytes(data))
+        data = reader.read(length - 2)
+        return cls(n, data)
 
     def __eq__(self, other):
         return (

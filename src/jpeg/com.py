@@ -16,10 +16,8 @@ class Comment(jpeg.segment.Segment):
         marker = reader.read_marker()
         assert marker == jpeg.marker.Marker.COM
         length = reader.read_u16()
-        data = []
-        for _ in range(length - 2):
-            data.append(reader.read_u8())
-        return cls(bytes(data))
+        data = reader.read(length - 2)
+        return cls(data)
 
     def __eq__(self, other):
         return isinstance(other, Comment) and other.data == self.data
