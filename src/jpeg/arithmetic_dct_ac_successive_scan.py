@@ -89,7 +89,7 @@ class ArithmeticDCTACSuccessiveScan(jpeg.segment.Segment):
         additional_states = [jpeg.arithmetic.State() for _ in range(63)]
 
         updated_data_units = []
-        for _ in range(len(data_units)):
+        for _ in range(len(approximate_data_units)):
             updated_data_units.append([0] * 64)
 
         reader = jpeg.arithmetic.Reader(reader)
