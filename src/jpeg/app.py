@@ -4,6 +4,12 @@ import jpeg.marker
 import jpeg.segment
 
 
+class DensityUnit:
+    ASPECT_RATIO = 0
+    DPI = 1
+    DPCM = 2
+
+
 class Density:
     def __init__(self, unit=0, x=0, y=0):
         self.unit = unit
@@ -11,13 +17,13 @@ class Density:
         self.y = y
 
     def aspect_ratio(x, y):
-        return Density(0, x, y)
+        return Density(DensityUnit.ASPECT_RATIO, x, y)
 
     def dpi(x, y):
-        return Density(1, x, y)
+        return Density(DensityUnit.DPI, x, y)
 
     def dpcm(x, y):
-        return Density(1, x, y)
+        return Density(DensityUnit.DPCM, x, y)
 
 
 class AdobeColorSpace:
