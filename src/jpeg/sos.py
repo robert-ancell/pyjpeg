@@ -65,7 +65,7 @@ class StartOfScan(jpeg.segment.Segment):
 
     @classmethod
     def ls(cls, components, near: int = 0, ilv: int = 0, point_transform: int = 0):
-        return cls(components, spectral_selection, 0, point_transform)
+        return cls(components, (near, ilv), 0, point_transform)
 
     def write(self, writer: jpeg.io.Writer):
         writer.write_marker(jpeg.marker.Marker.SOS)
