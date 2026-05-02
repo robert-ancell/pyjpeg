@@ -78,7 +78,9 @@ class ApplicationSpecificData:
         return ApplicationSpecificData(14, data)
 
     def is_jfif(self):
-        return self.n == 0 and len(self.data) >= 14 and self.data.startswith(b"JFIF")
+        return (
+            self.n == 0 and len(self.data) >= 14 and self.data.startswith(b"JFIF\x00")
+        )
 
     def get_jfif(self):
         assert self.is_jfif()
@@ -103,7 +105,9 @@ class ApplicationSpecificData:
         )
 
     def is_adobe(self):
-        return self.n == 14 and len(self.data) >= 12 and self.data.startswith(b"Adobe")
+        return (
+            self.n == 14 and len(self.data) >= 12 and self.data.startswith(b"Adobe\x00")
+        )
 
     def get_adobe(self):
         assert self.is_adobe()
