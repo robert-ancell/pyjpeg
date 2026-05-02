@@ -16,7 +16,7 @@ class LSExtension(jpeg.segment.Segment):
     @classmethod
     def read(cls, reader: jpeg.io.Reader):
         marker = reader.read_marker()
-        assert marker == jpeg.marker.Marker.DNL
+        assert marker == jpeg.marker.Marker.LSE
         length = reader.read_u16()
         assert length >= 3
         id = reader.read_u8()
