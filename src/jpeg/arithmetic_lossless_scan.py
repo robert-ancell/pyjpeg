@@ -67,22 +67,17 @@ class ArithmeticLosslessScan(jpeg.segment.Segment):
             x = len(data_units) % samples_per_line
             y = len(data_units) // samples_per_line
 
-            for component_index in range(len(components)):
-                left_data_unit = (
-                    data_units[y * samples_per_line + x - 1] if x > 0 else 0
-                )
-                above_data_unit = (
-                    data_units[y * samples_per_line + x - samples_per_line]
-                    if y > 0
-                    else 0
-                )
+            left_data_unit = data_units[y * samples_per_line + x - 1] if x > 0 else 0
+            above_data_unit = (
+                data_units[y * samples_per_line + x - samples_per_line] if y > 0 else 0
+            )
 
-                data_unit = reader.read_data_unit(
-                    left_data_unit=left_data_unit,
-                    above_data_unit=above_data_unit,
-                    conditioning_bounds=components[component_index].conditioning_bounds,
-                )
-                data_units.append(data_unit)
+            data_unit = reader.read_data_unit(
+                left_data_unit=left_data_unit,
+                above_data_unit=above_data_unit,
+                conditioning_bounds=components[component_index].conditioning_bounds,
+            )
+            data_units.append(data_unit)
 
         return cls(samples_per_line, data_units, components)
 
