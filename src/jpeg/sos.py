@@ -2,6 +2,12 @@ import jpeg.marker
 import jpeg.segment
 
 
+class LSInterleaveMode:
+    NONE = 0
+    LINE = 1
+    SAMPLE = 2
+
+
 class ScanComponent:
     def __init__(self, component_selector, dc_table, ac_table):
         self.component_selector = component_selector
@@ -64,8 +70,14 @@ class StartOfScan(jpeg.segment.Segment):
         return cls(components, (predictor, 0), 0, point_transform)
 
     @classmethod
-    def ls(cls, components, near: int = 0, ilv: int = 0, point_transform: int = 0):
-        return cls(components, (near, ilv), 0, point_transform)
+    def ls(
+        cls,
+        components,
+        near: int = 0,
+        interleave_mode: int = 0,
+        point_transform: int = 0,
+    ):
+        return cls(components, (near, interleave_mode), 0, point_transform)
 
     def write(self, writer: jpeg.io.Writer):
         writer.write_marker(jpeg.marker.Marker.SOS)

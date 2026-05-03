@@ -33,6 +33,7 @@ reader = jpeg.BufferedReader(data)
 stream = jpeg.Stream.read(reader)
 
 is_lossless = False
+is_ls = False
 for segment in stream.segments:
     if isinstance(segment, jpeg.StartOfImage):
         print("SOI Start of Image")
@@ -127,6 +128,7 @@ for segment in stream.segments:
         )
     elif isinstance(segment, jpeg.StartOfFrame):
         is_lossless = segment.n in (3, 7, 11, 15)
+        is_ls = segment.n == 55
         print(
             "SOF%d Start of Frame, %s"
             % (
@@ -174,6 +176,18 @@ for segment in stream.segments:
                 print("  AC Table: %d" % component.ac_table)
         if is_lossless:
             print(" Predictor: %d" % segment.spectral_selection[0])
+        elif is_ls:
+            print(" Near: %d" % segment.spectral_selection[0])
+            print(
+                " Interleave Mode: %s"
+                % {
+                    jpeg.LSInterleaveMode.NONE: "None",
+                    jpeg.LSInterleaveMode.LINE: "Line",
+                    jpeg.LSInterleaveMode.SAMPLE: "Sample",
+                }.get(
+                    segment.spectral_selection[1], "%d" % segment.spectral_selection[1]
+                )
+            )
         else:
             print(
                 " Spectral Selection: %d-%d"
