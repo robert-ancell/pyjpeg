@@ -145,7 +145,7 @@ for segment in stream.segments:
                     jpeg.FrameType.DIFFERENTIAL_SEQUENTIAL_ARITHMETIC: "Differential sequential DCT, Arithmetic coding",
                     jpeg.FrameType.DIFFERENTIAL_PROGRESSIVE_ARITHMETIC: "Differential progressive DCT, Arithmetic coding",
                     jpeg.FrameType.DIFFERENTIAL_LOSSLESS_ARITHMETIC: "Differential lossless (sequential), Arithmetic coding",
-                    jpeg.FrameType.LS: "LS",
+                    jpeg.FrameType.LS: "JPEG-LS",
                 }[segment.n],
             )
         )
@@ -195,6 +195,9 @@ for segment in stream.segments:
         for data_unit in segment.data_units:
             s += " %d" % data_unit
         print(s)
+    elif isinstance(segment, jpeg.LSScan):
+        print(" JPEG-LS Data Units:")
+        # FIXME
     elif isinstance(segment, jpeg.Restart):
         print("RST%d Restart" % segment.index)
     elif isinstance(segment, jpeg.DefineNumberOfLines):
