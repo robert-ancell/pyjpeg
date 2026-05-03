@@ -74,9 +74,11 @@ class Reader:
 
     def read_dc(self, decoder):
         length = decoder.read_symbol(self.reader)
-        assert length <= 15
-        dc_diff = self._read_magnitude(length)
-        return dc_diff
+        assert length <= 16
+        if length == 16:
+            return 32768
+        else:
+            return self._read_magnitude(length)
 
     def read_ac(self, decoder):
         run_length_and_length = decoder.read_symbol(self.reader)
