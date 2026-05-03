@@ -1,5 +1,3 @@
-import struct
-
 import jpeg.marker
 import jpeg.segment
 
@@ -35,126 +33,138 @@ class AdobeColorSpace:
     Y_CB_CR_K = 2
 
 
-class ApplicationSpecificData:
-    def __init__(self, n: int, data: bytes):
+class ApplicationSpecificData(jpeg.segment.Segment):
+    def __init__(self, n: int):
         assert n >= 0 and n <= 15
         self.n = n
-        self.data = data
-
-    def jfif(
-        version=(1, 2),
-        density=Density.aspect_ratio(1, 1),
-        thumbnail_size=(0, 0),
-        thumbnail_data=b"",
-    ):
-        data = (
-            struct.pack(
-                ">4sxBBBHHBB",
-                bytes("JFIF", "utf-8"),
-                version[0],
-                version[1],
-                density.unit,
-                density.x,
-                density.y,
-                thumbnail_size[0],
-                thumbnail_size[1],
-            )
-            + thumbnail_data
-        )
-        return ApplicationSpecificData(0, data)
-
-    def jfxx():
-        # FIXME 0x10 - JPEG thumbnail, 0x11 - 1 byte per pixel (palette), 0x12 - 3 bytes per pixel (RGB)
-        extension_code = 0
-        data = struct.pack(">4sB", bytes("JFXX", "utf-8"), extension_code)
-        return ApplicationSpecificData(0, data)
-
-    def adobe(version=101, flags0=0, flags1=0, color_space=AdobeColorSpace.Y_CB_CR):
-        data = struct.pack(
-            ">5sHHHB",
-            bytes("Adobe", "utf-8"),
-            version,
-            flags0,
-            flags1,
-            color_space,
-        )
-        return ApplicationSpecificData(14, data)
-
-    def is_jfif(self):
-        return (
-            self.n == 0 and len(self.data) >= 14 and self.data.startswith(b"JFIF\x00")
-        )
-
-    def get_jfif(self):
-        assert self.is_jfif()
-        (
-            version_major,
-            version_minor,
-            density_unit,
-            density_x,
-            density_y,
-            thumbnail_size_x,
-            thumbnail_size_y,
-        ) = struct.unpack(">xxxxxBBBHHBB", self.data[:14])
-        version = (version_major, version_minor)
-        density = Density(density_unit, density_x, density_y)
-        thumbnail_size = (thumbnail_size_x, thumbnail_size_y)
-        thumbnail_data = self.data[14:]
-        return (
-            version,
-            density,
-            thumbnail_size,
-            thumbnail_data,
-        )
-
-    def is_adobe(self):
-        return (
-            self.n == 14 and len(self.data) >= 12 and self.data.startswith(b"Adobe\x00")
-        )
-
-    def get_adobe(self):
-        assert self.is_adobe()
-        (version, flags0, flags1, color_space) = struct.unpack(
-            ">xxxxxHHHB", self.data[:12]
-        )
-        return (
-            version,
-            flags0,
-            flags1,
-            color_space,
-        )
-
-    def write(self, writer: jpeg.io.Writer):
-        writer.write_marker(jpeg.marker.Marker.APP0 + self.n)
-        writer.write_u16(2 + len(self.data))
-        writer.write(self.data)
 
     @classmethod
     def read(cls, reader: jpeg.io.Reader):
         marker = reader.read_marker()
         assert marker >= jpeg.marker.Marker.APP0 and marker <= jpeg.marker.Marker.APP15
-        n = marker - jpeg.marker.Marker.APP0
         length = reader.read_u16()
         assert length > 2
-        data = reader.read(length - 2)
-        return cls(n, data)
+        if marker == jpeg.marker.Marker.APP0:
+            assert length >= 7
+            # FIXME: Also support JFXX
+            assert reader.read(5) == b"JFIF\x00"
+            assert length >= 16
+            version_major = reader.read_u8()
+            version_minor = reader.read_u8()
+            density_unit = reader.read_u8()
+            density_x = reader.read_u16()
+            density_y = reader.read_u16()
+            thumbnail_width = reader.read_u8()
+            thumbnail_height = reader.read_u8()
+            thumbnail_length = thumbnail_width * thumbnail_height * 3
+            assert length == 16 + thumbnail_length
+            thumbnail_data = reader.read(thumbnail_length)
+            return JFIFData(
+                version=(version_major, version_minor),
+                density=Density(density_unit, density_x, density_y),
+                thumbnail_size=(thumbnail_width, thumbnail_height),
+                thumbnail_data=thumbnail_data,
+            )
+        elif marker == jpeg.marker.Marker.APP14:
+            assert length == 14
+            assert reader.read(5) == b"Adobe"
+            version = reader.read_u16()
+            assert version in (100, 101)
+            flags0 = reader.read_u16()
+            flags1 = reader.read_u16()
+            color_space = reader.read_u8()
+            return AdobeData(
+                version=version, flags0=flags0, flags1=flags1, color_space=color_space
+            )
+        else:
+            data = reader.read(length - 2)
+            return UnknownApplicationSpecificData(
+                marker - jpeg.marker.Marker.APP0, data
+            )
+
+
+class JFIFData(ApplicationSpecificData):
+    def __init__(
+        self,
+        version=(1, 2),
+        density=Density.aspect_ratio(1, 1),
+        thumbnail_size=(0, 0),
+        thumbnail_data=b"",
+    ):
+        super().__init__(0)
+        self.version = version
+        self.density = density
+        self.thumbnail_size = thumbnail_size
+        self.thumbnail_data = thumbnail_data
+
+    def write(self, writer: jpeg.io.Writer):
+        writer.write_marker(jpeg.marker.Marker.APP0)
+        writer.write_u16(16 + len(self.thumbnail_data))
+        writer.write(b"JFIF\x00")
+        writer.write_u8(self.version[0])
+        writer.write_u8(self.version[1])
+        writer.write_u8(self.density.unit)
+        writer.write_u16(self.density.x)
+        writer.write_u16(self.density.y)
+        writer.write_u8(self.thumbnail_size[0])
+        writer.write_u8(self.thumbnail_size[1])
+        writer.write(self.thumbnail_data)
+
+    def __repr__(self):
+        return f"ApplicationSpecificData.jfif(version={self.version}, density={self.density}, thumbnail_size={self.thumbnail_size}, thumbnail_data={self.thumbnail_data})"
+
+
+# FIXME
+class JFXXData(ApplicationSpecificData):
+    pass
+
+
+class AdobeData(ApplicationSpecificData):
+    def __init__(
+        self, version=101, flags0=0, flags1=0, color_space=AdobeColorSpace.Y_CB_CR
+    ):
+        super().__init__(14)
+        self.version = version
+        self.flags0 = flags0
+        self.flags1 = flags1
+        self.color_space = color_space
+
+    def write(self, writer: jpeg.io.Writer):
+        writer.write_marker(jpeg.marker.Marker.APP14)
+        writer.write_u16(14)
+        writer.write(b"Adobe")
+        writer.write_u16(self.version)
+        writer.write_u16(self.flags0)
+        writer.write_u16(self.flags1)
+        writer.write_u8(self.color_space)
+
+    def __repr__(self):
+        return f"AdobeData(version={self.version}, flags0={self.flags0}, flags1={self.flags1}, color_space={self.color_space})"
 
     def __eq__(self, other):
         return (
-            isinstance(other, ApplicationSpecificData)
+            isinstance(other, AdobeData)
+            and other.version == self.version
+            and other.flags0 == self.flags0
+            and other.flags1 == self.flags1
+            and other.color_space == self.color_space
+        )
+
+
+class UnknownApplicationSpecificData(ApplicationSpecificData):
+    def __init__(self, n, data):
+        super().__init__(n)
+        self.data = data
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, UnknownApplicationSpecificData)
             and other.n == self.n
             and other.data == self.data
         )
 
     def __repr__(self):
-        if self.is_jfif():
-            (version, density, thumbnail_size, thumbnail_data) = self.get_jfif()
-            return f"ApplicationSpecificData.jfif(version={version}, density={density}, thumbnail_size={thumbnail_size}, thumbnail_data={thumbnail_data})"
-        elif self.is_adobe():
-            (version, flags0, flags1, color_space) = self.get_adobe()
-            return f"ApplicationSpecificData.adobe(version={version}, flags0={flags0}, flags1={flags1}, color_space={color_space})"
-        else:
-            return f"ApplicationSpecificData({self.n}, {self.data})"
+        return f"UnknownApplicationSpecificData({self.n}, {self.data})"
 
 
 if __name__ == "__main__":

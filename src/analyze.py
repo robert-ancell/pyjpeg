@@ -36,8 +36,49 @@ is_lossless = False
 for segment in stream.segments:
     if isinstance(segment, jpeg.StartOfImage):
         print("SOI Start of Image")
-    elif isinstance(segment, jpeg.ApplicationSpecificData):
+    elif isinstance(segment, jpeg.JFIFData):
+        print("APP%d JFIF" % segment.n)
+        print(" Version: %d.%d" % (segment.version[0], segment.version[1]))
+        if segment.density.unit == jpeg.DensityUnit.ASPECT_RATIO:
+            print(" Aspect Ratio: %dx%d" % (segment.density.x, segment.density.y))
+        elif segment.density.unit == jpeg.DensityUnit.DPI:
+            print(" Density: %dx%ddpi" % (segment.density.x, segment.density.y))
+        elif segment.density.unit == jpeg.DensityUnit.DPCM:
+            print(" Density: %dx%ddpcm" % (segment.density.x, segment.density.y))
+        if len(segment.thumbnail_data) > 0:
+            # FIXME: Support RGB thumbnails
+            s = " Thumbnail %dx%d:" % (
+                segment.thumbnail_size[0],
+                segment.thumbnail_size[1],
+            )
+            for i in range(0, len(segment.thumbnail_data), 3):
+                if i % (segment.thumbnail_size[0] * 3) == 0:
+                    s += "\n "
+                s += " %d,%d,%d" % (
+                    segment.thumbnail_data[i],
+                    segment.thumbnail_data[i + 1],
+                    segment.thumbnail_data[i + 2],
+                )
+            print(s)
+    elif isinstance(segment, jpeg.AdobeData):
+        print("APP%d Adobe" % segment.n)
+        print(" Version: %d" % segment.version)
+        print(" Flags 0: %04x" % segment.flags0)
+        print(" Flags 1: %04x" % segment.flags1)
+        print(
+            " Colorspace: %s"
+            % {
+                jpeg.AdobeColorSpace.RGB_OR_CMYK: "RGB or CMYK",
+                jpeg.AdobeColorSpace.Y_CB_CR: "YCbCr",
+                jpeg.AdobeColorSpace.Y_CB_CR_K: "YCbCrK",
+            }.get(segment.color_space, "%d" % segment.color_space)
+        )
+    elif isinstance(segment, jpeg.UnknownApplicationSpecificData):
         print("APP%d Application Specific Data" % segment.n)
+        s = " Data: "
+        for d in segment.data:
+            s += "%02X" % d
+        print(s)
     elif isinstance(segment, jpeg.Comment):
         print("COM Comment")
         print(" Data: %s" % repr(segment.data))
@@ -114,7 +155,7 @@ for segment in stream.segments:
         )  # FIXME: Note if zero defined later
         print(" Number of samples per line: %d" % segment.samples_per_line)
         for component in segment.components:
-            print(" Component %d:" % component.id)
+            print(" Component %d/%d:" % (component.id, len(segment.components)))
             print(
                 "  Sampling Factor: %dx%d"
                 % (component.sampling_factor[0], component.sampling_factor[1])
@@ -124,7 +165,10 @@ for segment in stream.segments:
     elif isinstance(segment, jpeg.StartOfScan):
         print("SOS Start of Scan")
         for component in segment.components:
-            print(" Component %d:" % component.component_selector)
+            print(
+                " Component %d/%d:"
+                % (component.component_selector, len(segment.components))
+            )
             print("  DC Table: %d" % component.dc_table)
             if not is_lossless:
                 print("  AC Table: %d" % component.ac_table)

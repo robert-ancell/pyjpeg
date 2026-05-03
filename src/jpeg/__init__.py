@@ -2,7 +2,13 @@ import jpeg.huffman_optimize
 import jpeg.lossless
 from jpeg.app import (
     AdobeColorSpace,
+    AdobeData,
     ApplicationSpecificData,
+    Density,
+    DensityUnit,
+    JFIFData,
+    JFXXData,
+    UnknownApplicationSpecificData,
 )
 from jpeg.arithmetic_dct_ac_successive_scan import ArithmeticDCTACSuccessiveScan
 from jpeg.arithmetic_dct_dc_successive_scan import ArithmeticDCTDCSuccessiveScan
