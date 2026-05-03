@@ -169,10 +169,13 @@ class UnknownApplicationSpecificData(ApplicationSpecificData):
 
 if __name__ == "__main__":
     writer = jpeg.io.BufferedWriter()
-    ApplicationSpecificData(15, b"\xde\xad\xbe\xef").write(writer)
-    assert writer.data == b"\xff\xef\x00\x06\xde\xad\xbe\xef"
+    JFIFData().write(writer)
+    assert (
+        writer.data == b"\xff\xe0\x00\x10JFIF\x00\x01\x02\x00\x00\x01\x00\x01\x00\x00"
+    )
 
     reader = jpeg.io.BufferedReader(writer.data)
     app = ApplicationSpecificData.read(reader)
-    assert app.n == 15
-    assert app.data == b"\xde\xad\xbe\xef"
+    assert isinstance(app, JFIFData)
+    assert app.n == 0
+    assert app.version == (1, 2)
