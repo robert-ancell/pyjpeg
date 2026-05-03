@@ -82,3 +82,5 @@ if __name__ == "__main__":
     assert buffer.data == b"\x0e"
 
     buffer = jpeg.io.BufferedReader(b"\x0e")
+    reader = Reader(buffer)
+    assert reader.read_value(2) == -10
