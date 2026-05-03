@@ -7,6 +7,7 @@ class Writer:
 
     # DC coefficient, written as a change from previous DC coefficient.
     def write_dc(self, dc_diff, encoder, symbol_frequencies=None):
+        assert dc_diff >= -32767 and dc_diff <= 32768
         length = self._get_magnitude_length(dc_diff)
         symbol = length
         self._write_symbol(symbol, encoder, symbol_frequencies)
@@ -25,7 +26,7 @@ class Writer:
 
     # AC Coefficient after [run_length] zero coefficients.
     def write_ac(self, run_length, ac, encoder, symbol_frequencies=None):
-        assert ac != 0
+        assert ac != 0 and ac >= -16383 and ac <= 16383
         self._write_ac(run_length, ac, encoder, symbol_frequencies=symbol_frequencies)
 
     def write_ac_correction_bits(self, correction_bits):
@@ -57,7 +58,7 @@ class Writer:
 
     # Write AC/DC mangnitude bits
     def _write_magnitude(self, magnitude, length):
-        if length == 0:
+        if length == 0 or length == 16:
             return
         if magnitude < 0:
             value = magnitude + ((1 << length) - 1)
@@ -75,10 +76,7 @@ class Reader:
     def read_dc(self, decoder):
         length = decoder.read_symbol(self.reader)
         assert length <= 16
-        if length == 16:
-            return 32768
-        else:
-            return self._read_magnitude(length)
+        return self._read_magnitude(length)
 
     def read_ac(self, decoder):
         run_length_and_length = decoder.read_symbol(self.reader)
@@ -99,6 +97,8 @@ class Reader:
     def _read_magnitude(self, length):
         if length == 0:
             return 0
+        if length == 16:
+            return 32768
         magnitude = 0
         for i in range(length):
             bit = self.reader.read_bit()
