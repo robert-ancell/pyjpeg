@@ -147,8 +147,8 @@ class Writer:
         self.ac_end_of_block = make_states(63)
         self.ac_non_zero = make_states(63)
         self.ac_sn_sp_x1 = make_states(63)
-        self.ac_low_xstates = make_states(14)
-        self.ac_high_xstates = make_states(14)
+        self.ac_low_xstates = make_states(15)
+        self.ac_high_xstates = make_states(15)
         self.ac_low_mstates = make_states(14)
         self.ac_high_mstates = make_states(14)
 
@@ -238,8 +238,8 @@ class Reader:
         self.ac_end_of_block = make_states(63)
         self.ac_non_zero = make_states(63)
         self.ac_sn_sp_x1 = make_states(63)
-        self.ac_low_xstates = make_states(14)
-        self.ac_high_xstates = make_states(14)
+        self.ac_low_xstates = make_states(15)
+        self.ac_high_xstates = make_states(15)
         self.ac_low_mstates = make_states(14)
         self.ac_high_mstates = make_states(14)
 

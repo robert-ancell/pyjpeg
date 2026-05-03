@@ -69,7 +69,7 @@ class Writer:
         # Encode lowest bits of magnitude (first bit is implied 1)
         for i in range(width - 2, -1, -1):
             bit = (v >> i) & 0x1
-            self.writer.write_bit(mstates[width - 2], bit)
+            self.writer.write_bit(mstates[width - 3], bit)
 
     def write_ac(self, ac, sn_sp_x1, xstates, mstates):
         assert ac != 0
@@ -105,7 +105,7 @@ class Writer:
 
         for i in range(width - 2, -1, -1):
             bit = (v >> i) & 0x1
-            self.writer.write_bit(mstates[width - 2], bit)
+            self.writer.write_bit(mstates[width - 3], bit)
 
     def write_eob(self, is_eob, state):
         if is_eob:
@@ -147,7 +147,7 @@ class Reader:
 
         magnitude = 1
         for _ in range(width - 2):
-            magnitude = (magnitude << 1) | self.reader.read_bit(mstates[width - 2])
+            magnitude = (magnitude << 1) | self.reader.read_bit(mstates[width - 3])
 
         return sign * (magnitude + 1)
 
@@ -170,7 +170,7 @@ class Reader:
 
         magnitude = 1
         for _ in range(width - 1):
-            bit = self.reader.read_bit(mstates[width - 2])
+            bit = self.reader.read_bit(mstates[width - 3])
             magnitude = (magnitude << 1) | bit
 
         return sign * (magnitude + 1)

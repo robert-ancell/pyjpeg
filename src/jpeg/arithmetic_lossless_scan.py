@@ -107,8 +107,8 @@ class Writer:
         self.sn = make_states(25)
         self.small_xstates = make_states(15)
         self.large_xstates = make_states(15)
-        self.small_mstates = make_states(14)
-        self.large_mstates = make_states(14)
+        self.small_mstates = make_states(15)
+        self.large_mstates = make_states(15)
 
     def write_data_unit(
         self,
