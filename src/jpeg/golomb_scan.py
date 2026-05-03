@@ -1,5 +1,8 @@
+import jpeg.io
+
+
 class Writer:
-    def __init__(self, writer):
+    def __init__(self, writer: jpeg.io.Writer):
         self.writer = writer
         self.data = 0
         self.bit_count = 0
@@ -15,17 +18,28 @@ class Writer:
             if data == 0xFF:
                 self.write_bit(0)
 
-    def write_bits(self, bits):
-        for bit in bits:
-            self.write_bit(bit)
+    def write_value(self, value, length):
+        if value < 0:
+            value = (-value * 2) - 1
+        else:
+            value *= 2
 
-    def flush(self, pad_bit=1):
+        # FIXME: Replace x with better name
+        x = value >> length
+        for _ in range(x):
+            self.write_bit(0)
+        self.write_bit(1)
+        while length > 0:
+            length -= 1
+            self.write_bit((value >> length) & 1)
+
+    def flush(self):
         while self.bit_count != 0:
-            self.write_bit(pad_bit)
+            self.write_bit(0)
 
 
 class Reader:
-    def __init__(self, reader):
+    def __init__(self, reader: jpeg.io.Reader):
         self.reader = reader
         self.data = 0
         self.bit_count = 0
@@ -45,7 +59,26 @@ class Reader:
         self.bit_count -= 1
         return bit
 
+    def read_value(self, length):
+        value = 0
+        while self.read_bit() == 0:
+            value += 1
+        for _ in range(length):
+            value = value << 1 | self.read_bit()
+
+        if value % 2 == 0:
+            return value // 2
+        else:
+            return -(value // 2) - 1
+
+        return value
+
 
 if __name__ == "__main__":
-    # FIXME
-    pass
+    buffer = jpeg.io.BufferedWriter()
+    writer = Writer(buffer)
+    writer.write_value(-10, 2)
+    writer.flush()
+    assert buffer.data == b"\x0e"
+
+    buffer = jpeg.io.BufferedReader(b"\x0e")
