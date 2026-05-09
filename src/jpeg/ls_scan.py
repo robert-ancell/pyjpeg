@@ -264,24 +264,6 @@ if __name__ == "__main__":
 
             EMErrval = 2 * abs(errval) - ritype - map
 
-            print(
-                "run mode",
-                run_val,
-                run_count,
-                run_index,
-                ritype,
-                errval,
-                TEMP,
-                k,
-                map,
-                EMErrval,
-                Qindex,
-                A[Qindex],
-                N[Qindex],
-                Nn[Qindex],
-                run_end,
-            )
-
             rg = 1 << J[run_index]
             while run_count >= rg:
                 scan_writer.write_bit(1)
@@ -340,7 +322,11 @@ if __name__ == "__main__":
 
             # FIXME: Error quantization
 
-            # FIXME: Modulo reduction
+            # Modulo reduction
+            if Errval < 0:
+                Errval += RANGE
+            if Errval >= (RANGE + 1) // 2:
+                Errval -= RANGE
 
             # Golomb coding variable computation
             k = 0
@@ -358,22 +344,6 @@ if __name__ == "__main__":
                     MErrval = 2 * Errval
                 else:
                     MErrval = -2 * Errval - 1
-
-            print(
-                "regular mode",
-                Q[0],
-                Q[1],
-                Q[2],
-                px,
-                SIGN,
-                Errval,
-                k,
-                MErrval,
-                A[Qindex],
-                B[Qindex],
-                C[Qindex],
-                N[Qindex],
-            )
 
             scan_writer.write_value(MErrval, k, LIMIT - qbpp - 1)
 
@@ -408,6 +378,4 @@ if __name__ == "__main__":
     scan_writer.flush()
 
     expected = b"\xc0\x00\x00\x6c\x80\x20\x8e\x01\xc0\x00\x00\x57\x40\x00\x00\x6e\xe6\x00\x00\x01\xbc\x18\x00\x00\x05\xd8\x00\x00\x91\x60"
-    print(expected)
-    print(bytes(writer.data))
-    # assert writer.data == expected
+    assert writer.data == expected
