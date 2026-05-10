@@ -193,22 +193,6 @@ if __name__ == "__main__":
             else:
                 return 4
 
-        Q1 = classify_difference(d1)
-        Q2 = classify_difference(d2)
-        Q3 = classify_difference(d3)
-        Q = (Q1, Q2, Q3)
-
-        SIGN = 1
-        for q in Q:
-            if q != 0:
-                if q < 0:
-                    SIGN = -1
-                break
-        if SIGN < 0:
-            Q = (-Q1, -Q2, -Q3)
-
-        Qindex = Q[0] * 81 + (Q[1] + 4) * 9 + (Q[2] + 4)
-
         if (d1, d2, d3) == (0, 0, 0):
             run_val = a
             run_count = 0
@@ -301,6 +285,20 @@ if __name__ == "__main__":
                     px = a + b - c
 
             # Prediction correction
+            Q1 = classify_difference(d1)
+            Q2 = classify_difference(d2)
+            Q3 = classify_difference(d3)
+            Q = (Q1, Q2, Q3)
+
+            SIGN = 1
+            for q in Q:
+                if q != 0:
+                    if q < 0:
+                        SIGN = -1
+                    break
+            if SIGN < 0:
+                Q = (-Q1, -Q2, -Q3)
+            Qindex = Q[0] * 81 + (Q[1] + 4) * 9 + (Q[2] + 4)
             if SIGN == 1:
                 px += C[Qindex]
             else:
