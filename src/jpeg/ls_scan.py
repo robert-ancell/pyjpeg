@@ -196,7 +196,18 @@ class RegularState:
             else:
                 return -2 * errval - 1
 
-    def update_bias(self):
+    def update(self, bias_change, a_change):
+        state.bias += bias_change
+        state.A += a_change
+        if state.N == RESET:
+            state.A >>= 1
+            if state.bias >= 0:
+                state.bias >>= 1
+            else:
+                state.bias = -((1 - state.bias) >> 1)
+            state.N >>= 1
+        state.N += 1
+
         MIN_CORRECTION = -128
         MAX_CORRECTION = 127
         if self.bias <= -self.N:
@@ -385,18 +396,7 @@ if __name__ == "__main__":
                 state.map_error(Errval, NEAR, k), k, LIMIT - qbpp - 1
             )
 
-            state.bias += Errval * (2 * NEAR + 1)
-            state.A += abs(Errval)
-            if state.N == RESET:
-                state.A >>= 1
-                if state.bias >= 0:
-                    state.bias >>= 1
-                else:
-                    state.bias = -((1 - state.bias) >> 1)
-                state.N >>= 1
-            state.N += 1
-
-            state.update_bias()
+            state.update(Errval * (2 * NEAR + 1), abs(Errval))
 
         sample_index += 1
     scan_writer.flush()
