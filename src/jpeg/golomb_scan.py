@@ -43,13 +43,6 @@ class Writer:
         for i in reversed(range(length)):
             self.write_bit((value >> i) & 1)
 
-    def write_signed_value(self, value: int, length: int):
-        if value < 0:
-            value = (-value * 2) - 1
-        else:
-            value *= 2
-        self.write_value(value, length)
-
     def flush(self):
         while self.bit_count != 0:
             self.write_bit(0)
@@ -84,21 +77,14 @@ class Reader:
             value = value << 1 | self.read_bit()
         return value
 
-    def read_signed_value(self, length: int) -> int:
-        value = self.read_value(length)
-        if value % 2 == 0:
-            return value // 2
-        else:
-            return -(value // 2) - 1
-
 
 if __name__ == "__main__":
     buffer = jpeg.io.BufferedWriter()
     writer = Writer(buffer)
-    writer.write_signed_value(-10, 2)
+    writer.write_value(19, 2, 12)
     writer.flush()
     assert buffer.data == b"\x0e"
 
     buffer = jpeg.io.BufferedReader(b"\x0e")
     reader = Reader(buffer)
-    assert reader.read_signed_value(2) == -10
+    assert reader.read_value(2) == 19
