@@ -122,9 +122,9 @@ class Contexts:
         self.near_run_context = RunContext(a, 1)
 
     def get_regular_context(self, a, b, c, d):
-        q1 = self._classify(d - b)
-        q2 = self._classify(b - c)
-        q3 = self._classify(c - a)
+        q1 = self.parameters.classify(d - b)
+        q2 = self.parameters.classify(b - c)
+        q3 = self.parameters.classify(c - a)
 
         if q1 < 0 or (q1 == 0 and q2 < 0) or (q1 == 0 and q2 == 0 and q3 < 0):
             q1 = -q1
@@ -137,26 +137,6 @@ class Contexts:
         # FIXME: Does this overflow the 365 size? Seems to be larger in libjpeg
         context_index = q1 * 81 + (q2 + 4) * 9 + (q3 + 4)
         return sign, self.regular_contexts[context_index]
-
-    def _classify(self, d):
-        if d <= -parameters.t3:
-            return -4
-        elif d <= -parameters.t2:
-            return -3
-        elif d <= -parameters.t1:
-            return -2
-        elif d < -parameters.near:
-            return -1
-        elif d <= parameters.near:
-            return 0
-        elif d < parameters.t1:
-            return 1
-        elif d < parameters.t2:
-            return 2
-        elif d < parameters.t3:
-            return 3
-        else:
-            return 4
 
 
 class CodingParameters:
@@ -200,6 +180,26 @@ class CodingParameters:
         self.qbpp = math.ceil(math.log2(self.range))
         bpp = max(2, math.ceil(math.log2(maxval + 1)))
         self.limit = 2 * (bpp + max(8, bpp))
+
+    def classify(self, d):
+        if d <= -self.t3:
+            return -4
+        elif d <= -self.t2:
+            return -3
+        elif d <= -self.t1:
+            return -2
+        elif d < -self.near:
+            return -1
+        elif d <= self.near:
+            return 0
+        elif d < self.t1:
+            return 1
+        elif d < self.t2:
+            return 2
+        elif d < self.t3:
+            return 3
+        else:
+            return 4
 
     def modrange(self, errval):
         if errval < 0:
