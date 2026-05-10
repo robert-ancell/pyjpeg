@@ -1,3 +1,5 @@
+import math
+
 import jpeg.golomb_scan
 import jpeg.io
 import jpeg.segment
@@ -54,38 +56,39 @@ class LSScanComponent:
 
 
 class LSScan(jpeg.segment.Segment):
-    def __init__(self, data_units, components):
+    def __init__(self, width, samples, components):
         assert len(components) > 0
 
-        self.data_units = data_units
+        self.width = width
+        self.samples = samples
         self.components = components
 
     def write(self, writer: jpeg.io.Writer):
-        scan_writer = jpeg.golomb_scan.Writer(writer)
-
-        # FIXME
+        scan_writer = Writer(writer)
+        scan_writer.write_samples(self.width, self.samples)
 
     @classmethod
-    def read(cls, reader: jpeg.io.Reader, number_of_data_units, components):
+    def read(cls, reader: jpeg.io.Reader, width, number_of_samples, components):
         assert len(components) > 0
 
         scan_reader = jpeg.golomb_scan.Reader(reader)
 
-        data_units = []
-        for _ in range(number_of_data_units):
-            data_units.append(scan_reader.read_value(2))
+        samples = []
+        for _ in range(number_of_samples):
+            samples.append(scan_reader.read_value(2))
 
-        return cls(data_units, components)
+        return cls(width, samples, components)
 
     def __eq__(self, other):
         return (
             isinstance(other, LSScan)
-            and other.data_units == self.data_units
+            and other.width == self.width
+            and other.samples == self.samples
             and other.components == self.components
         )
 
     def __repr__(self):
-        return f"LSScan({self.data_units}, {self.components})"
+        return f"LSScan({self.width}, {self.samples}, {self.components})"
 
 
 def get_neighbours(samples, width, index):
@@ -327,7 +330,7 @@ class RunContext:
 
 class Writer:
     def __init__(self, writer):
-        self.scan_writer = golomb_scan.Writer(writer)
+        self.scan_writer = jpeg.golomb_scan.Writer(writer)
         self.parameters = CodingParameters()
         self.contexts = Contexts(self.parameters)
         self.run_index = 0
@@ -408,22 +411,16 @@ class Writer:
 
 
 if __name__ == "__main__":
-    import math
-
-    import golomb_scan
-
     # Example from Annex G
-    reader = jpeg.io.BufferedReader(
-        b"\xc0\x00\x00\x6c\x80\x20\x8e\x01\xc0\x00\x00\x57\x40\x00\x00\x6e\xe6\x00\x00\x01\xbc\x18\x00\x00\x05\xd8\x00\x00\x91\x60"
-    )
-    scan = LSScan.read(reader, 16, [LSScanComponent(1)])
-
     writer = jpeg.io.BufferedWriter()
-
-    scan_writer = Writer(writer)
-    scan_writer.write_samples(
-        4, [0, 0, 90, 74, 68, 50, 43, 205, 64, 145, 145, 145, 100, 145, 145, 145]
+    scan = LSScan(
+        4,
+        [0, 0, 90, 74, 68, 50, 43, 205, 64, 145, 145, 145, 100, 145, 145, 145],
+        [LSScanComponent()],
     )
-
+    scan.write(writer)
     expected = b"\xc0\x00\x00\x6c\x80\x20\x8e\x01\xc0\x00\x00\x57\x40\x00\x00\x6e\xe6\x00\x00\x01\xbc\x18\x00\x00\x05\xd8\x00\x00\x91\x60"
     assert writer.data == expected
+
+    reader = jpeg.io.BufferedReader(writer.data)
+    scan = LSScan.read(reader, 4, 16, [LSScanComponent()])
