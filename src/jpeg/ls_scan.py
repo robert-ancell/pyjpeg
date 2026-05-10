@@ -354,7 +354,7 @@ if __name__ == "__main__":
                     break
                 sample_index += 1
 
-            (a, b, c, d) = get_neighbours(samples, width, sample_index)
+            (a, b, _, _) = get_neighbours(samples, width, sample_index)
             # FIXME: Used below?
             sign = 1
             if abs(a - b) <= parameters.near:
