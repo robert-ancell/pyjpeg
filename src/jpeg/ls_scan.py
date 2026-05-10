@@ -186,6 +186,12 @@ class RegularState:
         self.correction = 0
         self.N = 1
 
+    def get_golomb_size(self):
+        k = 0
+        while self.N << k < self.A:
+            k += 1
+        return k
+
     def map_error(self, errval, near, k):
         if near == 0 and k == 0 and 2 * self.bias <= -self.N:
             if errval >= 0:
@@ -231,6 +237,27 @@ class RunState:
         self.A = a
         self.N = 1
         self.Nn = 0
+
+    def get_golomb_size(self, ritype):
+        max_k = state.A
+        if ritype == 1:
+            max_k += state.N >> 1
+        k = 0
+        while state.N << k < max_k:
+            k += 1
+        return k
+
+    def map_error(self, errval, ritype, k):
+        if k == 0 and errval > 0 and (2 * self.Nn) < self.N:
+            map = 1
+        elif errval < 0 and (2 * self.Nn) >= self.N:
+            map = 1
+        elif errval < 0 and k != 0:
+            map = 1
+        else:
+            map = 0
+        # FIXME: ritype in constructor
+        return 2 * abs(errval) - ritype - map
 
 
 if __name__ == "__main__":
@@ -301,24 +328,8 @@ if __name__ == "__main__":
                 pass  # FIXME
             errval = errval % RANGE
 
-            # Golomb coding variable computation
-            max_k = state.A
-            if ritype == 1:
-                max_k += state.N >> 1
-            k = 0
-            while state.N << k < max_k:
-                k += 1
-
-            if k == 0 and errval > 0 and (2 * state.Nn) < state.N:
-                map = 1
-            elif errval < 0 and (2 * state.Nn) >= state.N:
-                map = 1
-            elif errval < 0 and k != 0:
-                map = 1
-            else:
-                map = 0
-
-            EMErrval = 2 * abs(errval) - ritype - map
+            k = state.get_golomb_size(ritype)
+            mapped_errval = state.map_error(errval, ritype, k)
 
             rg = 1 << run_widths[run_index]
             while run_count >= rg:
@@ -337,7 +348,7 @@ if __name__ == "__main__":
 
                 # The spec seems to have the limit wrong
                 scan_writer.write_value(
-                    EMErrval, k, LIMIT - qbpp - run_widths[run_index] - 2
+                    mapped_errval, k, LIMIT - qbpp - run_widths[run_index] - 2
                 )
 
             if run_index > 0:
@@ -346,7 +357,7 @@ if __name__ == "__main__":
             if errval < 0:
                 state.Nn += 1
             # FIXME: This seems wrong in the spec and doesn't match libjpeg
-            state.A += (EMErrval - ritype) >> 1
+            state.A += (mapped_errval - ritype) >> 1
             if state.N == RESET:
                 state.A >>= 1
                 state.N >>= 1
@@ -371,26 +382,20 @@ if __name__ == "__main__":
                 px = 0
 
             # Computation of prediction error
-            Errval = sign * (samples[sample_index] - px)
+            errval = sign * (samples[sample_index] - px)
 
             # FIXME: Error quantization
 
             # Modulo reduction
-            if Errval < 0:
-                Errval += RANGE
-            if Errval >= (RANGE + 1) // 2:
-                Errval -= RANGE
+            if errval < 0:
+                errval += RANGE
+            if errval >= (RANGE + 1) // 2:
+                errval -= RANGE
 
-            # Golomb coding variable computation
-            k = 0
-            while state.N << k < state.A:
-                k += 1
-
-            scan_writer.write_value(
-                state.map_error(Errval, NEAR, k), k, LIMIT - qbpp - 1
-            )
-
-            state.update(Errval * (2 * NEAR + 1), abs(Errval))
+            k = state.get_golomb_size()
+            mapped_errval = state.map_error(errval, NEAR, k)
+            scan_writer.write_value(mapped_errval, k, LIMIT - qbpp - 1)
+            state.update(errval * (2 * NEAR + 1), abs(errval))
 
         sample_index += 1
     scan_writer.flush()
