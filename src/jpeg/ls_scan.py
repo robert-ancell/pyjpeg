@@ -109,74 +109,85 @@ def get_neighbours(samples, width, index):
     return (a, b, c, d)
 
 
-def get_index(a, b, c, d, maxval=255, near=0):
-    BASIC_T1 = 3
-    BASIC_T2 = 7
-    BASIC_T3 = 21
+def get_range(maxval, near):
+    return ((maxval + 2 * near) // (2 * near + 1)) + 1
 
-    def clamp(i, j):
-        if i > MAXVAL or i < j:
-            return j
+
+class States:
+    def __init__(self, maxval=255, near=0):
+        self.near = near
+        a = max(2, (get_range(maxval, near) + 2**5) // 2**6)
+        self.regular_states = [RegularState(a) for _ in range(365)]
+        self.run_state = RunState(a)
+        self.near_run_state = RunState(a)
+        BASIC_T1 = 3
+        BASIC_T2 = 7
+        BASIC_T3 = 21
+
+        def clamp(i, j):
+            if i > MAXVAL or i < j:
+                return j
+            else:
+                return i
+
+        if maxval >= 128:
+            factor = (min(maxval, 4095) + 128) // 256
+            self.t1 = clamp(factor * (BASIC_T1 - 2) + 2 + 3 * near, near + 1)
+            self.t2 = clamp(factor * (BASIC_T2 - 3) + 3 + 5 * near, self.t1)
+            self.t3 = clamp(factor * (BASIC_T3 - 4) + 4 + 7 * near, self.t2)
         else:
-            return i
+            factor = 256 // (maxval + 1)
+            self.t1 = clamp(max(2, BASIC_T1 // factor + 3 * near), near + 1)
+            self.t2 = clamp(max(3, BASIC_T2 // factor + 5 * near), self.t1)
+            self.t3 = clamp(max(4, BASIC_T3 // factor + 7 * near), self.t2)
 
-    if maxval >= 128:
-        factor = (min(maxval, 4095) + 128) // 256
-        t1 = clamp(factor * (BASIC_T1 - 2) + 2 + 3 * near, near + 1)
-        t2 = clamp(factor * (BASIC_T2 - 3) + 3 + 5 * near, t1)
-        t3 = clamp(factor * (BASIC_T3 - 4) + 4 + 7 * near, t2)
-    else:
-        factor = 256 // (maxval + 1)
-        t1 = clamp(max(2, BASIC_T1 // factor + 3 * near), near + 1)
-        t2 = clamp(max(3, BASIC_T2 // factor + 5 * near), t1)
-        t3 = clamp(max(4, BASIC_T3 // factor + 7 * near), t2)
+    def get_regular_state(self, a, b, c, d):
+        q1 = self._classify(d - b)
+        q2 = self._classify(b - c)
+        q3 = self._classify(c - a)
 
-    def classify(d):
-        if d <= -t3:
+        if q1 < 0 or (q1 == 0 and q2 < 0) or (q1 == 0 and q2 == 0 and q3 < 0):
+            q1 = -q1
+            q2 = -q2
+            q3 = -q3
+            invert = True
+        else:
+            invert = False
+
+        return invert, self.regular_states[q1 * 81 + (q2 + 4) * 9 + (q3 + 4)]
+
+    def _classify(self, d):
+        if d <= -self.t3:
             return -4
-        elif d <= -t2:
+        elif d <= -self.t2:
             return -3
-        elif d <= -t1:
+        elif d <= -self.t1:
             return -2
-        elif d < -near:
+        elif d < -self.near:
             return -1
-        elif d <= near:
+        elif d <= self.near:
             return 0
-        elif d < t1:
+        elif d < self.t1:
             return 1
-        elif d < t2:
+        elif d < self.t2:
             return 2
-        elif d < t3:
+        elif d < self.t3:
             return 3
         else:
             return 4
 
-    q1 = classify(d - b)
-    q2 = classify(b - c)
-    q3 = classify(c - a)
-
-    if q1 < 0 or (q1 == 0 and q2 < 0) or (q1 == 0 and q2 == 0 and q3 < 0):
-        q1 = -q1
-        q2 = -q2
-        q3 = -q3
-        invert = True
-    else:
-        invert = False
-
-    return invert, q1 * 81 + (q2 + 4) * 9 + (q3 + 4)
-
 
 class RegularState:
-    def __init__(self, a_val):
-        self.A = a_val
+    def __init__(self, a):
+        self.A = a
         self.bias = 0
         self.correction = 0
         self.N = 1
 
 
 class RunState:
-    def __init__(self, a_val):
-        self.A = a_val
+    def __init__(self, a):
+        self.A = a
         self.N = 1
         self.Nn = 0
 
@@ -205,10 +216,7 @@ if __name__ == "__main__":
     qbpp = math.ceil(math.log2(RANGE))
     bpp = max(2, math.ceil(math.log2(MAXVAL + 1)))
     LIMIT = 2 * (bpp + max(8, bpp))
-    a_val = max(2, (RANGE + 2**5) // 2**6)
-    regular_states = [RegularState(a_val) for _ in range(365)]
-    run_state = RunState(a_val)
-    near_run_state = RunState(a_val)
+    states = States(maxval=MAXVAL, near=NEAR)
     run_index = 0
     sample_index = 0
     while sample_index < len(samples):
@@ -234,11 +242,11 @@ if __name__ == "__main__":
             (a, b, c, d) = get_neighbours(samples, width, sample_index)
             if abs(a - b) <= NEAR:
                 ritype = 1
-                state = near_run_state
+                state = states.near_run_state
                 px = a
             else:
                 ritype = 0
-                state = run_state
+                state = states.run_state
                 px = b
             errval = samples[sample_index] - px
 
@@ -315,8 +323,7 @@ if __name__ == "__main__":
                 else:
                     px = a + b - c
 
-            invert, index = get_index(a, b, c, d, maxval=MAXVAL, near=NEAR)
-            state = regular_states[index]
+            invert, state = states.get_regular_state(a, b, c, d)
 
             # Prediction correction
             if invert:
