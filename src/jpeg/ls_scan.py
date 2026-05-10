@@ -159,6 +159,21 @@ def get_index(a, b, c, d, maxval=255, near=0):
     return invert, q1 * 81 + (q2 + 4) * 9 + (q3 + 4)
 
 
+class RegularState:
+    def __init__(self, a_val):
+        self.A = a_val
+        self.B = 0
+        self.C = 0
+        self.N = 1
+
+
+class RunState:
+    def __init__(self, a_val):
+        self.A = a_val
+        self.N = 1
+        self.Nn = 0
+
+
 if __name__ == "__main__":
     import math
 
@@ -190,19 +205,13 @@ if __name__ == "__main__":
     bpp = max(2, math.ceil(math.log2(MAXVAL + 1)))
     LIMIT = 2 * (bpp + max(8, bpp))
     a_val = max(2, (RANGE + 2**5) // 2**6)
-    A = [a_val] * 365
-    B = [0] * 365
-    C = [0] * 365
-    N = [1] * 365
+    regular_states = [RegularState(a_val) for _ in range(365)]
     A_run = [a_val, a_val]
     N_run = [1] * 2
     Nn = [0, 0]
     run_index = 0
     sample_index = 0
-    k = 2  # FIXME
     while sample_index < len(samples):
-        x = sample_index % width
-        y = sample_index // width
         s = samples[sample_index]
 
         (a, b, c, d) = get_neighbours(samples, width, sample_index)
@@ -210,6 +219,7 @@ if __name__ == "__main__":
         d2 = b - c
         d3 = c - a
 
+        # Run mode
         if (d1, d2, d3) == (0, 0, 0):
             run_val = a
             run_count = 0
@@ -292,6 +302,7 @@ if __name__ == "__main__":
                 Nn[ritype] >>= 1
             N_run[ritype] += 1
 
+        # Regular mode
         else:
             # Edge detection
             if c >= max(a, b):
@@ -302,13 +313,14 @@ if __name__ == "__main__":
                 else:
                     px = a + b - c
 
-            invert, Qindex = get_index(a, b, c, d, maxval=MAXVAL, near=NEAR)
+            invert, index = get_index(a, b, c, d, maxval=MAXVAL, near=NEAR)
+            state = regular_states[index]
 
             # Prediction correction
             if invert:
-                px -= C[Qindex]
+                px -= state.C
             else:
-                px += C[Qindex]
+                px += state.C
             if px > MAXVAL:
                 px = MAXVAL
             elif px < 0:
@@ -329,11 +341,11 @@ if __name__ == "__main__":
 
             # Golomb coding variable computation
             k = 0
-            while N[Qindex] << k < A[Qindex]:
+            while state.N << k < state.A:
                 k += 1
 
             # Error mapping
-            if NEAR == 0 and k == 0 and 2 * B[Qindex] <= -N[Qindex]:
+            if NEAR == 0 and k == 0 and 2 * state.B <= -state.N:
                 if Errval >= 0:
                     MErrval = 2 * Errval + 1
                 else:
@@ -346,32 +358,32 @@ if __name__ == "__main__":
 
             scan_writer.write_value(MErrval, k, LIMIT - qbpp - 1)
 
-            B[Qindex] += Errval * (2 * NEAR + 1)
-            A[Qindex] += abs(Errval)
-            if N[Qindex] == RESET:
-                A[Qindex] >>= 1
-                if B[Qindex] >= 0:
-                    B[Qindex] >>= 1
+            state.B += Errval * (2 * NEAR + 1)
+            state.A += abs(Errval)
+            if state.N == RESET:
+                state.A >>= 1
+                if state.B >= 0:
+                    state.B >>= 1
                 else:
-                    B[Qindex] = -((1 - B[Qindex]) >> 1)
-                N[Qindex] >>= 1
-            N[Qindex] += 1
+                    state.B = -((1 - state.B) >> 1)
+                state.N >>= 1
+            state.N += 1
 
             # Bias computation
             MIN_C = -128
             MAX_C = 127
-            if B[Qindex] <= -N[Qindex]:
-                B[Qindex] += N[Qindex]
-                if C[Qindex] > MIN_C:
-                    C[Qindex] -= 1
-                if B[Qindex] < -N[Qindex]:
-                    B[Qindex] = -N[Qindex] + 1
-            elif B[Qindex] > 0:
-                B[Qindex] -= N[Qindex]
-                if C[Qindex] < MAX_C:
-                    C[Qindex] += 1
-                if B[Qindex] > 0:
-                    B[Qindex] = 0
+            if state.B <= -state.N:
+                state.B += state.N
+                if state.C > MIN_C:
+                    state.C -= 1
+                if state.B < -state.N:
+                    state.B = -state.N + 1
+            elif state.B > 0:
+                state.B -= state.N
+                if state.C < MAX_C:
+                    state.C += 1
+                if state.B > 0:
+                    state.B = 0
 
         sample_index += 1
     scan_writer.flush()
