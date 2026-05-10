@@ -109,6 +109,44 @@ def get_neighbours(samples, width, index):
     return (a, b, c, d)
 
 
+class DifferenceClassifier:
+    def __init__(self, maxval=255, near=0):
+        self.near = near
+        BASIC_T1 = 3
+        BASIC_T2 = 7
+        BASIC_T3 = 21
+        if maxval >= 128:
+            factor = (min(maxval, 4095) + 128) // 256
+            self.t1 = CLAMP(factor * (BASIC_T1 - 2) + 2 + 3 * near, near + 1)
+            self.t2 = CLAMP(factor * (BASIC_T2 - 3) + 3 + 5 * near, self.t1)
+            self.t3 = CLAMP(factor * (BASIC_T3 - 4) + 4 + 7 * near, self.t2)
+        else:
+            factor = 256 // (maxval + 1)
+            self.t1 = CLAMP(max(2, BASIC_T1 // factor + 3 * near), near + 1)
+            self.t2 = CLAMP(max(3, BASIC_T2 // factor + 5 * near), self.t1)
+            self.t3 = CLAMP(max(4, BASIC_T3 // factor + 7 * near), self.t2)
+
+    def classify(self, d):
+        if d <= -self.t3:
+            return -4
+        elif d <= -self.t2:
+            return -3
+        elif d <= -self.t1:
+            return -2
+        elif d < -self.near:
+            return -1
+        elif d <= self.near:
+            return 0
+        elif d < self.t1:
+            return 1
+        elif d < self.t2:
+            return 2
+        elif d < self.t3:
+            return 3
+        else:
+            return 4
+
+
 if __name__ == "__main__":
     import math
 
@@ -134,19 +172,7 @@ if __name__ == "__main__":
 
     MAXVAL = 255
     NEAR = 0
-    BASIC_T1 = 3
-    BASIC_T2 = 7
-    BASIC_T3 = 21
-    if MAXVAL >= 128:
-        FACTOR = (min(MAXVAL, 4095) + 128) // 256
-        T1 = CLAMP(FACTOR * (BASIC_T1 - 2) + 2 + 3 * NEAR, NEAR + 1)
-        T2 = CLAMP(FACTOR * (BASIC_T2 - 3) + 3 + 5 * NEAR, T1)
-        T3 = CLAMP(FACTOR * (BASIC_T3 - 4) + 4 + 7 * NEAR, T2)
-    else:
-        FACTOR = 256 // (MAXVAL + 1)
-        T1 = CLAMP(max(2, BASIC_T1 // FACTOR + 3 * NEAR), NEAR + 1)
-        T2 = CLAMP(max(3, BASIC_T2 // FACTOR + 5 * NEAR), T1)
-        T3 = CLAMP(max(4, BASIC_T3 // FACTOR + 7 * NEAR), T2)
+    difference_classifier = DifferenceClassifier(maxval=MAXVAL, near=NEAR)
     RESET = 64
     RANGE = ((MAXVAL + 2 * NEAR) // (2 * NEAR + 1)) + 1
     qbpp = math.ceil(math.log2(RANGE))
@@ -172,26 +198,6 @@ if __name__ == "__main__":
         d1 = d - b
         d2 = b - c
         d3 = c - a
-
-        def classify_difference(Di):
-            if Di <= -T3:
-                return -4
-            elif Di <= -T2:
-                return -3
-            elif Di <= -T1:
-                return -2
-            elif Di < -NEAR:
-                return -1
-            elif Di <= NEAR:
-                return 0
-            elif Di < T1:
-                return 1
-            elif Di < T2:
-                return 2
-            elif Di < T3:
-                return 3
-            else:
-                return 4
 
         if (d1, d2, d3) == (0, 0, 0):
             run_val = a
@@ -284,12 +290,11 @@ if __name__ == "__main__":
                 else:
                     px = a + b - c
 
-            # Prediction correction
-            Q1 = classify_difference(d1)
-            Q2 = classify_difference(d2)
-            Q3 = classify_difference(d3)
-            Q = (Q1, Q2, Q3)
-
+            Q = (
+                difference_classifier.classify(d1),
+                difference_classifier.classify(d2),
+                difference_classifier.classify(d3),
+            )
             SIGN = 1
             for q in Q:
                 if q != 0:
@@ -297,8 +302,10 @@ if __name__ == "__main__":
                         SIGN = -1
                     break
             if SIGN < 0:
-                Q = (-Q1, -Q2, -Q3)
+                Q = (-Q[0], -Q[1], -Q[2])
             Qindex = Q[0] * 81 + (Q[1] + 4) * 9 + (Q[2] + 4)
+
+            # Prediction correction
             if SIGN == 1:
                 px += C[Qindex]
             else:
