@@ -113,16 +113,23 @@ def get_index(a, b, c, d, maxval=255, near=0):
     BASIC_T1 = 3
     BASIC_T2 = 7
     BASIC_T3 = 21
+
+    def clamp(i, j):
+        if i > MAXVAL or i < j:
+            return j
+        else:
+            return i
+
     if maxval >= 128:
         factor = (min(maxval, 4095) + 128) // 256
-        t1 = CLAMP(factor * (BASIC_T1 - 2) + 2 + 3 * near, near + 1)
-        t2 = CLAMP(factor * (BASIC_T2 - 3) + 3 + 5 * near, t1)
-        t3 = CLAMP(factor * (BASIC_T3 - 4) + 4 + 7 * near, t2)
+        t1 = clamp(factor * (BASIC_T1 - 2) + 2 + 3 * near, near + 1)
+        t2 = clamp(factor * (BASIC_T2 - 3) + 3 + 5 * near, t1)
+        t3 = clamp(factor * (BASIC_T3 - 4) + 4 + 7 * near, t2)
     else:
         factor = 256 // (maxval + 1)
-        t1 = CLAMP(max(2, BASIC_T1 // factor + 3 * near), near + 1)
-        t2 = CLAMP(max(3, BASIC_T2 // factor + 5 * near), t1)
-        t3 = CLAMP(max(4, BASIC_T3 // factor + 7 * near), t2)
+        t1 = clamp(max(2, BASIC_T1 // factor + 3 * near), near + 1)
+        t2 = clamp(max(3, BASIC_T2 // factor + 5 * near), t1)
+        t3 = clamp(max(4, BASIC_T3 // factor + 7 * near), t2)
 
     def classify(d):
         if d <= -t3:
@@ -190,12 +197,6 @@ if __name__ == "__main__":
 
     samples = [0, 0, 90, 74, 68, 50, 43, 205, 64, 145, 145, 145, 100, 145, 145, 145]
     width = 4
-
-    def CLAMP(i, j):
-        if i > MAXVAL or i < j:
-            return j
-        else:
-            return i
 
     MAXVAL = 255
     NEAR = 0
