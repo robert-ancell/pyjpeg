@@ -192,6 +192,21 @@ class RegularState:
             k += 1
         return k
 
+    def predict(self, a, b, c, maxval):
+        # Predict next value
+        if c >= max(a, b):
+            px = min(a, b)
+        elif c <= min(a, b):
+            px = max(a, b)
+        else:
+            px = a + b - c
+        px += sign * self.correction
+        if px > maxval:
+            px = maxval
+        elif px < 0:
+            px = 0
+        return px
+
     def map_error(self, errval, near, k):
         if near == 0 and k == 0 and 2 * self.bias <= -self.N:
             if errval >= 0:
@@ -328,9 +343,6 @@ if __name__ == "__main__":
                 pass  # FIXME
             errval = errval % RANGE
 
-            k = state.get_golomb_size(ritype)
-            mapped_errval = state.map_error(errval, ritype, k)
-
             rg = 1 << run_widths[run_index]
             while run_count >= rg:
                 scan_writer.write_bit(1)
@@ -346,13 +358,14 @@ if __name__ == "__main__":
                 for i in reversed(range(run_widths[run_index])):
                     scan_writer.write_bit((run_count >> i) & 0x1)
 
+                k = state.get_golomb_size(ritype)
+                mapped_errval = state.map_error(errval, ritype, k)
                 # The spec seems to have the limit wrong
                 scan_writer.write_value(
                     mapped_errval, k, LIMIT - qbpp - run_widths[run_index] - 2
                 )
 
-            if run_index > 0:
-                run_index -= 1
+            run_index = max(run_index - 1, 0)
 
             if errval < 0:
                 state.Nn += 1
@@ -367,21 +380,7 @@ if __name__ == "__main__":
         # Regular mode
         else:
             sign, state = states.get_regular_state(a, b, c, d)
-
-            # Predict next value
-            if c >= max(a, b):
-                px = min(a, b)
-            elif c <= min(a, b):
-                px = max(a, b)
-            else:
-                px = a + b - c
-            px += sign * state.correction
-            if px > MAXVAL:
-                px = MAXVAL
-            elif px < 0:
-                px = 0
-
-            # Computation of prediction error
+            px = state.predict(a, b, c, MAXVAL)
             errval = sign * (samples[sample_index] - px)
 
             # FIXME: Error quantization
