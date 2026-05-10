@@ -340,8 +340,6 @@ if __name__ == "__main__":
     run_index = 0
     sample_index = 0
     while sample_index < len(samples):
-        s = samples[sample_index]
-
         (a, b, c, d) = get_neighbours(samples, width, sample_index)
 
         # Run mode
