@@ -152,7 +152,9 @@ if __name__ == "__main__":
     qbpp = math.ceil(math.log2(RANGE))
     bpp = max(2, math.ceil(math.log2(MAXVAL + 1)))
     LIMIT = 2 * (bpp + max(8, bpp))
-    A = [max(2, (RANGE + 2**5) // 2**6)] * 367
+    a_val = max(2, (RANGE + 2**5) // 2**6)
+    A = [a_val] * 365
+    A_run = [a_val, a_val]
     B = [0] * 365
     C = [0] * 365
     N = [1] * 365
@@ -236,10 +238,8 @@ if __name__ == "__main__":
                 pass  # FIXME
             errval = errval % RANGE
 
-            Qindex = ritype + 365
-
             # Golomb coding variable computation
-            max_k = A[Qindex]
+            max_k = A_run[ritype]
             if ritype == 1:
                 max_k += N_run[ritype] >> 1
             k = 0
@@ -283,9 +283,9 @@ if __name__ == "__main__":
             if errval < 0:
                 Nn[ritype] += 1
             # FIXME: This seems wrong in the spec and doesn't match libjpeg
-            A[Qindex] += (EMErrval - ritype) >> 1
+            A_run[ritype] += (EMErrval - ritype) >> 1
             if N_run[ritype] == RESET:
-                A[Qindex] >>= 1
+                A_run[ritype] >>= 1
                 N_run[ritype] >>= 1
                 Nn[ritype] >>= 1
             N_run[ritype] += 1
