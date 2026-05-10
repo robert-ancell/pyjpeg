@@ -2,6 +2,42 @@ import jpeg.golomb_scan
 import jpeg.io
 import jpeg.segment
 
+# Bit widths of runs of the same value.
+run_widths = [
+    0,
+    0,
+    0,
+    0,
+    1,
+    1,
+    1,
+    1,
+    2,
+    2,
+    2,
+    2,
+    3,
+    3,
+    3,
+    3,
+    4,
+    4,
+    5,
+    5,
+    6,
+    6,
+    7,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+]
+
 
 class LSScanComponent:
     def __init__(self, sampling_factor=(1, 1)):
@@ -52,6 +88,27 @@ class LSScan(jpeg.segment.Segment):
         return f"LSScan({self.data_units}, {self.components})"
 
 
+def get_neighbours(samples, width, index):
+    # Top row
+    if index < width:
+        a = samples[index - 1] if index > 0 else 0
+        return (a, 0, 0, 0)
+
+    # Left edge
+    x = index % width
+    if x == 0:
+        a = b = samples[index - width]
+        c = samples[index - width * 2] if index >= width * 2 else 0
+        d = samples[index - width + 1]
+        return (a, b, c, d)
+
+    a = samples[index - 1]
+    b = samples[index - width]
+    c = samples[index - width - 1]
+    d = samples[index - width + 1] if x < width - 1 else b
+    return (a, b, c, d)
+
+
 if __name__ == "__main__":
     import math
 
@@ -68,30 +125,6 @@ if __name__ == "__main__":
 
     samples = [0, 0, 90, 74, 68, 50, 43, 205, 64, 145, 145, 145, 100, 145, 145, 145]
     width = 4
-
-    def get_neighbours(samples, width, index):
-        if x > 0:
-            a = samples[index - 1]
-        elif y > 0:
-            a = samples[index - width]
-        else:
-            a = 0
-
-        b = samples[index - width] if y > 0 else 0
-
-        if x == 0:
-            c = samples[index - width * 2] if y > 1 else 0
-        else:
-            c = samples[index - width - 1] if y > 0 else 0
-
-        if y == 0:
-            d = 0
-        elif x == width - 1:
-            d = samples[index - width]
-        else:
-            d = samples[index - width + 1] if y > 0 else 0
-
-        return (a, b, c, d)
 
     def CLAMP(i, j):
         if i > MAXVAL or i < j:
@@ -126,40 +159,6 @@ if __name__ == "__main__":
     Nn = [1] * 367  # FIXME: Only the last two of these used??
     Nn[365] = 0
     Nn[366] = 0
-    J = [
-        0,
-        0,
-        0,
-        0,
-        1,
-        1,
-        1,
-        1,
-        2,
-        2,
-        2,
-        2,
-        3,
-        3,
-        3,
-        3,
-        4,
-        4,
-        5,
-        5,
-        6,
-        6,
-        7,
-        7,
-        8,
-        9,
-        10,
-        11,
-        12,
-        13,
-        14,
-        15,
-    ]
     run_index = 0
     sample_index = 0
     k = 2  # FIXME
@@ -264,30 +263,32 @@ if __name__ == "__main__":
 
             EMErrval = 2 * abs(errval) - ritype - map
 
-            rg = 1 << J[run_index]
+            rg = 1 << run_widths[run_index]
             while run_count >= rg:
                 scan_writer.write_bit(1)
                 run_count -= rg
                 run_index = min(run_index + 1, 31)
-                rg = 1 << J[run_index]
+                rg = 1 << run_widths[run_index]
             if run_end:
                 if run_count > 0:
                     # Next segment will pass end of line, but this will be detected
                     scan_writer.write_bit(1)
             else:
                 scan_writer.write_bit(0)
-                for i in reversed(range(J[run_index])):
+                for i in reversed(range(run_widths[run_index])):
                     scan_writer.write_bit((run_count >> i) & 0x1)
 
                 # The spec seems to have the limit wrong
-                scan_writer.write_value(EMErrval, k, LIMIT - qbpp - J[run_index] - 2)
+                scan_writer.write_value(
+                    EMErrval, k, LIMIT - qbpp - run_widths[run_index] - 2
+                )
 
             if run_index > 0:
                 run_index -= 1
 
             if errval < 0:
                 Nn[Qindex] += 1
-            # FIXMEL This seems wrong in the spec and doesn't match libjpeg
+            # FIXME: This seems wrong in the spec and doesn't match libjpeg
             A[Qindex] += (EMErrval - ritype) >> 1
             if N[Qindex] == RESET:
                 A[Qindex] >>= 1
