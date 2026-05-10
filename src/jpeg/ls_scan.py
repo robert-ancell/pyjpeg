@@ -217,12 +217,12 @@ if __name__ == "__main__":
                     break
                 sample_index += 1
 
+            (a, b, c, d) = get_neighbours(samples, width, sample_index)
             if abs(a - b) <= NEAR:
                 ritype = 1
             else:
                 ritype = 0
 
-            (a, b, c, d) = get_neighbours(samples, width, sample_index)
             if ritype == 1:
                 px = a
             else:
