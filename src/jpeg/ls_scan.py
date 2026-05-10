@@ -201,6 +201,13 @@ class CodingParameters:
         bpp = max(2, math.ceil(math.log2(maxval + 1)))
         self.limit = 2 * (bpp + max(8, bpp))
 
+    def modrange(self, errval):
+        if errval < 0:
+            errval += self.range
+        if errval >= (self.range + 1) // 2:
+            errval -= self.range
+        return errval
+
 
 class RegularContext:
     def __init__(self, a):
@@ -370,7 +377,7 @@ if __name__ == "__main__":
 
             if parameters.near > 0:
                 pass  # FIXME
-            errval = errval % parameters.range
+            errval = parameters.modrange(errval)
 
             rg = 1 << run_widths[run_index]
             while run_count >= rg:
@@ -400,15 +407,8 @@ if __name__ == "__main__":
             sign, context = contexts.get_regular_context(a, b, c, d)
             predicted_sample = context.predict(parameters, a, b, c)
             errval = sign * (samples[sample_index] - predicted_sample)
-
             # FIXME: Error quantization
-
-            # Modulo reduction
-            if errval < 0:
-                errval += parameters.range
-            if errval >= (parameters.range + 1) // 2:
-                errval -= parameters.range
-
+            errval = parameters.modrange(errval)
             context.write_error(scan_writer, parameters, errval)
 
         sample_index += 1
