@@ -361,27 +361,6 @@ if __name__ == "__main__":
                     break
                 sample_index += 1
 
-            (a, b, _, _) = get_neighbours(samples, width, sample_index)
-            # FIXME: Used below?
-            sign = 1
-            if abs(a - b) <= parameters.near:
-                context = contexts.near_run_context
-                predicted_sample = a
-            else:
-                context = contexts.run_context
-                predicted_sample = b
-                if a > b:
-                    errval = -errval
-                    sign = -1
-            errval = sign * (samples[sample_index] - predicted_sample)
-
-            if parameters.near > 0:
-                # FIXME
-                # errval = quantize(errval)
-                # rx = computerx()
-                pass
-            errval = parameters.modrange(errval)
-
             rg = 1 << run_widths[run_index]
             while run_count >= rg:
                 scan_writer.write_bit(1)
@@ -399,6 +378,26 @@ if __name__ == "__main__":
                 for i in reversed(range(run_widths[run_index])):
                     scan_writer.write_bit((run_count >> i) & 0x1)
 
+                (a, b, _, _) = get_neighbours(samples, width, sample_index)
+                # FIXME: Used below?
+                sign = 1
+                if abs(a - b) <= parameters.near:
+                    context = contexts.near_run_context
+                    predicted_sample = a
+                else:
+                    context = contexts.run_context
+                    predicted_sample = b
+                    if a > b:
+                        errval = -errval
+                        sign = -1
+                errval = sign * (samples[sample_index] - predicted_sample)
+
+                if parameters.near > 0:
+                    # FIXME
+                    # errval = quantize(errval)
+                    # rx = computerx()
+                    pass
+                errval = parameters.modrange(errval)
                 # The spec seems to have the limit wrong
                 limit = parameters.limit - parameters.qbpp - run_widths[run_index] - 2
                 context.write_error(scan_writer, parameters, errval, limit)
