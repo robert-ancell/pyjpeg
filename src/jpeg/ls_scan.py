@@ -113,35 +113,15 @@ def get_range(maxval, near):
     return ((maxval + 2 * near) // (2 * near + 1)) + 1
 
 
-class States:
-    def __init__(self, maxval=255, near=0):
-        self.near = near
-        a = max(2, (get_range(maxval, near) + 2**5) // 2**6)
+class Contexts:
+    def __init__(self, parameters):
+        self.parameters = parameters
+        a = max(2, (get_range(parameters.maxval, parameters.near) + 2**5) // 2**6)
         self.regular_contexts = [RegularContext(a) for _ in range(365)]
-        self.run_context = RunState(a)
-        self.near_run_context = RunState(a)
-        BASIC_T1 = 3
-        BASIC_T2 = 7
-        BASIC_T3 = 21
+        self.run_context = RunContext(a, 0)
+        self.near_run_context = RunContext(a, 1)
 
-        def clamp(i, j):
-            if i > MAXVAL or i < j:
-                return j
-            else:
-                return i
-
-        if maxval >= 128:
-            factor = (min(maxval, 4095) + 128) // 256
-            self.t1 = clamp(factor * (BASIC_T1 - 2) + 2 + 3 * near, near + 1)
-            self.t2 = clamp(factor * (BASIC_T2 - 3) + 3 + 5 * near, self.t1)
-            self.t3 = clamp(factor * (BASIC_T3 - 4) + 4 + 7 * near, self.t2)
-        else:
-            factor = 256 // (maxval + 1)
-            self.t1 = clamp(max(2, BASIC_T1 // factor + 3 * near), near + 1)
-            self.t2 = clamp(max(3, BASIC_T2 // factor + 5 * near), self.t1)
-            self.t3 = clamp(max(4, BASIC_T3 // factor + 7 * near), self.t2)
-
-    def get_regular_state(self, a, b, c, d):
+    def get_regular_context(self, a, b, c, d):
         q1 = self._classify(d - b)
         q2 = self._classify(b - c)
         q3 = self._classify(c - a)
@@ -155,28 +135,71 @@ class States:
             sign = 1
 
         # FIXME: Does this overflow the 365 size? Seems to be larger in libjpeg
-        state_index = q1 * 81 + (q2 + 4) * 9 + (q3 + 4)
-        return sign, self.regular_contexts[state_index]
+        context_index = q1 * 81 + (q2 + 4) * 9 + (q3 + 4)
+        return sign, self.regular_contexts[context_index]
 
     def _classify(self, d):
-        if d <= -self.t3:
+        if d <= -parameters.t3:
             return -4
-        elif d <= -self.t2:
+        elif d <= -parameters.t2:
             return -3
-        elif d <= -self.t1:
+        elif d <= -parameters.t1:
             return -2
-        elif d < -self.near:
+        elif d < -parameters.near:
             return -1
-        elif d <= self.near:
+        elif d <= parameters.near:
             return 0
-        elif d < self.t1:
+        elif d < parameters.t1:
             return 1
-        elif d < self.t2:
+        elif d < parameters.t2:
             return 2
-        elif d < self.t3:
+        elif d < parameters.t3:
             return 3
         else:
             return 4
+
+
+class CodingParameters:
+    def __init__(self, near=0, maxval=255, t1=0, t2=0, t3=0, reset=64):
+        self.near = 0
+        self.maxval = maxval
+        self.t1 = t1
+        self.t2 = t2
+        self.t3 = t3
+        self.reset = reset
+
+        BASIC_T1 = 3
+        BASIC_T2 = 7
+        BASIC_T3 = 21
+
+        def clamp(i, j):
+            if i > maxval or i < j:
+                return j
+            else:
+                return i
+
+        if maxval >= 128:
+            factor = (min(maxval, 4095) + 128) // 256
+            if self.t1 == 0:
+                self.t1 = clamp(factor * (BASIC_T1 - 2) + 2 + 3 * near, near + 1)
+            if self.t2 == 0:
+                self.t2 = clamp(factor * (BASIC_T2 - 3) + 3 + 5 * near, self.t1)
+            if self.t3 == 0:
+                self.t3 = clamp(factor * (BASIC_T3 - 4) + 4 + 7 * near, self.t2)
+        else:
+            factor = 256 // (maxval + 1)
+            if self.t1 == 0:
+                self.t1 = clamp(max(2, BASIC_T1 // factor + 3 * near), near + 1)
+            if self.t2 == 0:
+                self.t2 = clamp(max(3, BASIC_T2 // factor + 5 * near), self.t1)
+            if self.t3 == 0:
+                self.t3 = clamp(max(4, BASIC_T3 // factor + 7 * near), self.t2)
+
+        # Derived parameters
+        self.range = ((maxval + 2 * near) // (2 * near + 1)) + 1
+        self.qbpp = math.ceil(math.log2(self.range))
+        bpp = max(2, math.ceil(math.log2(maxval + 1)))
+        self.limit = 2 * (bpp + max(8, bpp))
 
 
 class RegularContext:
@@ -186,50 +209,22 @@ class RegularContext:
         self.correction = 0
         self.N = 1
 
-    def get_golomb_size(self):
-        k = 0
-        while self.N << k < self.A:
-            k += 1
-        return k
+    def write_error(self, writer, parameters, errval):
+        k = self.get_golomb_size()
+        mapped_errval = self.map_error(parameters, errval, k)
+        limit = parameters.limit - parameters.qbpp - 1
+        writer.write_value(mapped_errval, k, limit)
 
-    def predict(self, a, b, c, maxval):
-        # Predict next value
-        if c >= max(a, b):
-            px = min(a, b)
-        elif c <= min(a, b):
-            px = max(a, b)
-        else:
-            px = a + b - c
-        px += sign * self.correction
-        if px > maxval:
-            px = maxval
-        elif px < 0:
-            px = 0
-        return px
-
-    def map_error(self, errval, near, k):
-        if near == 0 and k == 0 and 2 * self.bias <= -self.N:
-            if errval >= 0:
-                return 2 * errval + 1
+        context.bias += errval * (2 * parameters.near + 1)
+        context.A += abs(errval)
+        if context.N == parameters.reset:
+            context.A >>= 1
+            if context.bias >= 0:
+                context.bias >>= 1
             else:
-                return -2 * (errval + 1)
-        else:
-            if errval >= 0:
-                return 2 * errval
-            else:
-                return -2 * errval - 1
-
-    def update(self, bias_change, a_change):
-        state.bias += bias_change
-        state.A += a_change
-        if state.N == RESET:
-            state.A >>= 1
-            if state.bias >= 0:
-                state.bias >>= 1
-            else:
-                state.bias = -((1 - state.bias) >> 1)
-            state.N >>= 1
-        state.N += 1
+                context.bias = -((1 - context.bias) >> 1)
+            context.N >>= 1
+        context.N += 1
 
         MIN_CORRECTION = -128
         MAX_CORRECTION = 127
@@ -246,23 +241,72 @@ class RegularContext:
             if self.bias > 0:
                 self.bias = 0
 
+    def predict(self, parameters, a, b, c):
+        # Predict next value
+        if c >= max(a, b):
+            px = min(a, b)
+        elif c <= min(a, b):
+            px = max(a, b)
+        else:
+            px = a + b - c
+        px += sign * self.correction
+        if px > parameters.maxval:
+            px = parameters.maxval
+        elif px < 0:
+            px = 0
+        return px
 
-class RunState:
-    def __init__(self, a):
-        self.A = a
-        self.N = 1
-        self.Nn = 0
-
-    def get_golomb_size(self, ritype):
-        max_k = state.A
-        if ritype == 1:
-            max_k += state.N >> 1
+    def get_golomb_size(self):
         k = 0
-        while state.N << k < max_k:
+        while self.N << k < self.A:
             k += 1
         return k
 
-    def map_error(self, errval, ritype, k):
+    def map_error(self, parameters, errval, k):
+        if parameters.near == 0 and k == 0 and 2 * self.bias <= -self.N:
+            if errval >= 0:
+                return 2 * errval + 1
+            else:
+                return -2 * (errval + 1)
+        else:
+            if errval >= 0:
+                return 2 * errval
+            else:
+                return -2 * errval - 1
+
+
+class RunContext:
+    def __init__(self, a, ritype):
+        self.A = a
+        self.ritype = ritype
+        self.N = 1
+        self.Nn = 0
+
+    def write_error(self, writer, parameters, errval, limit):
+        k = self.get_golomb_size()
+        mapped_errval = self.map_error(errval, k)
+        writer.write_value(mapped_errval, k, limit)
+
+        if errval < 0:
+            self.Nn += 1
+        # FIXME: This seems wrong in the spec and doesn't match libjpeg
+        self.A += (mapped_errval - self.ritype) >> 1
+        if self.N == parameters.reset:
+            self.A >>= 1
+            self.N >>= 1
+            self.Nn >>= 1
+        self.N += 1
+
+    def get_golomb_size(self):
+        max_k = context.A
+        if self.ritype == 1:
+            max_k += context.N >> 1
+        k = 0
+        while context.N << k < max_k:
+            k += 1
+        return k
+
+    def map_error(self, errval, k):
         if k == 0 and errval > 0 and (2 * self.Nn) < self.N:
             map = 1
         elif errval < 0 and (2 * self.Nn) >= self.N:
@@ -271,17 +315,7 @@ class RunState:
             map = 1
         else:
             map = 0
-        # FIXME: ritype in constructor
-        return 2 * abs(errval) - ritype - map
-
-    def update(self, a_change):
-        # FIXME: This seems wrong in the spec and doesn't match libjpeg
-        state.A += a_change
-        if state.N == RESET:
-            state.A >>= 1
-            state.N >>= 1
-            state.Nn >>= 1
-        state.N += 1
+        return 2 * abs(errval) - self.ritype - map
 
 
 if __name__ == "__main__":
@@ -301,30 +335,21 @@ if __name__ == "__main__":
     samples = [0, 0, 90, 74, 68, 50, 43, 205, 64, 145, 145, 145, 100, 145, 145, 145]
     width = 4
 
-    MAXVAL = 255
-    NEAR = 0
-    RESET = 64
-    RANGE = ((MAXVAL + 2 * NEAR) // (2 * NEAR + 1)) + 1
-    qbpp = math.ceil(math.log2(RANGE))
-    bpp = max(2, math.ceil(math.log2(MAXVAL + 1)))
-    LIMIT = 2 * (bpp + max(8, bpp))
-    states = States(maxval=MAXVAL, near=NEAR)
+    parameters = CodingParameters()
+    contexts = Contexts(parameters)
     run_index = 0
     sample_index = 0
     while sample_index < len(samples):
         s = samples[sample_index]
 
         (a, b, c, d) = get_neighbours(samples, width, sample_index)
-        d1 = d - b
-        d2 = b - c
-        d3 = c - a
 
         # Run mode
-        if (d1, d2, d3) == (0, 0, 0):
+        if a == b == c == d:
             run_val = a
             run_count = 0
             run_end = False
-            while abs(samples[sample_index] - run_val) <= NEAR:
+            while abs(samples[sample_index] - run_val) <= parameters.near:
                 run_count += 1
                 if sample_index % width == width - 1:
                     run_end = True
@@ -334,22 +359,22 @@ if __name__ == "__main__":
             (a, b, c, d) = get_neighbours(samples, width, sample_index)
             # FIXME: Used below?
             sign = 1
-            if abs(a - b) <= NEAR:
+            if abs(a - b) <= parameters.near:
                 ritype = 1
-                state = states.near_run_context
+                context = contexts.near_run_context
                 predicted_sample = a
             else:
                 ritype = 0
-                state = states.run_context
+                context = contexts.run_context
                 predicted_sample = b
                 if a > b:
                     errval = -errval
                     sign = -1
             errval = sign * (samples[sample_index] - predicted_sample)
 
-            if NEAR > 0:
+            if parameters.near > 0:
                 pass  # FIXME
-            errval = errval % RANGE
+            errval = errval % parameters.range
 
             rg = 1 << run_widths[run_index]
             while run_count >= rg:
@@ -368,39 +393,27 @@ if __name__ == "__main__":
                 for i in reversed(range(run_widths[run_index])):
                     scan_writer.write_bit((run_count >> i) & 0x1)
 
-                # Write next error
-                k = state.get_golomb_size(ritype)
-                mapped_errval = state.map_error(errval, ritype, k)
                 # The spec seems to have the limit wrong
-                scan_writer.write_value(
-                    mapped_errval, k, LIMIT - qbpp - run_widths[run_index] - 2
-                )
+                limit = parameters.limit - parameters.qbpp - run_widths[run_index] - 2
+                context.write_error(scan_writer, parameters, errval, limit)
 
-            run_index = max(run_index - 1, 0)
-
-            if errval < 0:
-                state.Nn += 1
-            # FIXME: mapped_errval not set here unless interrupted
-            state.update((mapped_errval - ritype) >> 1)
+                run_index = max(run_index - 1, 0)
 
         # Regular mode
         else:
-            sign, state = states.get_regular_state(a, b, c, d)
-            predicted_sample = state.predict(a, b, c, MAXVAL)
+            sign, context = contexts.get_regular_context(a, b, c, d)
+            predicted_sample = context.predict(parameters, a, b, c)
             errval = sign * (samples[sample_index] - predicted_sample)
 
             # FIXME: Error quantization
 
             # Modulo reduction
             if errval < 0:
-                errval += RANGE
-            if errval >= (RANGE + 1) // 2:
-                errval -= RANGE
+                errval += parameters.range
+            if errval >= (parameters.range + 1) // 2:
+                errval -= parameters.range
 
-            k = state.get_golomb_size()
-            mapped_errval = state.map_error(errval, NEAR, k)
-            scan_writer.write_value(mapped_errval, k, LIMIT - qbpp - 1)
-            state.update(errval * (2 * NEAR + 1), abs(errval))
+            context.write_error(scan_writer, parameters, errval)
 
         sample_index += 1
     scan_writer.flush()
