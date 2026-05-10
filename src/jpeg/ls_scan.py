@@ -154,10 +154,10 @@ if __name__ == "__main__":
     LIMIT = 2 * (bpp + max(8, bpp))
     a_val = max(2, (RANGE + 2**5) // 2**6)
     A = [a_val] * 365
-    A_run = [a_val, a_val]
     B = [0] * 365
     C = [0] * 365
     N = [1] * 365
+    A_run = [a_val, a_val]
     N_run = [1] * 2
     Nn = [0, 0]
     run_index = 0
@@ -173,7 +173,7 @@ if __name__ == "__main__":
         d2 = b - c
         d3 = c - a
 
-        def Qi(Di):
+        def classify_difference(Di):
             if Di <= -T3:
                 return -4
             elif Di <= -T2:
@@ -193,9 +193,9 @@ if __name__ == "__main__":
             else:
                 return 4
 
-        Q1 = Qi(d1)
-        Q2 = Qi(d2)
-        Q3 = Qi(d3)
+        Q1 = classify_difference(d1)
+        Q2 = classify_difference(d2)
+        Q3 = classify_difference(d3)
         Q = (Q1, Q2, Q3)
 
         SIGN = 1
