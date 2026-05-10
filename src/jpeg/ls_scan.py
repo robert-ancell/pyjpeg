@@ -214,7 +214,7 @@ class RegularContext:
         self.A = a
         self.bias = 0
         self.correction = 0
-        self.N = 1
+        self.n_samples = 1
 
     def write_error(self, writer, parameters, errval):
         k = self.get_golomb_size()
@@ -224,25 +224,25 @@ class RegularContext:
 
         context.bias += errval * (2 * parameters.near + 1)
         context.A += abs(errval)
-        if context.N == parameters.reset:
+        if context.n_samples == parameters.reset:
             context.A >>= 1
             if context.bias >= 0:
                 context.bias >>= 1
             else:
                 context.bias = -((1 - context.bias) >> 1)
-            context.N >>= 1
-        context.N += 1
+            context.n_samples >>= 1
+        context.n_samples += 1
 
         MIN_CORRECTION = -128
         MAX_CORRECTION = 127
-        if self.bias <= -self.N:
-            self.bias += self.N
+        if self.bias <= -self.n_samples:
+            self.bias += self.n_samples
             if self.correction > MIN_CORRECTION:
                 self.correction -= 1
-            if self.bias < -self.N:
-                self.bias = -self.N + 1
+            if self.bias < -self.n_samples:
+                self.bias = -self.n_samples + 1
         elif self.bias > 0:
-            self.bias -= self.N
+            self.bias -= self.n_samples
             if self.correction < MAX_CORRECTION:
                 self.correction += 1
             if self.bias > 0:
@@ -265,12 +265,12 @@ class RegularContext:
 
     def get_golomb_size(self):
         k = 0
-        while self.N << k < self.A:
+        while self.n_samples << k < self.A:
             k += 1
         return k
 
     def map_error(self, parameters, errval, k):
-        if parameters.near == 0 and k == 0 and 2 * self.bias <= -self.N:
+        if parameters.near == 0 and k == 0 and 2 * self.bias <= -self.n_samples:
             if errval >= 0:
                 return 2 * errval + 1
             else:
@@ -286,8 +286,8 @@ class RunContext:
     def __init__(self, a, ritype):
         self.A = a
         self.ritype = ritype
-        self.N = 1
-        self.Nn = 0
+        self.n_samples = 1
+        self.n_negative_samples = 0
 
     def write_error(self, writer, parameters, errval, limit):
         k = self.get_golomb_size()
@@ -295,28 +295,28 @@ class RunContext:
         writer.write_value(mapped_errval, k, limit)
 
         if errval < 0:
-            self.Nn += 1
+            self.n_negative_samples += 1
         # FIXME: This seems wrong in the spec and doesn't match libjpeg
         self.A += (mapped_errval - self.ritype) >> 1
-        if self.N == parameters.reset:
+        if self.n_samples == parameters.reset:
             self.A >>= 1
-            self.N >>= 1
-            self.Nn >>= 1
-        self.N += 1
+            self.n_samples >>= 1
+            self.n_negative_samples >>= 1
+        self.n_samples += 1
 
     def get_golomb_size(self):
-        max_k = context.A
+        max_k = self.A
         if self.ritype == 1:
-            max_k += context.N >> 1
+            max_k += self.n_samples >> 1
         k = 0
-        while context.N << k < max_k:
+        while self.n_samples << k < max_k:
             k += 1
         return k
 
     def map_error(self, errval, k):
-        if k == 0 and errval > 0 and (2 * self.Nn) < self.N:
+        if k == 0 and errval > 0 and (2 * self.n_negative_samples) < self.n_samples:
             map = 1
-        elif errval < 0 and (2 * self.Nn) >= self.N:
+        elif errval < 0 and (2 * self.n_negative_samples) >= self.n_samples:
             map = 1
         elif errval < 0 and k != 0:
             map = 1
