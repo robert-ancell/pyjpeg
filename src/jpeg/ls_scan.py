@@ -163,7 +163,7 @@ class RegularState:
     def __init__(self, a_val):
         self.A = a_val
         self.B = 0
-        self.C = 0
+        self.correction = 0
         self.N = 1
 
 
@@ -319,9 +319,9 @@ if __name__ == "__main__":
 
             # Prediction correction
             if invert:
-                px -= state.C
+                px -= state.correction
             else:
-                px += state.C
+                px += state.correction
             if px > MAXVAL:
                 px = MAXVAL
             elif px < 0:
@@ -371,18 +371,18 @@ if __name__ == "__main__":
             state.N += 1
 
             # Bias computation
-            MIN_C = -128
-            MAX_C = 127
+            MIN_CORRECTION = -128
+            MAX_CORRECTION = 127
             if state.B <= -state.N:
                 state.B += state.N
-                if state.C > MIN_C:
-                    state.C -= 1
+                if state.correction > MIN_CORRECTION:
+                    state.correction -= 1
                 if state.B < -state.N:
                     state.B = -state.N + 1
             elif state.B > 0:
                 state.B -= state.N
-                if state.C < MAX_C:
-                    state.C += 1
+                if state.correction < MAX_CORRECTION:
+                    state.correction += 1
                 if state.B > 0:
                     state.B = 0
 
