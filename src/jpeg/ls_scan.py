@@ -162,7 +162,7 @@ def get_index(a, b, c, d, maxval=255, near=0):
 class RegularState:
     def __init__(self, a_val):
         self.A = a_val
-        self.B = 0
+        self.bias = 0
         self.correction = 0
         self.N = 1
 
@@ -346,7 +346,7 @@ if __name__ == "__main__":
                 k += 1
 
             # Error mapping
-            if NEAR == 0 and k == 0 and 2 * state.B <= -state.N:
+            if NEAR == 0 and k == 0 and 2 * state.bias <= -state.N:
                 if Errval >= 0:
                     MErrval = 2 * Errval + 1
                 else:
@@ -359,32 +359,32 @@ if __name__ == "__main__":
 
             scan_writer.write_value(MErrval, k, LIMIT - qbpp - 1)
 
-            state.B += Errval * (2 * NEAR + 1)
+            state.bias += Errval * (2 * NEAR + 1)
             state.A += abs(Errval)
             if state.N == RESET:
                 state.A >>= 1
-                if state.B >= 0:
-                    state.B >>= 1
+                if state.bias >= 0:
+                    state.bias >>= 1
                 else:
-                    state.B = -((1 - state.B) >> 1)
+                    state.bias = -((1 - state.bias) >> 1)
                 state.N >>= 1
             state.N += 1
 
             # Bias computation
             MIN_CORRECTION = -128
             MAX_CORRECTION = 127
-            if state.B <= -state.N:
-                state.B += state.N
+            if state.bias <= -state.N:
+                state.bias += state.N
                 if state.correction > MIN_CORRECTION:
                     state.correction -= 1
-                if state.B < -state.N:
-                    state.B = -state.N + 1
-            elif state.B > 0:
-                state.B -= state.N
+                if state.bias < -state.N:
+                    state.bias = -state.N + 1
+            elif state.bias > 0:
+                state.bias -= state.N
                 if state.correction < MAX_CORRECTION:
                     state.correction += 1
-                if state.B > 0:
-                    state.B = 0
+                if state.bias > 0:
+                    state.bias = 0
 
         sample_index += 1
     scan_writer.flush()
