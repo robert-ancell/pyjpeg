@@ -356,11 +356,10 @@ if __name__ == "__main__":
             # Edge detection
             if c >= max(a, b):
                 px = min(a, b)
+            elif c <= min(a, b):
+                px = max(a, b)
             else:
-                if c <= min(a, b):
-                    px = max(a, b)
-                else:
-                    px = a + b - c
+                px = a + b - c
 
             invert, state = states.get_regular_state(a, b, c, d)
 
