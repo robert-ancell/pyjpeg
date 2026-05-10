@@ -18,7 +18,6 @@ class Writer:
             if data == 0xFF:
                 self.write_bit(0)
 
-    # FIXME: Split limit into own function or part of scan
     def write_value(self, value: int, length: int, limit: int, qbpp: int = 8):
         # FIXME: Replace x with better name
         x = value >> length
@@ -69,10 +68,15 @@ class Reader:
         self.bit_count -= 1
         return bit
 
-    def read_value(self, length: int) -> int:
+    def read_value(self, length: int, limit: int, qbpp: int = 8) -> int:
         value = 0
         while self.read_bit() == 0:
             value += 1
+        if value > limit:
+            raise Exception("Value exceeds limit")
+        if value == limit:
+            value = 0
+            length = qbpp
         for _ in range(length):
             value = value << 1 | self.read_bit()
         return value
@@ -87,4 +91,4 @@ if __name__ == "__main__":
 
     buffer = jpeg.io.BufferedReader(b"\x0e")
     reader = Reader(buffer)
-    assert reader.read_value(2) == 19
+    assert reader.read_value(2, 12) == 19
