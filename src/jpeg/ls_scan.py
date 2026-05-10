@@ -206,9 +206,8 @@ if __name__ == "__main__":
     LIMIT = 2 * (bpp + max(8, bpp))
     a_val = max(2, (RANGE + 2**5) // 2**6)
     regular_states = [RegularState(a_val) for _ in range(365)]
-    A_run = [a_val, a_val]
-    N_run = [1] * 2
-    Nn = [0, 0]
+    run_state = RunState(a_val)
+    near_run_state = RunState(a_val)
     run_index = 0
     sample_index = 0
     while sample_index < len(samples):
@@ -234,9 +233,11 @@ if __name__ == "__main__":
             (a, b, c, d) = get_neighbours(samples, width, sample_index)
             if abs(a - b) <= NEAR:
                 ritype = 1
+                state = near_run_state
                 px = a
             else:
                 ritype = 0
+                state = run_state
                 px = b
             errval = samples[sample_index] - px
 
@@ -251,16 +252,16 @@ if __name__ == "__main__":
             errval = errval % RANGE
 
             # Golomb coding variable computation
-            max_k = A_run[ritype]
+            max_k = state.A
             if ritype == 1:
-                max_k += N_run[ritype] >> 1
+                max_k += state.N >> 1
             k = 0
-            while N_run[ritype] << k < max_k:
+            while state.N << k < max_k:
                 k += 1
 
-            if k == 0 and errval > 0 and (2 * Nn[ritype]) < N_run[ritype]:
+            if k == 0 and errval > 0 and (2 * state.Nn) < state.N:
                 map = 1
-            elif errval < 0 and (2 * Nn[ritype]) >= N_run[ritype]:
+            elif errval < 0 and (2 * state.Nn) >= state.N:
                 map = 1
             elif errval < 0 and k != 0:
                 map = 1
@@ -293,14 +294,14 @@ if __name__ == "__main__":
                 run_index -= 1
 
             if errval < 0:
-                Nn[ritype] += 1
+                state.Nn += 1
             # FIXME: This seems wrong in the spec and doesn't match libjpeg
-            A_run[ritype] += (EMErrval - ritype) >> 1
-            if N_run[ritype] == RESET:
-                A_run[ritype] >>= 1
-                N_run[ritype] >>= 1
-                Nn[ritype] >>= 1
-            N_run[ritype] += 1
+            state.A += (EMErrval - ritype) >> 1
+            if state.N == RESET:
+                state.A >>= 1
+                state.N >>= 1
+                state.Nn >>= 1
+            state.N += 1
 
         # Regular mode
         else:
