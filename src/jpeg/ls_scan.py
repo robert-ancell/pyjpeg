@@ -184,6 +184,18 @@ class RegularState:
         self.correction = 0
         self.N = 1
 
+    def map_error(self, errval, near, k):
+        if near == 0 and k == 0 and 2 * self.bias <= -self.N:
+            if errval >= 0:
+                return 2 * errval + 1
+            else:
+                return -2 * (errval + 1)
+        else:
+            if errval >= 0:
+                return 2 * errval
+            else:
+                return -2 * errval - 1
+
     def update_bias(self):
         MIN_CORRECTION = -128
         MAX_CORRECTION = 127
@@ -369,19 +381,9 @@ if __name__ == "__main__":
             while state.N << k < state.A:
                 k += 1
 
-            # Error mapping
-            if NEAR == 0 and k == 0 and 2 * state.bias <= -state.N:
-                if Errval >= 0:
-                    MErrval = 2 * Errval + 1
-                else:
-                    MErrval = -2 * (Errval + 1)
-            else:
-                if Errval >= 0:
-                    MErrval = 2 * Errval
-                else:
-                    MErrval = -2 * Errval - 1
-
-            scan_writer.write_value(MErrval, k, LIMIT - qbpp - 1)
+            scan_writer.write_value(
+                state.map_error(Errval, NEAR, k), k, LIMIT - qbpp - 1
+            )
 
             state.bias += Errval * (2 * NEAR + 1)
             state.A += abs(Errval)
