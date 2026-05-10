@@ -220,12 +220,9 @@ if __name__ == "__main__":
             (a, b, c, d) = get_neighbours(samples, width, sample_index)
             if abs(a - b) <= NEAR:
                 ritype = 1
-            else:
-                ritype = 0
-
-            if ritype == 1:
                 px = a
             else:
+                ritype = 0
                 px = b
             errval = samples[sample_index] - px
 
