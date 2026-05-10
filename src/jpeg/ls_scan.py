@@ -358,11 +358,9 @@ if __name__ == "__main__":
             # FIXME: Used below?
             sign = 1
             if abs(a - b) <= parameters.near:
-                ritype = 1
                 context = contexts.near_run_context
                 predicted_sample = a
             else:
-                ritype = 0
                 context = contexts.run_context
                 predicted_sample = b
                 if a > b:
