@@ -150,11 +150,11 @@ class States:
             q1 = -q1
             q2 = -q2
             q3 = -q3
-            invert = True
+            sign = -1
         else:
-            invert = False
+            sign = 1
 
-        return invert, self.regular_states[q1 * 81 + (q2 + 4) * 9 + (q3 + 4)]
+        return sign, self.regular_states[q1 * 81 + (q2 + 4) * 9 + (q3 + 4)]
 
     def _classify(self, d):
         if d <= -self.t3:
@@ -353,30 +353,23 @@ if __name__ == "__main__":
 
         # Regular mode
         else:
-            # Edge detection
+            sign, state = states.get_regular_state(a, b, c, d)
+
+            # Predict next value
             if c >= max(a, b):
                 px = min(a, b)
             elif c <= min(a, b):
                 px = max(a, b)
             else:
                 px = a + b - c
-
-            invert, state = states.get_regular_state(a, b, c, d)
-
-            # Prediction correction
-            if invert:
-                px -= state.correction
-            else:
-                px += state.correction
+            px += sign * state.correction
             if px > MAXVAL:
                 px = MAXVAL
             elif px < 0:
                 px = 0
 
             # Computation of prediction error
-            Errval = samples[sample_index] - px
-            if invert:
-                Errval = -Errval
+            Errval = sign * (samples[sample_index] - px)
 
             # FIXME: Error quantization
 
