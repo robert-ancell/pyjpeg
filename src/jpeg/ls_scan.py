@@ -58,14 +58,118 @@ class LSScanComponent:
 class LSScan(jpeg.segment.Segment):
     def __init__(self, width, samples, components):
         assert len(components) > 0
-
         self.width = width
         self.samples = samples
         self.components = components
 
     def write(self, writer: jpeg.io.Writer):
-        scan_writer = Writer(writer)
-        scan_writer.write_samples(self.width, self.samples)
+        scan_writer = jpeg.golomb_scan.Writer(writer)
+        parameters = CodingParameters()
+        contexts = Contexts(parameters)
+        run_index = 0
+        sample_index = 0
+        while sample_index < len(self.samples):
+            (a, b, c, d) = self._get_neighbours(sample_index)
+            if a == b == c == d:
+                sample_index, run_index = self._write_run(
+                    scan_writer, parameters, contexts, a, sample_index, run_index
+                )
+            else:
+                sample_index = self._write_regular(
+                    scan_writer,
+                    parameters,
+                    contexts,
+                    sample_index,
+                    a,
+                    b,
+                    c,
+                    d,
+                )
+        scan_writer.flush()
+
+    def _get_neighbours(self, index):
+        # Top row
+        if index < self.width:
+            a = self.samples[index - 1] if index > 0 else 0
+            return (a, 0, 0, 0)
+
+        # Left edge
+        x = index % self.width
+        if x == 0:
+            a = b = self.samples[index - self.width]
+            c = self.samples[index - self.width * 2] if index >= self.width * 2 else 0
+            d = self.samples[index - self.width + 1]
+            return (a, b, c, d)
+
+        a = self.samples[index - 1]
+        b = self.samples[index - self.width]
+        c = self.samples[index - self.width - 1]
+        d = self.samples[index - self.width + 1] if x < self.width - 1 else b
+        return (a, b, c, d)
+
+    def _write_run(
+        self, scan_writer, parameters, contexts, run_val, sample_index, run_index
+    ):
+        run_counter = 0
+        while abs(self.samples[sample_index] - run_val) <= parameters.near:
+            sample_index += 1
+            run_counter += 1
+
+            # If have a block of runs, then mark
+            if run_counter == 1 << run_widths[run_index]:
+                scan_writer.write_bit(1)
+                run_index = min(run_index + 1, 31)
+                run_counter = 0
+
+            # Stop when hit the next line
+            if sample_index % self.width == 0:
+                # Use current block regardless of size - reader will know this is the end of the line
+                if run_counter != 0:
+                    scan_writer.write_bit(1)
+                return (sample_index, run_index)
+        scan_writer.write_bit(0)
+
+        # Write remaining bits that didn't fit into run width
+        for i in reversed(range(run_widths[run_index])):
+            scan_writer.write_bit((run_counter >> i) & 0x1)
+        run_index = max(run_index - 1, 0)
+
+        (a, b, _, _) = self._get_neighbours(sample_index)
+        # FIXME: Used below?
+        sign = 1
+        if abs(a - b) <= parameters.near:
+            context = contexts.near_run_context
+            predicted_sample = a
+        else:
+            context = contexts.run_context
+            predicted_sample = b
+            if a > b:
+                sign = -1
+        errval = sign * (self.samples[sample_index] - predicted_sample)
+
+        if parameters.near > 0:
+            # FIXME
+            # errval = quantize(errval)
+            # rx = computerx()
+            pass
+        errval = parameters.modrange(errval)
+        # The spec seems to have the limit wrong
+        # FIXME: Is this the old run_index?
+        limit = parameters.limit - parameters.qbpp - run_widths[run_index] - 2
+        context.write_error(scan_writer, parameters, errval, limit)
+
+        return (sample_index + 1, run_index)
+
+    def _write_regular(
+        self, scan_writer, parameters, contexts, sample_index, a, b, c, d
+    ):
+        sign, context = contexts.get_regular_context(a, b, c, d)
+        predicted_sample = context.predict(parameters, sign, a, b, c)
+        errval = sign * (self.samples[sample_index] - predicted_sample)
+        # FIXME: Error quantization
+        errval = parameters.modrange(errval)
+        context.write_error(scan_writer, parameters, errval)
+        return sample_index + 1
 
     @classmethod
     def read(cls, reader: jpeg.io.Reader, width, number_of_samples, components):
@@ -89,27 +193,6 @@ class LSScan(jpeg.segment.Segment):
 
     def __repr__(self):
         return f"LSScan({self.width}, {self.samples}, {self.components})"
-
-
-def get_neighbours(samples, width, index):
-    # Top row
-    if index < width:
-        a = samples[index - 1] if index > 0 else 0
-        return (a, 0, 0, 0)
-
-    # Left edge
-    x = index % width
-    if x == 0:
-        a = b = samples[index - width]
-        c = samples[index - width * 2] if index >= width * 2 else 0
-        d = samples[index - width + 1]
-        return (a, b, c, d)
-
-    a = samples[index - 1]
-    b = samples[index - width]
-    c = samples[index - width - 1]
-    d = samples[index - width + 1] if x < width - 1 else b
-    return (a, b, c, d)
 
 
 def get_range(maxval, near):
@@ -326,88 +409,6 @@ class RunContext:
         else:
             map = 0
         return 2 * abs(errval) - self.ritype - map
-
-
-class Writer:
-    def __init__(self, writer):
-        self.scan_writer = jpeg.golomb_scan.Writer(writer)
-        self.parameters = CodingParameters()
-        self.contexts = Contexts(self.parameters)
-        self.run_index = 0
-        self.sample_index = 0
-
-    def write_samples(self, width, samples):
-        while self.sample_index < len(samples):
-            (a, b, c, d) = get_neighbours(samples, width, self.sample_index)
-            if a == b == c == d:
-                self.write_run(width, samples, a)
-            else:
-                self.write_regular(samples[self.sample_index], a, b, c, d)
-            self.sample_index += 1
-        self.scan_writer.flush()
-
-    def write_run(self, width, samples, run_val):
-        run_counter = 0
-        while abs(samples[self.sample_index] - run_val) <= self.parameters.near:
-            self.sample_index += 1
-            run_counter += 1
-
-            # If have a block of runs, then mark
-            if run_counter == 1 << run_widths[self.run_index]:
-                self.scan_writer.write_bit(1)
-                self.run_index = min(self.run_index + 1, 31)
-                run_counter = 0
-
-            # Stop when hit the next line
-            if self.sample_index % width == 0:
-                # Use current block regardless of size - reader will know this is the end of the line
-                if run_counter != 0:
-                    self.scan_writer.write_bit(1)
-                return
-        self.scan_writer.write_bit(0)
-
-        # Write remaining bits that didn't fit into run width
-        for i in reversed(range(run_widths[self.run_index])):
-            self.scan_writer.write_bit((run_counter >> i) & 0x1)
-        self.run_index = max(self.run_index - 1, 0)
-
-        (a, b, _, _) = get_neighbours(samples, width, self.sample_index)
-        # FIXME: Used below?
-        sign = 1
-        if abs(a - b) <= self.parameters.near:
-            context = self.contexts.near_run_context
-            predicted_sample = a
-        else:
-            context = self.contexts.run_context
-            predicted_sample = b
-            if a > b:
-                errval = -errval
-                sign = -1
-        errval = sign * (samples[self.sample_index] - predicted_sample)
-
-        if self.parameters.near > 0:
-            # FIXME
-            # errval = quantize(errval)
-            # rx = computerx()
-            pass
-        errval = self.parameters.modrange(errval)
-        # The spec seems to have the limit wrong
-        # FIXME: Is this the old run_index?
-        limit = (
-            self.parameters.limit
-            - self.parameters.qbpp
-            - run_widths[self.run_index]
-            - 2
-        )
-        context.write_error(self.scan_writer, self.parameters, errval, limit)
-
-    def write_regular(self, sample, a, b, c, d):
-        sign, context = self.contexts.get_regular_context(a, b, c, d)
-        predicted_sample = context.predict(self.parameters, sign, a, b, c)
-        errval = sign * (sample - predicted_sample)
-        # FIXME: Error quantization
-        errval = self.parameters.modrange(errval)
-        context.write_error(self.scan_writer, self.parameters, errval)
 
 
 if __name__ == "__main__":
