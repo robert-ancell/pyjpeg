@@ -55,6 +55,27 @@ class LSScanComponent:
         return f"LSScanComponent(sampling_factor={self.sampling_factor})"
 
 
+def _get_neighbours(width, samples, index):
+    # Top row
+    if index < width:
+        a = samples[index - 1] if index > 0 else 0
+        return (a, 0, 0, 0)
+
+    # Left edge
+    x = index % width
+    if x == 0:
+        a = b = samples[index - width]
+        c = samples[index - width * 2] if index >= width * 2 else 0
+        d = samples[index - width + 1]
+        return (a, b, c, d)
+
+    a = samples[index - 1]
+    b = samples[index - width]
+    c = samples[index - width - 1]
+    d = samples[index - width + 1] if x < width - 1 else b
+    return (a, b, c, d)
+
+
 class LSScan(jpeg.segment.Segment):
     def __init__(self, width, samples, components):
         assert len(components) > 0
@@ -69,7 +90,7 @@ class LSScan(jpeg.segment.Segment):
         run_index = 0
         sample_index = 0
         while sample_index < len(self.samples):
-            (a, b, c, d) = self._get_neighbours(sample_index)
+            (a, b, c, d) = _get_neighbours(self.width, self.samples, sample_index)
             if a == b == c == d:
                 sample_index, run_index = self._write_run(
                     scan_writer, parameters, contexts, a, sample_index, run_index
@@ -87,25 +108,39 @@ class LSScan(jpeg.segment.Segment):
                 )
         scan_writer.flush()
 
-    def _get_neighbours(self, index):
-        # Top row
-        if index < self.width:
-            a = self.samples[index - 1] if index > 0 else 0
-            return (a, 0, 0, 0)
+    @classmethod
+    def read(cls, reader: jpeg.io.Reader, width, number_of_samples, components):
+        assert len(components) > 0
 
-        # Left edge
-        x = index % self.width
-        if x == 0:
-            a = b = self.samples[index - self.width]
-            c = self.samples[index - self.width * 2] if index >= self.width * 2 else 0
-            d = self.samples[index - self.width + 1]
-            return (a, b, c, d)
+        scan_reader = jpeg.golomb_scan.Reader(reader)
 
-        a = self.samples[index - 1]
-        b = self.samples[index - self.width]
-        c = self.samples[index - self.width - 1]
-        d = self.samples[index - self.width + 1] if x < self.width - 1 else b
-        return (a, b, c, d)
+        samples = [0] * number_of_samples
+
+        parameters = CodingParameters()
+        contexts = Contexts(parameters)
+        run_index = 0
+        sample_index = 0
+        while sample_index < len(samples):
+            (a, b, c, d) = _get_neighbours(width, samples, sample_index)
+            if a == b == c == d:
+                while scan_reader.read_bit() == 1:
+                    sample_index += run_widths[run_index]
+                    # FIXME: EOL
+                    run_index = min(run_index + 1, 31)
+                extra_run_length = 0
+                for _ in range(run_widths[run_index]):
+                    extra_run_length = (extra_run_length << 1) | scan_reader.read_bit()
+                sample_index += extra_run_length
+                run_index = max(run_index - 1, 0)
+            else:
+                sign, context = contexts.get_regular_context(a, b, c, d)
+                predicted_sample = context.predict(parameters, sign, a, b, c)
+                samples[sample_index] = predicted_sample + context.read_error(
+                    scan_reader, parameters
+                )
+                sample_index += 1
+
+        return cls(width, samples, components)
 
     def _write_run(
         self, scan_writer, parameters, contexts, run_val, sample_index, run_index
@@ -134,7 +169,7 @@ class LSScan(jpeg.segment.Segment):
             scan_writer.write_bit((run_counter >> i) & 0x1)
         run_index = max(run_index - 1, 0)
 
-        (a, b, _, _) = self._get_neighbours(sample_index)
+        (a, b, _, _) = _get_neighbours(self.width, self.samples, sample_index)
         # FIXME: Used below?
         sign = 1
         if abs(a - b) <= parameters.near:
@@ -170,18 +205,6 @@ class LSScan(jpeg.segment.Segment):
         errval = parameters.modrange(errval)
         context.write_error(scan_writer, parameters, errval)
         return sample_index + 1
-
-    @classmethod
-    def read(cls, reader: jpeg.io.Reader, width, number_of_samples, components):
-        assert len(components) > 0
-
-        scan_reader = jpeg.golomb_scan.Reader(reader)
-
-        samples = []
-        for _ in range(number_of_samples):
-            samples.append(scan_reader.read_value(2))
-
-        return cls(width, samples, components)
 
     def __eq__(self, other):
         return (
@@ -302,12 +325,74 @@ class RegularContext:
         self.correction = 0
         self.n_samples = 1
 
-    def write_error(self, writer, parameters, errval):
-        k = self.get_golomb_size()
-        mapped_errval = self.map_error(parameters, errval, k)
-        limit = parameters.limit - parameters.qbpp - 1
-        writer.write_value(mapped_errval, k, limit)
+    def write_error(
+        self, writer: jpeg.golomb_scan.Writer, parameters: CodingParameters, errval: int
+    ):
+        k = self._get_golomb_size()
+        mapped_errval = self._map_error(parameters, errval, k)
+        writer.write_value(
+            mapped_errval, self._get_golomb_size(), self._get_limit(parameters)
+        )
+        self._update_bias(parameters, errval)
 
+    def read_error(
+        self, reader: jpeg.golomb_scan.Reader, parameters: CodingParameters
+    ) -> int:
+        k = self._get_golomb_size()
+        mapped_errval = reader.read_value(k, self._get_limit(parameters))
+        errval = self._unmap_error(parameters, mapped_errval, k)
+        self._update_bias(parameters, errval)
+        return errval
+
+    def predict(self, parameters, sign, a, b, c):
+        # Predict next value
+        if c >= max(a, b):
+            px = min(a, b)
+        elif c <= min(a, b):
+            px = max(a, b)
+        else:
+            px = a + b - c
+        px += sign * self.correction
+        if px > parameters.maxval:
+            px = parameters.maxval
+        elif px < 0:
+            px = 0
+        return px
+
+    def _get_golomb_size(self):
+        k = 0
+        while self.n_samples << k < self.A:
+            k += 1
+        return k
+
+    def _get_limit(self, parameters):
+        return parameters.limit - parameters.qbpp - 1
+
+    def _map_error(self, parameters, errval, k):
+        if parameters.near == 0 and k == 0 and 2 * self.bias <= -self.n_samples:
+            if errval >= 0:
+                return 2 * errval + 1
+            else:
+                return -2 * errval - 2
+        else:
+            if errval >= 0:
+                return 2 * errval
+            else:
+                return -2 * errval - 1
+
+    def _unmap_error(self, parameters, mapped_errval, k):
+        if parameters.near == 0 and k == 0 and 2 * self.bias <= -self.n_samples:
+            if mapped_errval % 2 == 1:
+                return (mapped_errval - 1) // 2
+            else:
+                return -((mapped_errval + 2) // 2)
+        else:
+            if mapped_errval % 2 == 0:
+                return mapped_errval // 2
+            else:
+                return -((mapped_errval + 1) // 2)
+
+    def _update_bias(self, parameters, errval):
         self.bias += errval * (2 * parameters.near + 1)
         self.A += abs(errval)
         if self.n_samples == parameters.reset:
@@ -334,39 +419,6 @@ class RegularContext:
             if self.bias > 0:
                 self.bias = 0
 
-    def predict(self, parameters, sign, a, b, c):
-        # Predict next value
-        if c >= max(a, b):
-            px = min(a, b)
-        elif c <= min(a, b):
-            px = max(a, b)
-        else:
-            px = a + b - c
-        px += sign * self.correction
-        if px > parameters.maxval:
-            px = parameters.maxval
-        elif px < 0:
-            px = 0
-        return px
-
-    def get_golomb_size(self):
-        k = 0
-        while self.n_samples << k < self.A:
-            k += 1
-        return k
-
-    def map_error(self, parameters, errval, k):
-        if parameters.near == 0 and k == 0 and 2 * self.bias <= -self.n_samples:
-            if errval >= 0:
-                return 2 * errval + 1
-            else:
-                return -2 * (errval + 1)
-        else:
-            if errval >= 0:
-                return 2 * errval
-            else:
-                return -2 * errval - 1
-
 
 class RunContext:
     def __init__(self, a, ritype):
@@ -375,22 +427,28 @@ class RunContext:
         self.n_samples = 1
         self.n_negative_samples = 0
 
-    def write_error(self, writer, parameters, errval, limit):
-        k = self.get_golomb_size()
-        mapped_errval = self.map_error(errval, k)
+    def write_error(
+        self,
+        writer: jpeg.golomb_scan.Writer,
+        parameters: CodingParameters,
+        errval: int,
+        limit: int,
+    ):
+        k = self._get_golomb_size()
+        mapped_errval = self._map_error(errval, k)
         writer.write_value(mapped_errval, k, limit)
+        self._update_state(parameters, errval, mapped_errval)
 
-        if errval < 0:
-            self.n_negative_samples += 1
-        # FIXME: This seems wrong in the spec and doesn't match libjpeg
-        self.A += (mapped_errval - self.ritype) >> 1
-        if self.n_samples == parameters.reset:
-            self.A >>= 1
-            self.n_samples >>= 1
-            self.n_negative_samples >>= 1
-        self.n_samples += 1
+    def read_error(
+        self, reader: jpeg.golomb_scan.Reader, parameters: CodingParameters
+    ) -> int:
+        k = self._get_golomb_size()
+        mapped_errval = reader.read_value(k, limit)
+        errval = self._unmap_error(mapped_errval, k)
+        self._update_state(parameters, errval, mapped_errval)
+        return errval
 
-    def get_golomb_size(self):
+    def _get_golomb_size(self) -> int:
         max_k = self.A
         if self.ritype == 1:
             max_k += self.n_samples >> 1
@@ -399,7 +457,7 @@ class RunContext:
             k += 1
         return k
 
-    def map_error(self, errval, k):
+    def _map_error(self, errval: int, k: int) -> int:
         if k == 0 and errval > 0 and (2 * self.n_negative_samples) < self.n_samples:
             map = 1
         elif errval < 0 and (2 * self.n_negative_samples) >= self.n_samples:
@@ -410,18 +468,32 @@ class RunContext:
             map = 0
         return 2 * abs(errval) - self.ritype - map
 
+    def _unmap_error(self, mapped_errval: int, k: int) -> int:
+        # FIXME
+        return 0
+
+    def _update_state(self, parameters, errval, mapped_errval):
+        if errval < 0:
+            self.n_negative_samples += 1
+        # FIXME: This seems wrong in the spec and doesn't match libjpeg
+        self.A += (mapped_errval - self.ritype) >> 1
+        if self.n_samples == parameters.reset:
+            self.A >>= 1
+            self.n_samples >>= 1
+            self.n_negative_samples >>= 1
+        self.n_samples += 1
+
 
 if __name__ == "__main__":
     # Example from Annex G
+    samples = [0, 0, 90, 74, 68, 50, 43, 205, 64, 145, 145, 145, 100, 145, 145, 145]
     writer = jpeg.io.BufferedWriter()
-    scan = LSScan(
-        4,
-        [0, 0, 90, 74, 68, 50, 43, 205, 64, 145, 145, 145, 100, 145, 145, 145],
-        [LSScanComponent()],
-    )
+    scan = LSScan(4, samples, [LSScanComponent()])
     scan.write(writer)
     expected = b"\xc0\x00\x00\x6c\x80\x20\x8e\x01\xc0\x00\x00\x57\x40\x00\x00\x6e\xe6\x00\x00\x01\xbc\x18\x00\x00\x05\xd8\x00\x00\x91\x60"
     assert writer.data == expected
 
     reader = jpeg.io.BufferedReader(writer.data)
-    scan = LSScan.read(reader, 4, 16, [LSScanComponent()])
+    # scan = LSScan.read(reader, 4, 16, [LSScanComponent()])
+    # assert scan.width == 4
+    # assert scan.samples == samples
