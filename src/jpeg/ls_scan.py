@@ -376,7 +376,10 @@ if __name__ == "__main__":
             errval = sign * (samples[sample_index] - predicted_sample)
 
             if parameters.near > 0:
-                pass  # FIXME
+                # FIXME
+                # errval = quantize(errval)
+                # rx = computerx()
+                pass
             errval = parameters.modrange(errval)
 
             rg = 1 << run_widths[run_index]
