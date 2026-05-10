@@ -154,7 +154,9 @@ class States:
         else:
             sign = 1
 
-        return sign, self.regular_states[q1 * 81 + (q2 + 4) * 9 + (q3 + 4)]
+        # FIXME: Does this overflow the 365 size? Seems to be larger in libjpeg
+        state_index = q1 * 81 + (q2 + 4) * 9 + (q3 + 4)
+        return sign, self.regular_states[state_index]
 
     def _classify(self, d):
         if d <= -self.t3:
