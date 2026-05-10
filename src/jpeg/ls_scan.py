@@ -352,57 +352,59 @@ if __name__ == "__main__":
         # Run mode
         if a == b == c == d:
             run_val = a
-            run_count = 0
+            run_counter = 0
             run_end = False
             while abs(samples[sample_index] - run_val) <= parameters.near:
-                run_count += 1
-                if sample_index % width == width - 1:
+                sample_index += 1
+                run_counter += 1
+
+                # If have a block of runs, then mark
+                if run_counter == 1 << run_widths[run_index]:
+                    scan_writer.write_bit(1)
+                    run_index = min(run_index + 1, 31)
+                    run_counter = 0
+
+                # Stop when hit the next line
+                if sample_index % width == 0:
+                    # Use current block regardless of size - reader will know this is the end of the line
+                    if run_counter != 0:
+                        scan_writer.write_bit(1)
                     run_end = True
                     break
-                sample_index += 1
 
-            rg = 1 << run_widths[run_index]
-            while run_count >= rg:
-                scan_writer.write_bit(1)
-                run_count -= rg
-                run_index = min(run_index + 1, 31)
-                rg = 1 << run_widths[run_index]
             if run_end:
-                if run_count > 0:
-                    # Next segment will pass end of line, but this will be detected
-                    scan_writer.write_bit(1)
+                continue
+            scan_writer.write_bit(0)
+
+            # Write remaining bits that didn't fit into run width
+            for i in reversed(range(run_widths[run_index])):
+                scan_writer.write_bit((run_counter >> i) & 0x1)
+
+            (a, b, _, _) = get_neighbours(samples, width, sample_index)
+            # FIXME: Used below?
+            sign = 1
+            if abs(a - b) <= parameters.near:
+                context = contexts.near_run_context
+                predicted_sample = a
             else:
-                scan_writer.write_bit(0)
+                context = contexts.run_context
+                predicted_sample = b
+                if a > b:
+                    errval = -errval
+                    sign = -1
+            errval = sign * (samples[sample_index] - predicted_sample)
 
-                # Write remaining bits that didn't fit into run width
-                for i in reversed(range(run_widths[run_index])):
-                    scan_writer.write_bit((run_count >> i) & 0x1)
+            if parameters.near > 0:
+                # FIXME
+                # errval = quantize(errval)
+                # rx = computerx()
+                pass
+            errval = parameters.modrange(errval)
+            # The spec seems to have the limit wrong
+            limit = parameters.limit - parameters.qbpp - run_widths[run_index] - 2
+            context.write_error(scan_writer, parameters, errval, limit)
 
-                (a, b, _, _) = get_neighbours(samples, width, sample_index)
-                # FIXME: Used below?
-                sign = 1
-                if abs(a - b) <= parameters.near:
-                    context = contexts.near_run_context
-                    predicted_sample = a
-                else:
-                    context = contexts.run_context
-                    predicted_sample = b
-                    if a > b:
-                        errval = -errval
-                        sign = -1
-                errval = sign * (samples[sample_index] - predicted_sample)
-
-                if parameters.near > 0:
-                    # FIXME
-                    # errval = quantize(errval)
-                    # rx = computerx()
-                    pass
-                errval = parameters.modrange(errval)
-                # The spec seems to have the limit wrong
-                limit = parameters.limit - parameters.qbpp - run_widths[run_index] - 2
-                context.write_error(scan_writer, parameters, errval, limit)
-
-                run_index = max(run_index - 1, 0)
+            run_index = max(run_index - 1, 0)
 
         # Regular mode
         else:
