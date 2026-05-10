@@ -274,6 +274,15 @@ class RunState:
         # FIXME: ritype in constructor
         return 2 * abs(errval) - ritype - map
 
+    def update(self, a_change):
+        # FIXME: This seems wrong in the spec and doesn't match libjpeg
+        state.A += a_change
+        if state.N == RESET:
+            state.A >>= 1
+            state.N >>= 1
+            state.Nn >>= 1
+        state.N += 1
+
 
 if __name__ == "__main__":
     import math
@@ -323,22 +332,21 @@ if __name__ == "__main__":
                 sample_index += 1
 
             (a, b, c, d) = get_neighbours(samples, width, sample_index)
+            # FIXME: Used below?
+            sign = 1
             if abs(a - b) <= NEAR:
                 ritype = 1
                 state = states.near_run_state
-                px = a
+                predicted_sample = a
             else:
                 ritype = 0
                 state = states.run_state
-                px = b
-            errval = samples[sample_index] - px
+                predicted_sample = b
+                if a > b:
+                    errval = -errval
+                    sign = -1
+            errval = sign * (samples[sample_index] - predicted_sample)
 
-            if ritype == 0 and a > b:
-                errval = -errval
-                # FIXME: Used below?
-                SIGN = -1
-            else:
-                SIGN = 1
             if NEAR > 0:
                 pass  # FIXME
             errval = errval % RANGE
@@ -369,19 +377,14 @@ if __name__ == "__main__":
 
             if errval < 0:
                 state.Nn += 1
-            # FIXME: This seems wrong in the spec and doesn't match libjpeg
-            state.A += (mapped_errval - ritype) >> 1
-            if state.N == RESET:
-                state.A >>= 1
-                state.N >>= 1
-                state.Nn >>= 1
-            state.N += 1
+            # FIXME: mapped_errval not set here unless interrupted
+            state.update((mapped_errval - ritype) >> 1)
 
         # Regular mode
         else:
             sign, state = states.get_regular_state(a, b, c, d)
-            px = state.predict(a, b, c, MAXVAL)
-            errval = sign * (samples[sample_index] - px)
+            predicted_sample = state.predict(a, b, c, MAXVAL)
+            errval = sign * (samples[sample_index] - predicted_sample)
 
             # FIXME: Error quantization
 
