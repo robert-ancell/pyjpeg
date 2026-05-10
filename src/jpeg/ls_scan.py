@@ -117,9 +117,9 @@ class States:
     def __init__(self, maxval=255, near=0):
         self.near = near
         a = max(2, (get_range(maxval, near) + 2**5) // 2**6)
-        self.regular_states = [RegularState(a) for _ in range(365)]
-        self.run_state = RunState(a)
-        self.near_run_state = RunState(a)
+        self.regular_contexts = [RegularContext(a) for _ in range(365)]
+        self.run_context = RunState(a)
+        self.near_run_context = RunState(a)
         BASIC_T1 = 3
         BASIC_T2 = 7
         BASIC_T3 = 21
@@ -156,7 +156,7 @@ class States:
 
         # FIXME: Does this overflow the 365 size? Seems to be larger in libjpeg
         state_index = q1 * 81 + (q2 + 4) * 9 + (q3 + 4)
-        return sign, self.regular_states[state_index]
+        return sign, self.regular_contexts[state_index]
 
     def _classify(self, d):
         if d <= -self.t3:
@@ -179,7 +179,7 @@ class States:
             return 4
 
 
-class RegularState:
+class RegularContext:
     def __init__(self, a):
         self.A = a
         self.bias = 0
@@ -336,11 +336,11 @@ if __name__ == "__main__":
             sign = 1
             if abs(a - b) <= NEAR:
                 ritype = 1
-                state = states.near_run_state
+                state = states.near_run_context
                 predicted_sample = a
             else:
                 ritype = 0
-                state = states.run_state
+                state = states.run_context
                 predicted_sample = b
                 if a > b:
                     errval = -errval
@@ -363,9 +363,12 @@ if __name__ == "__main__":
                     scan_writer.write_bit(1)
             else:
                 scan_writer.write_bit(0)
+
+                # Write remaining bits that didn't fit into run width
                 for i in reversed(range(run_widths[run_index])):
                     scan_writer.write_bit((run_count >> i) & 0x1)
 
+                # Write next error
                 k = state.get_golomb_size(ritype)
                 mapped_errval = state.map_error(errval, ritype, k)
                 # The spec seems to have the limit wrong
