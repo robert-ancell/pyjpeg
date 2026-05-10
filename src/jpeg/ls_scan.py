@@ -222,16 +222,16 @@ class RegularContext:
         limit = parameters.limit - parameters.qbpp - 1
         writer.write_value(mapped_errval, k, limit)
 
-        context.bias += errval * (2 * parameters.near + 1)
-        context.A += abs(errval)
-        if context.n_samples == parameters.reset:
-            context.A >>= 1
-            if context.bias >= 0:
-                context.bias >>= 1
+        self.bias += errval * (2 * parameters.near + 1)
+        self.A += abs(errval)
+        if self.n_samples == parameters.reset:
+            self.A >>= 1
+            if self.bias >= 0:
+                self.bias >>= 1
             else:
-                context.bias = -((1 - context.bias) >> 1)
-            context.n_samples >>= 1
-        context.n_samples += 1
+                self.bias = -((1 - self.bias) >> 1)
+            self.n_samples >>= 1
+        self.n_samples += 1
 
         MIN_CORRECTION = -128
         MAX_CORRECTION = 127
