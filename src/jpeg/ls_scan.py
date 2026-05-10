@@ -156,9 +156,7 @@ if __name__ == "__main__":
     B = [0] * 365
     C = [0] * 365
     N = [1] * 367
-    Nn = [1] * 367  # FIXME: Only the last two of these used??
-    Nn[365] = 0
-    Nn[366] = 0
+    Nn = [0, 0]
     run_index = 0
     sample_index = 0
     k = 2  # FIXME
@@ -240,21 +238,19 @@ if __name__ == "__main__":
                 pass  # FIXME
             errval = errval % RANGE
 
-            if ritype == 0:
-                TEMP = A[365]
-            else:
-                TEMP = A[366] + (N[366] >> 1)
-
             Qindex = ritype + 365
 
             # Golomb coding variable computation
+            max_k = A[Qindex]
+            if ritype == 1:
+                max_k += N[Qindex] >> 1
             k = 0
-            while N[Qindex] << k < TEMP:
+            while N[Qindex] << k < max_k:
                 k += 1
 
-            if k == 0 and errval > 0 and (2 * Nn[Qindex]) < N[Qindex]:
+            if k == 0 and errval > 0 and (2 * Nn[ritype]) < N[Qindex]:
                 map = 1
-            elif errval < 0 and (2 * Nn[Qindex]) >= N[Qindex]:
+            elif errval < 0 and (2 * Nn[ritype]) >= N[Qindex]:
                 map = 1
             elif errval < 0 and k != 0:
                 map = 1
@@ -287,13 +283,13 @@ if __name__ == "__main__":
                 run_index -= 1
 
             if errval < 0:
-                Nn[Qindex] += 1
+                Nn[ritype] += 1
             # FIXME: This seems wrong in the spec and doesn't match libjpeg
             A[Qindex] += (EMErrval - ritype) >> 1
             if N[Qindex] == RESET:
                 A[Qindex] >>= 1
                 N[Qindex] >>= 1
-                Nn[Qindex] >>= 1
+                Nn[ritype] >>= 1
             N[Qindex] += 1
 
         else:
