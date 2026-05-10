@@ -184,6 +184,22 @@ class RegularState:
         self.correction = 0
         self.N = 1
 
+    def update_bias(self):
+        MIN_CORRECTION = -128
+        MAX_CORRECTION = 127
+        if self.bias <= -self.N:
+            self.bias += self.N
+            if self.correction > MIN_CORRECTION:
+                self.correction -= 1
+            if self.bias < -self.N:
+                self.bias = -self.N + 1
+        elif self.bias > 0:
+            self.bias -= self.N
+            if self.correction < MAX_CORRECTION:
+                self.correction += 1
+            if self.bias > 0:
+                self.bias = 0
+
 
 class RunState:
     def __init__(self, a):
@@ -378,21 +394,7 @@ if __name__ == "__main__":
                 state.N >>= 1
             state.N += 1
 
-            # Bias computation
-            MIN_CORRECTION = -128
-            MAX_CORRECTION = 127
-            if state.bias <= -state.N:
-                state.bias += state.N
-                if state.correction > MIN_CORRECTION:
-                    state.correction -= 1
-                if state.bias < -state.N:
-                    state.bias = -state.N + 1
-            elif state.bias > 0:
-                state.bias -= state.N
-                if state.correction < MAX_CORRECTION:
-                    state.correction += 1
-                if state.bias > 0:
-                    state.bias = 0
+            state.update_bias()
 
         sample_index += 1
     scan_writer.flush()
