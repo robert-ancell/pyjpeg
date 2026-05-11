@@ -519,6 +519,7 @@ class RunContext:
 if __name__ == "__main__":
     # Example from Annex G
     samples = [0, 0, 90, 74, 68, 50, 43, 205, 64, 145, 145, 145, 100, 145, 145, 145]
+
     writer = jpeg.io.BufferedWriter()
     scan = LSScan(4, samples, [LSScanComponent()])
     scan.write(writer)
