@@ -149,8 +149,7 @@ class LSScan(jpeg.segment.Segment):
                     if a > b:
                         sign = -1
 
-                limit = parameters.limit - parameters.qbpp - run_widths[run_index] - 2
-                errval = context.read_error(scan_reader, parameters, limit)
+                errval = context.read_error(scan_reader, parameters, run_index)
                 samples[sample_index] = sign * (predicted_sample + errval)
                 sample_index += 1
             else:
@@ -207,10 +206,8 @@ class LSScan(jpeg.segment.Segment):
             # rx = computerx()
             pass
         errval = parameters.modrange(errval)
-        # The spec seems to have the limit wrong
         # FIXME: Is this the old run_index?
-        limit = parameters.limit - parameters.qbpp - run_widths[run_index] - 2
-        context.write_error(scan_writer, parameters, errval, limit)
+        context.write_error(scan_writer, parameters, errval, run_index)
 
         return (sample_index + 1, run_index)
 
@@ -451,18 +448,21 @@ class RunContext:
         writer: jpeg.golomb_scan.Writer,
         parameters: CodingParameters,
         errval: int,
-        limit: int,
+        run_index: int,
     ):
         k = self._get_golomb_size()
         mapped_errval = self._map_error(errval, k)
-        writer.write_value(mapped_errval, k, limit)
+        writer.write_value(mapped_errval, k, self._get_limit(parameters, run_index))
         self._update_state(parameters, errval, mapped_errval)
 
     def read_error(
-        self, reader: jpeg.golomb_scan.Reader, parameters: CodingParameters, limit: int
+        self,
+        reader: jpeg.golomb_scan.Reader,
+        parameters: CodingParameters,
+        run_index: int,
     ) -> int:
         k = self._get_golomb_size()
-        mapped_errval = reader.read_value(k, limit)
+        mapped_errval = reader.read_value(k, self._get_limit(parameters, run_index))
         errval = self._unmap_error(mapped_errval, k)
         self._update_state(parameters, errval, mapped_errval)
         return errval
@@ -475,6 +475,10 @@ class RunContext:
         while self.n_samples << k < max_k:
             k += 1
         return k
+
+    def _get_limit(self, parameters: CodingParameters, run_index: int) -> int:
+        # The spec seems to have the limit wrong
+        return parameters.limit - parameters.qbpp - run_widths[run_index] - 2
 
     def _map_error(self, errval: int, k: int) -> int:
         if k == 0 and errval > 0 and (2 * self.n_negative_samples) < self.n_samples:
