@@ -84,169 +84,14 @@ class LSScan(jpeg.segment.Segment):
         self.components = components
 
     def write(self, writer: jpeg.io.Writer):
-        class Writer:
-            def __init__(self, writer, width, samples):
-                self.writer = jpeg.golomb_scan.Writer(writer)
-                self.parameters = CodingParameters()
-                self.contexts = Contexts(self.parameters)
-                self.width = width
-                self.samples = samples
-                self.sample_index = 0
-                self.run_index = 0
-
-            def write(self):
-                while self.sample_index < len(self.samples):
-                    self.write_sample()
-                self.writer.flush()
-
-            def write_sample(self):
-                (a, b, c, d) = _get_neighbours(
-                    self.width, self.samples, self.sample_index
-                )
-                if a == b == c == d:
-                    self.write_run(a)
-                else:
-                    self.write_regular(a, b, c, d)
-                self.sample_index += 1
-
-            def write_run(self, sample):
-                run_counter = 0
-                while (
-                    abs(self.samples[self.sample_index] - sample)
-                    <= self.parameters.near
-                ):
-                    self.sample_index += 1
-                    run_counter += 1
-
-                    # If have a block of runs, then mark
-                    if run_counter == 1 << run_widths[self.run_index]:
-                        self.writer.write_bit(1)
-                        self.run_index = min(self.run_index + 1, 31)
-                        run_counter = 0
-
-                    # Stop when hit the next line
-                    if self.sample_index % self.width == 0:
-                        # Use current block regardless of size - reader will know this is the end of the line
-                        if run_counter != 0:
-                            self.writer.write_bit(1)
-                        return (self.sample_index, self.run_index)
-                self.writer.write_bit(0)
-
-                # Write remaining bits that didn't fit into run width
-                for i in reversed(range(run_widths[self.run_index])):
-                    self.writer.write_bit((run_counter >> i) & 0x1)
-                self.run_index = max(self.run_index - 1, 0)
-
-                (a, b, _, _) = _get_neighbours(
-                    self.width, self.samples, self.sample_index
-                )
-                sign = 1
-                if abs(a - b) <= self.parameters.near:
-                    context = self.contexts.near_run_context
-                    predicted_sample = a
-                else:
-                    context = self.contexts.run_context
-                    predicted_sample = b
-                    if a > b:
-                        sign = -1
-                errval = sign * (self.samples[self.sample_index] - predicted_sample)
-
-                if self.parameters.near > 0:
-                    # FIXME
-                    # errval = quantize(errval)
-                    # rx = computerx()
-                    pass
-                errval = self.parameters.modrange(errval)
-                # FIXME: Is this the old run_index?
-                context.write_error(
-                    self.writer, self.parameters, errval, self.run_index
-                )
-
-            def write_regular(self, a, b, c, d):
-                sign, context = self.contexts.get_regular_context(a, b, c, d)
-                predicted_sample = context.predict(self.parameters, sign, a, b, c)
-                errval = sign * (self.samples[self.sample_index] - predicted_sample)
-                # FIXME: Error quantization
-                errval = self.parameters.modrange(errval)
-                context.write_error(self.writer, self.parameters, errval)
-
         scan_writer = Writer(writer, self.width, self.samples)
         scan_writer.write()
 
     @classmethod
     def read(cls, reader: jpeg.io.Reader, width, number_of_samples, components):
         assert len(components) > 0
-
-        class Reader:
-            def __init__(self, reader, width, number_of_samples):
-                self.reader = jpeg.golomb_scan.Reader(reader)
-                self.parameters = CodingParameters()
-                self.contexts = Contexts(self.parameters)
-                self.width = width
-                self.samples = [0] * number_of_samples
-                self.sample_index = 0
-                self.run_index = 0
-
-            def read_samples(self):
-                while self.sample_index < len(self.samples):
-                    self.read_sample()
-
-            def read_sample(self):
-                (a, b, c, d) = _get_neighbours(
-                    self.width, self.samples, self.sample_index
-                )
-                if a == b == c == d:
-                    run_value = a
-                    while self.reader.read_bit() == 1:
-                        for _ in range(1 << run_widths[self.run_index]):
-                            self.samples[self.sample_index] = run_value
-                            self.sample_index += 1
-                            # End of line
-                            if self.sample_index % self.width == 0:
-                                return
-                        self.run_index = min(self.run_index + 1, 31)
-                    extra_run_length = 0
-                    for _ in range(run_widths[self.run_index]):
-                        extra_run_length = (
-                            extra_run_length << 1
-                        ) | self.reader.read_bit()
-                    for _ in range(extra_run_length):
-                        self.samples[self.sample_index] = run_value
-                        self.sample_index += 1
-                    self.run_index = max(self.run_index - 1, 0)
-
-                    (a, b, _, _) = _get_neighbours(
-                        self.width, self.samples, self.sample_index
-                    )
-                    sign = 1
-                    if abs(a - b) <= self.parameters.near:
-                        context = self.contexts.near_run_context
-                        predicted_sample = a
-                    else:
-                        context = self.contexts.run_context
-                        predicted_sample = b
-                        if a > b:
-                            sign = -1
-
-                    errval = sign * context.read_error(
-                        self.reader, self.parameters, self.run_index
-                    )
-                    self.samples[self.sample_index] = self.parameters.apply_diff(
-                        predicted_sample, errval
-                    )
-                    self.sample_index += 1
-                else:
-                    sign, context = self.contexts.get_regular_context(a, b, c, d)
-                    predicted_sample = context.predict(self.parameters, sign, a, b, c)
-                    errval = sign * context.read_error(self.reader, self.parameters)
-                    self.samples[self.sample_index] = self.parameters.apply_diff(
-                        predicted_sample, errval
-                    )
-                    self.sample_index += 1
-
         scan_reader = Reader(reader, width, number_of_samples)
         samples = scan_reader.read_samples()
-
         return cls(width, samples, components)
 
     def __eq__(self, other):
@@ -263,6 +108,146 @@ class LSScan(jpeg.segment.Segment):
 
 def get_range(maxval, near):
     return ((maxval + 2 * near) // (2 * near + 1)) + 1
+
+
+class Writer:
+    def __init__(self, writer, width, samples):
+        self.writer = jpeg.golomb_scan.Writer(writer)
+        self.parameters = CodingParameters()
+        self.contexts = Contexts(self.parameters)
+        self.width = width
+        self.samples = samples
+        self.sample_index = 0
+        self.run_index = 0
+
+    def write(self):
+        while self.sample_index < len(self.samples):
+            self.write_sample()
+        self.writer.flush()
+
+    def write_sample(self):
+        (a, b, c, d) = _get_neighbours(self.width, self.samples, self.sample_index)
+        if a == b == c == d:
+            self.write_run(a)
+        else:
+            self.write_regular(a, b, c, d)
+        self.sample_index += 1
+
+    def write_run(self, sample):
+        run_counter = 0
+        while abs(self.samples[self.sample_index] - sample) <= self.parameters.near:
+            self.sample_index += 1
+            run_counter += 1
+
+            # If have a block of runs, then mark
+            if run_counter == 1 << run_widths[self.run_index]:
+                self.writer.write_bit(1)
+                self.run_index = min(self.run_index + 1, 31)
+                run_counter = 0
+
+            # Stop when hit the next line
+            if self.sample_index % self.width == 0:
+                # Use current block regardless of size - reader will know this is the end of the line
+                if run_counter != 0:
+                    self.writer.write_bit(1)
+                return (self.sample_index, self.run_index)
+        self.writer.write_bit(0)
+
+        # Write remaining bits that didn't fit into run width
+        for i in reversed(range(run_widths[self.run_index])):
+            self.writer.write_bit((run_counter >> i) & 0x1)
+        self.run_index = max(self.run_index - 1, 0)
+
+        (a, b, _, _) = _get_neighbours(self.width, self.samples, self.sample_index)
+        sign = 1
+        if abs(a - b) <= self.parameters.near:
+            context = self.contexts.near_run_context
+            predicted_sample = a
+        else:
+            context = self.contexts.run_context
+            predicted_sample = b
+            if a > b:
+                sign = -1
+        errval = sign * (self.samples[self.sample_index] - predicted_sample)
+
+        if self.parameters.near > 0:
+            # FIXME
+            # errval = quantize(errval)
+            # rx = computerx()
+            pass
+        errval = self.parameters.modrange(errval)
+        # FIXME: Is this the old run_index?
+        context.write_error(self.writer, self.parameters, errval, self.run_index)
+
+    def write_regular(self, a, b, c, d):
+        sign, context = self.contexts.get_regular_context(a, b, c, d)
+        predicted_sample = context.predict(self.parameters, sign, a, b, c)
+        errval = sign * (self.samples[self.sample_index] - predicted_sample)
+        # FIXME: Error quantization
+        errval = self.parameters.modrange(errval)
+        context.write_error(self.writer, self.parameters, errval)
+
+
+class Reader:
+    def __init__(self, reader, width, number_of_samples):
+        self.reader = jpeg.golomb_scan.Reader(reader)
+        self.parameters = CodingParameters()
+        self.contexts = Contexts(self.parameters)
+        self.width = width
+        self.samples = [0] * number_of_samples
+        self.sample_index = 0
+        self.run_index = 0
+
+    def read_samples(self):
+        while self.sample_index < len(self.samples):
+            self.read_sample()
+
+    def read_sample(self):
+        (a, b, c, d) = _get_neighbours(self.width, self.samples, self.sample_index)
+        if a == b == c == d:
+            run_value = a
+            while self.reader.read_bit() == 1:
+                for _ in range(1 << run_widths[self.run_index]):
+                    self.samples[self.sample_index] = run_value
+                    self.sample_index += 1
+                    # End of line
+                    if self.sample_index % self.width == 0:
+                        return
+                self.run_index = min(self.run_index + 1, 31)
+            extra_run_length = 0
+            for _ in range(run_widths[self.run_index]):
+                extra_run_length = (extra_run_length << 1) | self.reader.read_bit()
+            for _ in range(extra_run_length):
+                self.samples[self.sample_index] = run_value
+                self.sample_index += 1
+            self.run_index = max(self.run_index - 1, 0)
+
+            (a, b, _, _) = _get_neighbours(self.width, self.samples, self.sample_index)
+            sign = 1
+            if abs(a - b) <= self.parameters.near:
+                context = self.contexts.near_run_context
+                predicted_sample = a
+            else:
+                context = self.contexts.run_context
+                predicted_sample = b
+                if a > b:
+                    sign = -1
+
+            errval = sign * context.read_error(
+                self.reader, self.parameters, self.run_index
+            )
+            self.samples[self.sample_index] = self.parameters.apply_diff(
+                predicted_sample, errval
+            )
+            self.sample_index += 1
+        else:
+            sign, context = self.contexts.get_regular_context(a, b, c, d)
+            predicted_sample = context.predict(self.parameters, sign, a, b, c)
+            errval = sign * context.read_error(self.reader, self.parameters)
+            self.samples[self.sample_index] = self.parameters.apply_diff(
+                predicted_sample, errval
+            )
+            self.sample_index += 1
 
 
 class Contexts:
