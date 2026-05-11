@@ -123,21 +123,41 @@ class LSScan(jpeg.segment.Segment):
         while sample_index < len(samples):
             (a, b, c, d) = _get_neighbours(width, samples, sample_index)
             if a == b == c == d:
+                run_value = a
                 while scan_reader.read_bit() == 1:
-                    sample_index += run_widths[run_index]
+                    for _ in range(1 << run_widths[run_index]):
+                        samples[sample_index] = run_value
+                        sample_index += 1
                     # FIXME: EOL
                     run_index = min(run_index + 1, 31)
                 extra_run_length = 0
                 for _ in range(run_widths[run_index]):
                     extra_run_length = (extra_run_length << 1) | scan_reader.read_bit()
-                sample_index += extra_run_length
+                for _ in range(extra_run_length):
+                    samples[sample_index] = run_value
+                    sample_index += 1
                 run_index = max(run_index - 1, 0)
+
+                (a, b, _, _) = _get_neighbours(width, samples, sample_index)
+                sign = 1
+                if abs(a - b) <= parameters.near:
+                    context = contexts.near_run_context
+                    predicted_sample = a
+                else:
+                    context = contexts.run_context
+                    predicted_sample = b
+                    if a > b:
+                        sign = -1
+
+                limit = parameters.limit - parameters.qbpp - run_widths[run_index] - 2
+                errval = context.read_error(scan_reader, parameters, limit)
+                samples[sample_index] = sign * (predicted_sample + errval)
+                sample_index += 1
             else:
                 sign, context = contexts.get_regular_context(a, b, c, d)
                 predicted_sample = context.predict(parameters, sign, a, b, c)
-                samples[sample_index] = predicted_sample + context.read_error(
-                    scan_reader, parameters
-                )
+                errval = context.read_error(scan_reader, parameters)
+                samples[sample_index] = predicted_sample + sign * errval
                 sample_index += 1
 
         return cls(width, samples, components)
@@ -170,7 +190,6 @@ class LSScan(jpeg.segment.Segment):
         run_index = max(run_index - 1, 0)
 
         (a, b, _, _) = _get_neighbours(self.width, self.samples, sample_index)
-        # FIXME: Used below?
         sign = 1
         if abs(a - b) <= parameters.near:
             context = contexts.near_run_context
@@ -440,7 +459,7 @@ class RunContext:
         self._update_state(parameters, errval, mapped_errval)
 
     def read_error(
-        self, reader: jpeg.golomb_scan.Reader, parameters: CodingParameters
+        self, reader: jpeg.golomb_scan.Reader, parameters: CodingParameters, limit: int
     ) -> int:
         k = self._get_golomb_size()
         mapped_errval = reader.read_value(k, limit)
@@ -469,8 +488,25 @@ class RunContext:
         return 2 * abs(errval) - self.ritype - map
 
     def _unmap_error(self, mapped_errval: int, k: int) -> int:
-        # FIXME
-        return 0
+        abs_errval = (mapped_errval + self.ritype + 1) // 2
+        map = (mapped_errval + self.ritype + 1) % 2
+
+        if k == 0 and (2 * self.n_negative_samples) < self.n_samples:
+            assert map == 0
+            return abs_errval
+        elif (2 * self.n_negative_samples) >= self.n_samples and map == 1:
+            if map == 1:
+                return -abs_errval
+            else:
+                return abs_errval
+        elif k != 0:
+            if map == 1:
+                return -abs_errval
+            else:
+                return abs_errval
+        else:
+            assert map == 0
+            return abs_errval
 
     def _update_state(self, parameters, errval, mapped_errval):
         if errval < 0:
@@ -494,6 +530,6 @@ if __name__ == "__main__":
     assert writer.data == expected
 
     reader = jpeg.io.BufferedReader(writer.data)
-    # scan = LSScan.read(reader, 4, 16, [LSScanComponent()])
+    scan = LSScan.read(reader, 4, 16, [LSScanComponent()])
     # assert scan.width == 4
     # assert scan.samples == samples
