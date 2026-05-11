@@ -5,40 +5,9 @@ import jpeg.io
 import jpeg.segment
 
 # Bit widths of runs of the same value.
-run_widths = [
-    0,
-    0,
-    0,
-    0,
-    1,
-    1,
-    1,
-    1,
-    2,
-    2,
-    2,
-    2,
-    3,
-    3,
-    3,
-    3,
-    4,
-    4,
-    5,
-    5,
-    6,
-    6,
-    7,
-    7,
-    8,
-    9,
-    10,
-    11,
-    12,
-    13,
-    14,
-    15,
-]
+# fmt: off
+run_widths = [0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+# fmt: on
 
 
 class LSScanComponent:
@@ -277,7 +246,15 @@ class Contexts:
 
 
 class CodingParameters:
-    def __init__(self, near=0, maxval=255, t1=0, t2=0, t3=0, reset=64):
+    def __init__(
+        self,
+        near: int = 0,
+        maxval: int = 255,
+        t1: int = 0,
+        t2: int = 0,
+        t3: int = 0,
+        reset: int = 64,
+    ):
         self.near = 0
         self.maxval = maxval
         self.t1 = t1
@@ -318,7 +295,7 @@ class CodingParameters:
         bpp = max(2, math.ceil(math.log2(maxval + 1)))
         self.limit = 2 * (bpp + max(8, bpp))
 
-    def classify(self, d):
+    def classify(self, d: int) -> int:
         if d <= -self.t3:
             return -4
         elif d <= -self.t2:
@@ -338,14 +315,14 @@ class CodingParameters:
         else:
             return 4
 
-    def modrange(self, errval):
+    def modrange(self, errval: int) -> int:
         if errval < 0:
             errval += self.range
         if errval >= (self.range + 1) // 2:
             errval -= self.range
         return errval
 
-    def apply_diff(self, predicated_sample, errval):
+    def apply_diff(self, predicated_sample: int, errval: int) -> int:
         sample = predicated_sample + errval
         if sample < 0:
             sample += self.range
@@ -378,7 +355,7 @@ class RegularContext:
         self._update_bias(parameters, errval)
         return errval
 
-    def predict(self, parameters, sign, a, b, c):
+    def predict(self, parameters, sign: int, a: int, b: int, c: int) -> int:
         # Predict next value
         if c >= max(a, b):
             px = min(a, b)
@@ -393,13 +370,13 @@ class RegularContext:
             px = 0
         return px
 
-    def _get_golomb_size(self):
+    def _get_golomb_size(self) -> int:
         k = 0
         while self.n_samples << k < self.A:
             k += 1
         return k
 
-    def _get_limit(self, parameters):
+    def _get_limit(self, parameters) -> int:
         return parameters.limit - parameters.qbpp - 1
 
     def _map_error(self, parameters, errval, k):
@@ -455,7 +432,7 @@ class RegularContext:
 
 
 class RunContext:
-    def __init__(self, a, ritype):
+    def __init__(self, a: int, ritype: int):
         self.A = a
         self.ritype = ritype
         self.n_samples = 1
