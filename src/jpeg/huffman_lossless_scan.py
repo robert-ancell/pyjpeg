@@ -19,6 +19,7 @@ class HuffmanLosslessScanComponent:
 
 class HuffmanLosslessScan(jpeg.segment.Segment):
     def __init__(self, data_units, components):
+        # FIXME: Replace with samples and use predictor
         self.data_units = data_units
         self.components = components
 

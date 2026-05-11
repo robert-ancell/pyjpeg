@@ -20,6 +20,7 @@ class ArithmeticLosslessScanComponent:
 class ArithmeticLosslessScan(jpeg.segment.Segment):
     def __init__(self, samples_per_line: int, data_units, components):
         self.samples_per_line = samples_per_line
+        # FIXME: Replace with samples and use predictor
         self.data_units = data_units
         self.components = components
 
