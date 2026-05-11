@@ -58,14 +58,15 @@ class ArithmeticLosslessScan(jpeg.segment.Segment):
         number_of_data_units: int,
         components,
     ):
-        component_data_units = [[] for _ in range(len(components))]
+        data_units = []
         reader = Reader(reader)
+        data_units = [0] * number_of_data_units
         for i in range(number_of_data_units):
             # FIXME: Handle scaling factor
             component_index = i % len(components)
-            data_units = component_data_units[component_index]
-            x = len(data_units) % samples_per_line
-            y = len(data_units) // samples_per_line
+            data_unit_index = i // len(components)
+            x = data_unit_index % samples_per_line
+            y = data_unit_index // samples_per_line
 
             left_data_unit = data_units[y * samples_per_line + x - 1] if x > 0 else 0
             above_data_unit = (
@@ -77,7 +78,7 @@ class ArithmeticLosslessScan(jpeg.segment.Segment):
                 above_data_unit=above_data_unit,
                 conditioning_bounds=components[component_index].conditioning_bounds,
             )
-            data_units.append(data_unit)
+            data_units[i] = data_unit
 
         return cls(samples_per_line, data_units, components)
 
@@ -93,7 +94,6 @@ class ArithmeticLosslessScan(jpeg.segment.Segment):
         return f"ArithmeticLosslessScan({self.samples_per_line}, {self.data_units}, {self.components})"
 
 
-# FIXME: Merge into above class
 class Writer:
     def __init__(self, writer):
         self.writer = jpeg.arithmetic_scan.Writer(writer)
@@ -143,7 +143,6 @@ class Writer:
         self.writer.flush()
 
 
-# FIXME: Merge into above class
 class Reader:
     def __init__(self, reader):
         self.reader = jpeg.arithmetic_scan.Reader(reader)
