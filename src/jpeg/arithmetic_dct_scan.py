@@ -123,7 +123,6 @@ class ArithmeticDCTScan(jpeg.segment.Segment):
         return f"ArithmeticDCTScan({self.data_units}, {self.components}, spectral_selection={self.spectral_selection}, point_transform={self.point_transform})"
 
 
-# FIXME: Merge into above class
 class Writer:
     def __init__(
         self,
@@ -214,7 +213,6 @@ class Writer:
         self.writer.flush()
 
 
-# FIXME: Merge into above class
 class Reader:
     def __init__(
         self,
