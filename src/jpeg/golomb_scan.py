@@ -75,10 +75,12 @@ class Reader:
         if value > limit:
             raise Exception("Value exceeds limit")
         if value == limit:
-            value = 0
-            length = qbpp
+            v = 0
+            for _ in range(qbpp):
+                v = (v << 1) | self.read_bit()
+            return v + 1
         for _ in range(length):
-            value = value << 1 | self.read_bit()
+            value = (value << 1) | self.read_bit()
         return value
 
 
@@ -88,7 +90,14 @@ if __name__ == "__main__":
     writer.write_value(19, 2, 12)
     writer.flush()
     assert buffer.data == b"\x0e"
-
     buffer = jpeg.io.BufferedReader(b"\x0e")
     reader = Reader(buffer)
     assert reader.read_value(2, 12) == 19
+
+    buffer = jpeg.io.BufferedWriter()
+    writer = Writer(buffer)
+    writer.write_value(179, 2, 12)
+    writer.flush()
+    buffer = jpeg.io.BufferedReader(buffer.data)
+    reader = Reader(buffer)
+    assert reader.read_value(2, 12) == 179
