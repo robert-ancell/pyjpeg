@@ -24,27 +24,6 @@ class LSScanComponent:
         return f"LSScanComponent(sampling_factor={self.sampling_factor})"
 
 
-def _get_neighbours(width, samples, index):
-    # Top row
-    if index < width:
-        a = samples[index - 1] if index > 0 else 0
-        return (a, 0, 0, 0)
-
-    # Left edge
-    x = index % width
-    if x == 0:
-        a = b = samples[index - width]
-        c = samples[index - width * 2] if index >= width * 2 else 0
-        d = samples[index - width + 1]
-        return (a, b, c, d)
-
-    a = samples[index - 1]
-    b = samples[index - width]
-    c = samples[index - width - 1]
-    d = samples[index - width + 1] if x < width - 1 else b
-    return (a, b, c, d)
-
-
 class LSScan(jpeg.segment.Segment):
     def __init__(self, width, samples, components):
         assert len(components) > 0
@@ -73,6 +52,27 @@ class LSScan(jpeg.segment.Segment):
 
     def __repr__(self):
         return f"LSScan({self.width}, {self.samples}, {self.components})"
+
+
+def _get_neighbours(width, samples, index):
+    # Top row
+    if index < width:
+        a = samples[index - 1] if index > 0 else 0
+        return (a, 0, 0, 0)
+
+    # Left edge
+    x = index % width
+    if x == 0:
+        a = b = samples[index - width]
+        c = samples[index - width * 2] if index >= width * 2 else 0
+        d = samples[index - width + 1]
+        return (a, b, c, d)
+
+    a = samples[index - 1]
+    b = samples[index - width]
+    c = samples[index - width - 1]
+    d = samples[index - width + 1] if x < width - 1 else b
+    return (a, b, c, d)
 
 
 class Writer:
