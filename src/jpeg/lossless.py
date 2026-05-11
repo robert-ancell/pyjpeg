@@ -1,53 +1,99 @@
-def encode(width, samples, precision=8, predictor=1):
-    data_units = []
-    height = len(samples) // width
-    for y in range(height):
-        for x in range(width):
-            p = _predict_sample(
-                width, samples, x, y, precision=precision, predictor=predictor
-            )
-            diff = samples[y * width + x] - p
-            if diff > 32768:
-                diff -= 65536
-            if diff < -32767:
-                diff += 65536
-            data_units.append(diff)
-    return data_units
+def get_diff(
+    samples_per_line,
+    samples,
+    x,
+    y,
+    component=0,
+    number_of_components=1,
+    precision=8,
+    predictor=1,
+):
+    predicted_sample = _predict_sample(
+        samples_per_line,
+        samples,
+        x,
+        y,
+        component=component,
+        number_of_components=number_of_components,
+        precision=precision,
+        predictor=predictor,
+    )
+    line_size = samples_per_line * number_of_components
+    diff = (
+        samples[y * line_size + x * number_of_components + component] - predicted_sample
+    )
+    if diff > 32768:
+        diff -= 65536
+    if diff < -32767:
+        diff += 65536
+    return diff
 
 
-def decode(width, data_units, precision=8, predictor=1):
-    samples = []
-    height = len(data_units) // width
-    for y in range(height):
-        for x in range(width):
-            p = _predict_sample(
-                width, samples, x, y, precision=precision, predictor=predictor
-            )
-            diff = data_units[y * width + x]
-            s = p + diff
-            if s > 32767:
-                s -= 65536
-            if s < -32768:
-                s += 65536
-            samples.append(s)
-    return samples
+def get_sample(
+    samples_per_line,
+    samples,
+    x,
+    y,
+    diff,
+    component=0,
+    number_of_components=1,
+    precision=8,
+    predictor=1,
+):
+    predicted_sample = _predict_sample(
+        samples_per_line,
+        samples,
+        x,
+        y,
+        component=component,
+        number_of_components=number_of_components,
+        precision=precision,
+        predictor=predictor,
+    )
+    sample = predicted_sample + diff
+    range = 1 << precision
+    if sample > range:
+        sample -= range
+    if sample < 0:
+        sample += range
+    return sample
 
 
-def _predict_sample(samples_per_line, samples, x, y, precision=8, predictor=1):
-    a = samples[y * samples_per_line + (x - 1)] if x > 0 else 0
+def _predict_sample(
+    samples_per_line,
+    samples,
+    x,
+    y,
+    component=0,
+    number_of_components=1,
+    precision=8,
+    predictor=1,
+):
+    line_size = samples_per_line * number_of_components
+    a = (
+        samples[y * line_size + (x - 1) * number_of_components + component]
+        if x > 0
+        else 0
+    )
 
     if y == 0:
         if x == 0 and y == 0:
             return 1 << (precision - 1)
         else:
-            return samples[y * samples_per_line + x - 1]
+            return samples[y * line_size + (x - 1) * number_of_components + component]
     else:
         if x == 0:
-            return samples[y * samples_per_line + x - samples_per_line]
+            return samples[
+                y * line_size + (x - line_size) * number_of_components + component
+            ]
         else:
-            a = samples[y * samples_per_line + x - 1]
-            b = samples[y * samples_per_line + x - samples_per_line]
-            c = samples[y * samples_per_line + x - samples_per_line - 1]
+            a = samples[y * line_size + (x - 1) * number_of_components + component]
+            b = samples[
+                y * line_size + (x - line_size) * number_of_components + component
+            ]
+            c = samples[
+                y * line_size + (x - line_size - 1) * number_of_components + component
+            ]
             return _predict(predictor, a, b, c)
 
 
@@ -68,13 +114,3 @@ def _predict(predictor, a, b, c):
         return (a + b) // 2
     else:
         raise Exception("Unknown predictor")
-
-
-if __name__ == "__main__":
-    import random
-
-    for predictor in [1, 2, 3, 4, 5, 6, 7]:
-        samples = [random.randint(0, 255) for _ in range(64)]
-        data_units = encode(8, samples, predictor=predictor)
-        samples2 = decode(8, data_units, predictor=predictor)
-        assert samples == samples2

@@ -220,8 +220,15 @@ def _parse_huffman_lossless_scan(
         )
     # FIXME: Handle scaling factor, restart interval
     assert sof.number_of_lines > 0
-    number_of_data_units = sof.number_of_lines * sof.samples_per_line * len(components)
-    return jpeg.HuffmanLosslessScan.read(reader, number_of_data_units, components)
+    number_of_samples = sof.number_of_lines * sof.samples_per_line * len(components)
+    return jpeg.HuffmanLosslessScan.read(
+        reader,
+        sof.samples_per_line,
+        number_of_samples,
+        components,
+        precision=sof.precision,
+        predictor=sos.spectral_selection[0],
+    )
 
 
 def _parse_arithmetic_lossless_scan(
@@ -238,9 +245,14 @@ def _parse_arithmetic_lossless_scan(
         )
     # FIXME: Handle scaling factor
     assert sof.number_of_lines > 0
-    number_of_data_units = sof.number_of_lines * sof.samples_per_line * len(components)
+    number_of_samples = sof.number_of_lines * sof.samples_per_line * len(components)
     return jpeg.ArithmeticLosslessScan.read(
-        reader, sof.samples_per_line, number_of_data_units, components
+        reader,
+        sof.samples_per_line,
+        number_of_samples,
+        components,
+        precision=sof.precision,
+        predictor=sos.spectral_selection[0],
     )
 
 

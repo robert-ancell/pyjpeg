@@ -199,15 +199,13 @@ for segment in stream.segments:
         segment, jpeg.ArithmeticDCTScan
     ):
         for data_unit in segment.data_units:
-            print(" DCT Data Unit:")
             print_data_unit(data_unit)
     elif isinstance(segment, jpeg.HuffmanLosslessScan) or isinstance(
         segment, jpeg.ArithmeticLosslessScan
     ):
-        print(" Lossless Data Units:")
-        s = ""
-        for data_unit in segment.data_units:
-            s += " %d" % data_unit
+        s = " Samples:"
+        for sample in segment.samples:
+            s += " %d" % sample
         print(s)
     elif isinstance(segment, jpeg.LSScan):
         print(" JPEG-LS Data Units:")
