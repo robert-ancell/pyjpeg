@@ -84,29 +84,94 @@ class LSScan(jpeg.segment.Segment):
         self.components = components
 
     def write(self, writer: jpeg.io.Writer):
-        scan_writer = jpeg.golomb_scan.Writer(writer)
-        parameters = CodingParameters()
-        contexts = Contexts(parameters)
-        run_index = 0
-        sample_index = 0
-        while sample_index < len(self.samples):
-            (a, b, c, d) = _get_neighbours(self.width, self.samples, sample_index)
-            if a == b == c == d:
-                sample_index, run_index = self._write_run(
-                    scan_writer, parameters, contexts, a, sample_index, run_index
+        class Writer:
+            def __init__(self, writer, width, samples):
+                self.writer = jpeg.golomb_scan.Writer(writer)
+                self.parameters = CodingParameters()
+                self.contexts = Contexts(self.parameters)
+                self.width = width
+                self.samples = samples
+                self.sample_index = 0
+                self.run_index = 0
+
+            def write(self):
+                while self.sample_index < len(self.samples):
+                    self.write_sample()
+                self.writer.flush()
+
+            def write_sample(self):
+                (a, b, c, d) = _get_neighbours(
+                    self.width, self.samples, self.sample_index
                 )
-            else:
-                sample_index = self._write_regular(
-                    scan_writer,
-                    parameters,
-                    contexts,
-                    sample_index,
-                    a,
-                    b,
-                    c,
-                    d,
+                if a == b == c == d:
+                    self.write_run(a)
+                else:
+                    self.write_regular(a, b, c, d)
+                self.sample_index += 1
+
+            def write_run(self, sample):
+                run_counter = 0
+                while (
+                    abs(self.samples[self.sample_index] - sample)
+                    <= self.parameters.near
+                ):
+                    self.sample_index += 1
+                    run_counter += 1
+
+                    # If have a block of runs, then mark
+                    if run_counter == 1 << run_widths[self.run_index]:
+                        self.writer.write_bit(1)
+                        self.run_index = min(self.run_index + 1, 31)
+                        run_counter = 0
+
+                    # Stop when hit the next line
+                    if self.sample_index % self.width == 0:
+                        # Use current block regardless of size - reader will know this is the end of the line
+                        if run_counter != 0:
+                            self.writer.write_bit(1)
+                        return (self.sample_index, self.run_index)
+                self.writer.write_bit(0)
+
+                # Write remaining bits that didn't fit into run width
+                for i in reversed(range(run_widths[self.run_index])):
+                    self.writer.write_bit((run_counter >> i) & 0x1)
+                self.run_index = max(self.run_index - 1, 0)
+
+                (a, b, _, _) = _get_neighbours(
+                    self.width, self.samples, self.sample_index
                 )
-        scan_writer.flush()
+                sign = 1
+                if abs(a - b) <= self.parameters.near:
+                    context = self.contexts.near_run_context
+                    predicted_sample = a
+                else:
+                    context = self.contexts.run_context
+                    predicted_sample = b
+                    if a > b:
+                        sign = -1
+                errval = sign * (self.samples[self.sample_index] - predicted_sample)
+
+                if self.parameters.near > 0:
+                    # FIXME
+                    # errval = quantize(errval)
+                    # rx = computerx()
+                    pass
+                errval = self.parameters.modrange(errval)
+                # FIXME: Is this the old run_index?
+                context.write_error(
+                    self.writer, self.parameters, errval, self.run_index
+                )
+
+            def write_regular(self, a, b, c, d):
+                sign, context = self.contexts.get_regular_context(a, b, c, d)
+                predicted_sample = context.predict(self.parameters, sign, a, b, c)
+                errval = sign * (self.samples[self.sample_index] - predicted_sample)
+                # FIXME: Error quantization
+                errval = self.parameters.modrange(errval)
+                context.write_error(self.writer, self.parameters, errval)
+
+        scan_writer = Writer(writer, self.width, self.samples)
+        scan_writer.write()
 
     @classmethod
     def read(cls, reader: jpeg.io.Reader, width, number_of_samples, components):
@@ -183,109 +248,6 @@ class LSScan(jpeg.segment.Segment):
         samples = scan_reader.read_samples()
 
         return cls(width, samples, components)
-
-    def _write_run(
-        self, scan_writer, parameters, contexts, run_val, sample_index, run_index
-    ):
-        run_counter = 0
-        while abs(self.samples[sample_index] - run_val) <= parameters.near:
-            sample_index += 1
-            run_counter += 1
-
-            # If have a block of runs, then mark
-            if run_counter == 1 << run_widths[run_index]:
-                scan_writer.write_bit(1)
-                run_index = min(run_index + 1, 31)
-                run_counter = 0
-
-            # Stop when hit the next line
-            if sample_index % self.width == 0:
-                # Use current block regardless of size - reader will know this is the end of the line
-                if run_counter != 0:
-                    scan_writer.write_bit(1)
-                return (sample_index, run_index)
-        scan_writer.write_bit(0)
-
-        # Write remaining bits that didn't fit into run width
-        for i in reversed(range(run_widths[run_index])):
-            scan_writer.write_bit((run_counter >> i) & 0x1)
-        run_index = max(run_index - 1, 0)
-
-        (a, b, _, _) = _get_neighbours(self.width, self.samples, sample_index)
-        sign = 1
-        if abs(a - b) <= parameters.near:
-            context = contexts.near_run_context
-            predicted_sample = a
-        else:
-            context = contexts.run_context
-            predicted_sample = b
-            if a > b:
-                sign = -1
-        errval = sign * (self.samples[sample_index] - predicted_sample)
-
-        if parameters.near > 0:
-            # FIXME
-            # errval = quantize(errval)
-            # rx = computerx()
-            pass
-        errval = parameters.modrange(errval)
-        # FIXME: Is this the old run_index?
-        context.write_error(scan_writer, parameters, errval, run_index)
-
-        return (sample_index + 1, run_index)
-
-    def _write_regular(
-        self, scan_writer, parameters, contexts, sample_index, a, b, c, d
-    ):
-        sign, context = contexts.get_regular_context(a, b, c, d)
-        predicted_sample = context.predict(parameters, sign, a, b, c)
-        errval = sign * (self.samples[sample_index] - predicted_sample)
-        # FIXME: Error quantization
-        errval = parameters.modrange(errval)
-        context.write_error(scan_writer, parameters, errval)
-        return sample_index + 1
-
-    def _read_run(
-        self,
-        scan_reader,
-        parameters,
-        width,
-        samples,
-        run_value,
-        sample_index,
-        run_index,
-    ):
-        while scan_reader.read_bit() == 1:
-            for _ in range(1 << run_widths[run_index]):
-                samples[sample_index] = run_value
-                sample_index += 1
-                if sample_index % width == 0:
-                    return (sample_index, run_index)
-            run_index = min(run_index + 1, 31)
-        extra_run_length = 0
-        for _ in range(run_widths[run_index]):
-            extra_run_length = (extra_run_length << 1) | scan_reader.read_bit()
-        for _ in range(extra_run_length):
-            samples[sample_index] = run_value
-            sample_index += 1
-        run_index = max(run_index - 1, 0)
-
-        (a, b, _, _) = _get_neighbours(width, samples, sample_index)
-        sign = 1
-        if abs(a - b) <= parameters.near:
-            context = contexts.near_run_context
-            predicted_sample = a
-        else:
-            context = contexts.run_context
-            predicted_sample = b
-            if a > b:
-                sign = -1
-
-        errval = sign * context.read_error(scan_reader, parameters, run_index)
-        samples[sample_index] = parameters.apply_diff(predicted_sample, errval)
-        sample_index += 1
-
-        return (sample_index, run_index)
 
     def __eq__(self, other):
         return (
