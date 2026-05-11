@@ -166,6 +166,7 @@ class Reader:
     def read_samples(self):
         while self.sample_index < len(self.samples):
             self.read_sample()
+        return self.samples
 
     def read_sample(self):
         (a, b, c, d) = _get_neighbours(self.width, self.samples, self.sample_index)
@@ -526,5 +527,5 @@ if __name__ == "__main__":
 
     reader = jpeg.io.BufferedReader(writer.data)
     scan = LSScan.read(reader, 4, 16, [LSScanComponent()])
-    # assert scan.width == 4
-    # assert scan.samples == samples
+    assert scan.width == 4
+    assert scan.samples == samples
