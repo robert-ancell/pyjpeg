@@ -106,10 +106,6 @@ class LSScan(jpeg.segment.Segment):
         return f"LSScan({self.width}, {self.samples}, {self.components})"
 
 
-def get_range(maxval, near):
-    return ((maxval + 2 * near) // (2 * near + 1)) + 1
-
-
 class Writer:
     def __init__(self, writer, width, samples):
         self.writer = jpeg.golomb_scan.Writer(writer)
@@ -252,8 +248,12 @@ class Reader:
 
 class Contexts:
     def __init__(self, parameters):
-        self.parameters = parameters
+        def get_range(maxval, near):
+            return ((maxval + 2 * near) // (2 * near + 1)) + 1
+
         a = max(2, (get_range(parameters.maxval, parameters.near) + 2**5) // 2**6)
+
+        self.parameters = parameters
         self.regular_contexts = [RegularContext(a) for _ in range(365)]
         self.run_context = RunContext(a, 0)
         self.near_run_context = RunContext(a, 1)
