@@ -150,7 +150,7 @@ class LSScan(jpeg.segment.Segment):
                         sign = -1
 
                 errval = context.read_error(scan_reader, parameters, run_index)
-                samples[sample_index] = sign * (predicted_sample + errval)
+                samples[sample_index] = predicted_sample + sign * errval
                 sample_index += 1
             else:
                 sign, context = contexts.get_regular_context(a, b, c, d)
@@ -481,9 +481,10 @@ class RunContext:
         return parameters.limit - parameters.qbpp - run_widths[run_index] - 2
 
     def _map_error(self, errval: int, k: int) -> int:
-        if k == 0 and errval > 0 and (2 * self.n_negative_samples) < self.n_samples:
+        less_negatives = (2 * self.n_negative_samples) < self.n_samples
+        if k == 0 and errval > 0 and less_negatives:
             map = 1
-        elif errval < 0 and (2 * self.n_negative_samples) >= self.n_samples:
+        elif errval < 0 and not less_negatives:
             map = 1
         elif errval < 0 and k != 0:
             map = 1
@@ -492,25 +493,20 @@ class RunContext:
         return 2 * abs(errval) - self.ritype - map
 
     def _unmap_error(self, mapped_errval: int, k: int) -> int:
-        abs_errval = (mapped_errval + self.ritype + 1) // 2
-        map = (mapped_errval + self.ritype + 1) % 2
-
-        if k == 0 and (2 * self.n_negative_samples) < self.n_samples:
-            assert map == 0
-            return abs_errval
-        elif (2 * self.n_negative_samples) >= self.n_samples and map == 1:
-            if map == 1:
+        map = (mapped_errval + self.ritype) % 2
+        if map == 1:
+            abs_errval = (mapped_errval + self.ritype + 1) // 2
+            less_negatives = (2 * self.n_negative_samples) < self.n_samples
+            if k == 0 and less_negatives:
+                return abs_errval
+            elif not less_negatives:
+                return -abs_errval
+            elif k != 0:
                 return -abs_errval
             else:
-                return abs_errval
-        elif k != 0:
-            if map == 1:
-                return -abs_errval
-            else:
-                return abs_errval
+                assert False
         else:
-            assert map == 0
-            return abs_errval
+            return (mapped_errval + self.ritype) // 2
 
     def _update_state(self, parameters, errval, mapped_errval):
         if errval < 0:
