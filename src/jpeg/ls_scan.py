@@ -112,52 +112,75 @@ class LSScan(jpeg.segment.Segment):
     def read(cls, reader: jpeg.io.Reader, width, number_of_samples, components):
         assert len(components) > 0
 
-        scan_reader = jpeg.golomb_scan.Reader(reader)
+        class Reader:
+            def __init__(self, reader, width, number_of_samples):
+                self.reader = jpeg.golomb_scan.Reader(reader)
+                self.parameters = CodingParameters()
+                self.contexts = Contexts(self.parameters)
+                self.width = width
+                self.samples = [0] * number_of_samples
+                self.sample_index = 0
+                self.run_index = 0
 
-        samples = [0] * number_of_samples
+            def read_samples(self):
+                while self.sample_index < len(self.samples):
+                    self.read_sample()
 
-        parameters = CodingParameters()
-        contexts = Contexts(parameters)
-        run_index = 0
-        sample_index = 0
-        while sample_index < len(samples):
-            (a, b, c, d) = _get_neighbours(width, samples, sample_index)
-            if a == b == c == d:
-                run_value = a
-                while scan_reader.read_bit() == 1:
-                    for _ in range(1 << run_widths[run_index]):
-                        samples[sample_index] = run_value
-                        sample_index += 1
-                    # FIXME: EOL
-                    run_index = min(run_index + 1, 31)
-                extra_run_length = 0
-                for _ in range(run_widths[run_index]):
-                    extra_run_length = (extra_run_length << 1) | scan_reader.read_bit()
-                for _ in range(extra_run_length):
-                    samples[sample_index] = run_value
-                    sample_index += 1
-                run_index = max(run_index - 1, 0)
+            def read_sample(self):
+                (a, b, c, d) = _get_neighbours(
+                    self.width, self.samples, self.sample_index
+                )
+                if a == b == c == d:
+                    run_value = a
+                    while self.reader.read_bit() == 1:
+                        for _ in range(1 << run_widths[self.run_index]):
+                            self.samples[self.sample_index] = run_value
+                            self.sample_index += 1
+                            # End of line
+                            if self.sample_index % self.width == 0:
+                                return
+                        self.run_index = min(self.run_index + 1, 31)
+                    extra_run_length = 0
+                    for _ in range(run_widths[self.run_index]):
+                        extra_run_length = (
+                            extra_run_length << 1
+                        ) | self.reader.read_bit()
+                    for _ in range(extra_run_length):
+                        self.samples[self.sample_index] = run_value
+                        self.sample_index += 1
+                    self.run_index = max(self.run_index - 1, 0)
 
-                (a, b, _, _) = _get_neighbours(width, samples, sample_index)
-                sign = 1
-                if abs(a - b) <= parameters.near:
-                    context = contexts.near_run_context
-                    predicted_sample = a
+                    (a, b, _, _) = _get_neighbours(
+                        self.width, self.samples, self.sample_index
+                    )
+                    sign = 1
+                    if abs(a - b) <= self.parameters.near:
+                        context = self.contexts.near_run_context
+                        predicted_sample = a
+                    else:
+                        context = self.contexts.run_context
+                        predicted_sample = b
+                        if a > b:
+                            sign = -1
+
+                    errval = sign * context.read_error(
+                        self.reader, self.parameters, self.run_index
+                    )
+                    self.samples[self.sample_index] = self.parameters.apply_diff(
+                        predicted_sample, errval
+                    )
+                    self.sample_index += 1
                 else:
-                    context = contexts.run_context
-                    predicted_sample = b
-                    if a > b:
-                        sign = -1
+                    sign, context = self.contexts.get_regular_context(a, b, c, d)
+                    predicted_sample = context.predict(self.parameters, sign, a, b, c)
+                    errval = sign * context.read_error(self.reader, self.parameters)
+                    self.samples[self.sample_index] = self.parameters.apply_diff(
+                        predicted_sample, errval
+                    )
+                    self.sample_index += 1
 
-                errval = context.read_error(scan_reader, parameters, run_index)
-                samples[sample_index] = predicted_sample + sign * errval
-                sample_index += 1
-            else:
-                sign, context = contexts.get_regular_context(a, b, c, d)
-                predicted_sample = context.predict(parameters, sign, a, b, c)
-                errval = context.read_error(scan_reader, parameters)
-                samples[sample_index] = predicted_sample + sign * errval
-                sample_index += 1
+        scan_reader = Reader(reader, width, number_of_samples)
+        samples = scan_reader.read_samples()
 
         return cls(width, samples, components)
 
@@ -221,6 +244,48 @@ class LSScan(jpeg.segment.Segment):
         errval = parameters.modrange(errval)
         context.write_error(scan_writer, parameters, errval)
         return sample_index + 1
+
+    def _read_run(
+        self,
+        scan_reader,
+        parameters,
+        width,
+        samples,
+        run_value,
+        sample_index,
+        run_index,
+    ):
+        while scan_reader.read_bit() == 1:
+            for _ in range(1 << run_widths[run_index]):
+                samples[sample_index] = run_value
+                sample_index += 1
+                if sample_index % width == 0:
+                    return (sample_index, run_index)
+            run_index = min(run_index + 1, 31)
+        extra_run_length = 0
+        for _ in range(run_widths[run_index]):
+            extra_run_length = (extra_run_length << 1) | scan_reader.read_bit()
+        for _ in range(extra_run_length):
+            samples[sample_index] = run_value
+            sample_index += 1
+        run_index = max(run_index - 1, 0)
+
+        (a, b, _, _) = _get_neighbours(width, samples, sample_index)
+        sign = 1
+        if abs(a - b) <= parameters.near:
+            context = contexts.near_run_context
+            predicted_sample = a
+        else:
+            context = contexts.run_context
+            predicted_sample = b
+            if a > b:
+                sign = -1
+
+        errval = sign * context.read_error(scan_reader, parameters, run_index)
+        samples[sample_index] = parameters.apply_diff(predicted_sample, errval)
+        sample_index += 1
+
+        return (sample_index, run_index)
 
     def __eq__(self, other):
         return (
@@ -332,6 +397,12 @@ class CodingParameters:
         if errval >= (self.range + 1) // 2:
             errval -= self.range
         return errval
+
+    def apply_diff(self, predicated_sample, errval):
+        sample = predicated_sample + errval
+        if sample < 0:
+            sample += self.range
+        return sample
 
 
 class RegularContext:
