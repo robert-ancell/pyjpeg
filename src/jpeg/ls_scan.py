@@ -224,7 +224,9 @@ class Contexts:
         a = max(2, (get_range(parameters.maxval, parameters.near) + 2**5) // 2**6)
 
         self.parameters = parameters
-        self.regular_contexts = [RegularContext(a) for _ in range(365)]
+        # Note the spec says 365 contexts, but this can't map all possible 5*9*9 combinations.
+        # This matches what libjpeg does.
+        self.regular_contexts = [RegularContext(a) for _ in range(405)]
         self.run_context = RunContext(a, 0)
         self.near_run_context = RunContext(a, 1)
 
@@ -241,8 +243,7 @@ class Contexts:
         else:
             sign = 1
 
-        # FIXME: Does this overflow the 365 size? Seems to be larger in libjpeg
-        context_index = q1 * 81 + (q2 + 4) * 9 + (q3 + 4)
+        context_index = ((q3 + 4) * 9 + (q2 + 4)) * 5 + q1
         return sign, self.regular_contexts[context_index]
 
 
@@ -339,6 +340,8 @@ class CodingParameters:
         sample = predicted_sample + errval
         if sample < 0:
             sample += self.range
+        if sample >= self.range:
+            sample -= self.range
         return sample
 
 
@@ -549,24 +552,26 @@ if __name__ == "__main__":
     import random
 
     # Example from Annex G
+    width = 4
     samples = [0, 0, 90, 74, 68, 50, 43, 205, 64, 145, 145, 145, 100, 145, 145, 145]
 
     writer = jpeg.io.BufferedWriter()
-    scan = LSScan(4, samples, [LSScanComponent()])
+    scan = LSScan(width, samples, [LSScanComponent()])
     scan.write(writer)
     expected = b"\xc0\x00\x00\x6c\x80\x20\x8e\x01\xc0\x00\x00\x57\x40\x00\x00\x6e\xe6\x00\x00\x01\xbc\x18\x00\x00\x05\xd8\x00\x00\x91\x60"
     assert writer.data == expected
 
     reader = jpeg.io.BufferedReader(writer.data)
-    scan = LSScan.read(reader, 4, 16, [LSScanComponent()])
-    assert scan.width == 4
+    scan = LSScan.read(reader, width, len(samples), [LSScanComponent()])
+    assert scan.width == width
     assert scan.samples == samples
 
-    samples = [random.randint(0, 255) for _ in range(64)]
+    width = 8
+    samples = [random.randint(0, 255) for _ in range(width * width)]
     writer = jpeg.io.BufferedWriter()
-    scan = LSScan(8, samples, [LSScanComponent()])
+    scan = LSScan(width, samples, [LSScanComponent()])
     scan.write(writer)
     reader = jpeg.io.BufferedReader(writer.data)
-    scan = LSScan.read(reader, 8, 16, [LSScanComponent()])
-    assert scan.width == 8
-    # assert scan.samples == samples
+    scan = LSScan.read(reader, width, len(samples), [LSScanComponent()])
+    assert scan.width == width
+    assert scan.samples == samples
