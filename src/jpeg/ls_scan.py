@@ -251,16 +251,16 @@ class CodingParameters:
         self,
         near: int = 0,
         maxval: int = 255,
-        t1: int = 0,
-        t2: int = 0,
-        t3: int = 0,
+        gradient_threshold1: int = 0,
+        gradient_threshold2: int = 0,
+        gradient_threshold3: int = 0,
         reset: int = 64,
     ):
         self.near = 0
         self.maxval = maxval
-        self.t1 = t1
-        self.t2 = t2
-        self.t3 = t3
+        self.gradient_threshold1 = gradient_threshold1
+        self.gradient_threshold2 = gradient_threshold2
+        self.gradient_threshold3 = gradient_threshold3
         self.reset = reset
 
         BASIC_T1 = 3
@@ -275,20 +275,32 @@ class CodingParameters:
 
         if maxval >= 128:
             factor = (min(maxval, 4095) + 128) // 256
-            if self.t1 == 0:
-                self.t1 = clamp(factor * (BASIC_T1 - 2) + 2 + 3 * near, near + 1)
-            if self.t2 == 0:
-                self.t2 = clamp(factor * (BASIC_T2 - 3) + 3 + 5 * near, self.t1)
-            if self.t3 == 0:
-                self.t3 = clamp(factor * (BASIC_T3 - 4) + 4 + 7 * near, self.t2)
+            if self.gradient_threshold1 == 0:
+                self.gradient_threshold1 = clamp(
+                    factor * (BASIC_T1 - 2) + 2 + 3 * near, near + 1
+                )
+            if self.gradient_threshold2 == 0:
+                self.gradient_threshold2 = clamp(
+                    factor * (BASIC_T2 - 3) + 3 + 5 * near, self.gradient_threshold1
+                )
+            if self.gradient_threshold3 == 0:
+                self.gradient_threshold3 = clamp(
+                    factor * (BASIC_T3 - 4) + 4 + 7 * near, self.gradient_threshold2
+                )
         else:
             factor = 256 // (maxval + 1)
-            if self.t1 == 0:
-                self.t1 = clamp(max(2, BASIC_T1 // factor + 3 * near), near + 1)
-            if self.t2 == 0:
-                self.t2 = clamp(max(3, BASIC_T2 // factor + 5 * near), self.t1)
-            if self.t3 == 0:
-                self.t3 = clamp(max(4, BASIC_T3 // factor + 7 * near), self.t2)
+            if self.gradient_threshold1 == 0:
+                self.gradient_threshold1 = clamp(
+                    max(2, BASIC_T1 // factor + 3 * near), near + 1
+                )
+            if self.gradient_threshold2 == 0:
+                self.gradient_threshold2 = clamp(
+                    max(3, BASIC_T2 // factor + 5 * near), self.gradient_threshold1
+                )
+            if self.gradient_threshold3 == 0:
+                self.gradient_threshold3 = clamp(
+                    max(4, BASIC_T3 // factor + 7 * near), self.gradient_threshold2
+                )
 
         # Derived parameters
         self.range = ((maxval + 2 * near) // (2 * near + 1)) + 1
@@ -297,21 +309,21 @@ class CodingParameters:
         self.limit = 2 * (bpp + max(8, bpp))
 
     def classify(self, d: int) -> int:
-        if d <= -self.t3:
+        if d <= -self.gradient_threshold3:
             return -4
-        elif d <= -self.t2:
+        elif d <= -self.gradient_threshold2:
             return -3
-        elif d <= -self.t1:
+        elif d <= -self.gradient_threshold1:
             return -2
         elif d < -self.near:
             return -1
         elif d <= self.near:
             return 0
-        elif d < self.t1:
+        elif d < self.gradient_threshold1:
             return 1
-        elif d < self.t2:
+        elif d < self.gradient_threshold2:
             return 2
-        elif d < self.t3:
+        elif d < self.gradient_threshold3:
             return 3
         else:
             return 4
@@ -323,8 +335,8 @@ class CodingParameters:
             errval -= self.range
         return errval
 
-    def apply_diff(self, predicated_sample: int, errval: int) -> int:
-        sample = predicated_sample + errval
+    def apply_diff(self, predicted_sample: int, errval: int) -> int:
+        sample = predicted_sample + errval
         if sample < 0:
             sample += self.range
         return sample
@@ -332,10 +344,10 @@ class CodingParameters:
 
 class RegularContext:
     def __init__(self, a):
-        self.A = a
+        self.accumulated_prediction_error_magnitude = a
         self.bias = 0
-        self.correction = 0
-        self.n_samples = 1
+        self.prediction_correction = 0
+        self.frequency_of_occurence = 1
 
     def write_error(
         self, writer: jpeg.golomb_scan.Writer, parameters: CodingParameters, errval: int
@@ -364,7 +376,7 @@ class RegularContext:
             px = max(a, b)
         else:
             px = a + b - c
-        px += sign * self.correction
+        px += sign * self.prediction_correction
         if px > parameters.maxval:
             px = parameters.maxval
         elif px < 0:
@@ -373,7 +385,10 @@ class RegularContext:
 
     def _get_golomb_size(self) -> int:
         k = 0
-        while self.n_samples << k < self.A:
+        while (
+            self.frequency_of_occurence << k
+            < self.accumulated_prediction_error_magnitude
+        ):
             k += 1
         return k
 
@@ -381,7 +396,11 @@ class RegularContext:
         return parameters.limit - parameters.qbpp - 1
 
     def _map_error(self, parameters, errval, k):
-        if parameters.near == 0 and k == 0 and 2 * self.bias <= -self.n_samples:
+        if (
+            parameters.near == 0
+            and k == 0
+            and 2 * self.bias <= -self.frequency_of_occurence
+        ):
             if errval >= 0:
                 return 2 * errval + 1
             else:
@@ -393,7 +412,11 @@ class RegularContext:
                 return -2 * errval - 1
 
     def _unmap_error(self, parameters, mapped_errval, k):
-        if parameters.near == 0 and k == 0 and 2 * self.bias <= -self.n_samples:
+        if (
+            parameters.near == 0
+            and k == 0
+            and 2 * self.bias <= -self.frequency_of_occurence
+        ):
             if mapped_errval % 2 == 1:
                 return (mapped_errval - 1) // 2
             else:
@@ -406,38 +429,38 @@ class RegularContext:
 
     def _update_bias(self, parameters, errval):
         self.bias += errval * (2 * parameters.near + 1)
-        self.A += abs(errval)
-        if self.n_samples == parameters.reset:
-            self.A >>= 1
+        self.accumulated_prediction_error_magnitude += abs(errval)
+        if self.frequency_of_occurence == parameters.reset:
+            self.accumulated_prediction_error_magnitude >>= 1
             if self.bias >= 0:
                 self.bias >>= 1
             else:
                 self.bias = -((1 - self.bias) >> 1)
-            self.n_samples >>= 1
-        self.n_samples += 1
+            self.frequency_of_occurence >>= 1
+        self.frequency_of_occurence += 1
 
         MIN_CORRECTION = -128
         MAX_CORRECTION = 127
-        if self.bias <= -self.n_samples:
-            self.bias += self.n_samples
-            if self.correction > MIN_CORRECTION:
-                self.correction -= 1
-            if self.bias < -self.n_samples:
-                self.bias = -self.n_samples + 1
+        if self.bias <= -self.frequency_of_occurence:
+            self.bias += self.frequency_of_occurence
+            if self.prediction_correction > MIN_CORRECTION:
+                self.prediction_correction -= 1
+            if self.bias < -self.frequency_of_occurence:
+                self.bias = -self.frequency_of_occurence + 1
         elif self.bias > 0:
-            self.bias -= self.n_samples
-            if self.correction < MAX_CORRECTION:
-                self.correction += 1
+            self.bias -= self.frequency_of_occurence
+            if self.prediction_correction < MAX_CORRECTION:
+                self.prediction_correction += 1
             if self.bias > 0:
                 self.bias = 0
 
 
 class RunContext:
     def __init__(self, a: int, ritype: int):
-        self.A = a
+        self.accumulated_prediction_error_magnitude = a
         self.ritype = ritype
-        self.n_samples = 1
-        self.n_negative_samples = 0
+        self.frequency_of_occurence = 1
+        self.negative_prediction_error = 0
 
     def write_error(
         self,
@@ -464,11 +487,11 @@ class RunContext:
         return errval
 
     def _get_golomb_size(self) -> int:
-        max_k = self.A
+        max_k = self.accumulated_prediction_error_magnitude
         if self.ritype == 1:
-            max_k += self.n_samples >> 1
+            max_k += self.frequency_of_occurence >> 1
         k = 0
-        while self.n_samples << k < max_k:
+        while self.frequency_of_occurence << k < max_k:
             k += 1
         return k
 
@@ -477,7 +500,9 @@ class RunContext:
         return parameters.limit - parameters.qbpp - run_widths[run_index] - 2
 
     def _map_error(self, errval: int, k: int) -> int:
-        less_negatives = (2 * self.n_negative_samples) < self.n_samples
+        less_negatives = (
+            2 * self.negative_prediction_error
+        ) < self.frequency_of_occurence
         if k == 0 and errval > 0 and less_negatives:
             map = 1
         elif errval < 0 and not less_negatives:
@@ -492,7 +517,9 @@ class RunContext:
         map = (mapped_errval + self.ritype) % 2
         if map == 1:
             abs_errval = (mapped_errval + self.ritype + 1) // 2
-            less_negatives = (2 * self.n_negative_samples) < self.n_samples
+            less_negatives = (
+                2 * self.negative_prediction_error
+            ) < self.frequency_of_occurence
             if k == 0 and less_negatives:
                 return abs_errval
             elif not less_negatives:
@@ -506,17 +533,21 @@ class RunContext:
 
     def _update_state(self, parameters, errval, mapped_errval):
         if errval < 0:
-            self.n_negative_samples += 1
+            self.negative_prediction_error += 1
         # FIXME: This seems wrong in the spec and doesn't match libjpeg
-        self.A += (mapped_errval - self.ritype) >> 1
-        if self.n_samples == parameters.reset:
-            self.A >>= 1
-            self.n_samples >>= 1
-            self.n_negative_samples >>= 1
-        self.n_samples += 1
+        self.accumulated_prediction_error_magnitude += (
+            mapped_errval - self.ritype
+        ) >> 1
+        if self.frequency_of_occurence == parameters.reset:
+            self.accumulated_prediction_error_magnitude >>= 1
+            self.frequency_of_occurence >>= 1
+            self.negative_prediction_error >>= 1
+        self.frequency_of_occurence += 1
 
 
 if __name__ == "__main__":
+    import random
+
     # Example from Annex G
     samples = [0, 0, 90, 74, 68, 50, 43, 205, 64, 145, 145, 145, 100, 145, 145, 145]
 
@@ -530,3 +561,12 @@ if __name__ == "__main__":
     scan = LSScan.read(reader, 4, 16, [LSScanComponent()])
     assert scan.width == 4
     assert scan.samples == samples
+
+    samples = [random.randint(0, 255) for _ in range(64)]
+    writer = jpeg.io.BufferedWriter()
+    scan = LSScan(8, samples, [LSScanComponent()])
+    scan.write(writer)
+    reader = jpeg.io.BufferedReader(writer.data)
+    scan = LSScan.read(reader, 8, 16, [LSScanComponent()])
+    assert scan.width == 8
+    # assert scan.samples == samples
