@@ -201,15 +201,12 @@ for segment in stream.segments:
         for data_unit in segment.data_units:
             print_data_unit(data_unit)
     elif isinstance(segment, jpeg.HuffmanLosslessScan) or isinstance(
-        segment, jpeg.ArithmeticLosslessScan
+        segment, jpeg.ArithmeticLosslessScan or isinstance(segment, jpeg.LSScan)
     ):
         s = " Samples:"
         for sample in segment.samples:
             s += " %d" % sample
         print(s)
-    elif isinstance(segment, jpeg.LSScan):
-        print(" JPEG-LS Data Units:")
-        # FIXME
     elif isinstance(segment, jpeg.Restart):
         print("RST%d Restart" % segment.index)
     elif isinstance(segment, jpeg.DefineNumberOfLines):

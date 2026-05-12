@@ -42,7 +42,7 @@ class Stream:
                         reader, sof, sos, dc_huffman_tables=dc_huffman_tables
                     )
             elif sof.is_ls():
-                return _parse_ls_scan(reader)
+                return _parse_ls_scan(reader, sof, sos)
             else:
                 if sof.is_arithmetic():
                     return _parse_arithmetic_dct_scan(
@@ -256,8 +256,13 @@ def _parse_arithmetic_lossless_scan(
     )
 
 
-def _parse_ls_scan(reader):
-    return jpeg.LSScan.read(reader, 0, [jpeg.LSScanComponent()])
+def _parse_ls_scan(reader, sof, sos):
+    components = []
+    for component in sos.components:
+        components.append(jpeg.LSScanComponent())
+    # FIXME: Handle scaling factor
+    number_of_samples = sof.number_of_lines * sof.samples_per_line * len(sos.components)
+    return jpeg.LSScan.read(reader, sof.samples_per_line, number_of_samples, components)
 
 
 if __name__ == "__main__":
