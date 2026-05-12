@@ -115,7 +115,7 @@ class Writer:
                 # Use current block regardless of size - reader will know this is the end of the line
                 if run_counter != 0:
                     self.writer.write_bit(1)
-                return (self.sample_index, self.run_index)
+                return
         self.writer.write_bit(0)
 
         # Write remaining bits that didn't fit into run width
@@ -171,49 +171,54 @@ class Reader:
     def read_sample(self):
         (a, b, c, d) = _get_neighbours(self.width, self.samples, self.sample_index)
         if a == b == c == d:
-            run_value = a
-            while self.reader.read_bit() == 1:
-                for _ in range(1 << run_widths[self.run_index]):
-                    self.samples[self.sample_index] = run_value
-                    self.sample_index += 1
-                    # End of line
-                    if self.sample_index % self.width == 0:
-                        return
-                self.run_index = min(self.run_index + 1, 31)
-            extra_run_length = 0
-            for _ in range(run_widths[self.run_index]):
-                extra_run_length = (extra_run_length << 1) | self.reader.read_bit()
-            for _ in range(extra_run_length):
+            self.read_run(a)
+        else:
+            self.read_regular(a, b, c, d)
+
+    def read_run(self, run_value):
+        while self.reader.read_bit() == 1:
+            run_width = 1 << run_widths[self.run_index]
+            n_remaining = self.width - (self.sample_index % self.width)
+            for _ in range(min(run_width, n_remaining)):
                 self.samples[self.sample_index] = run_value
                 self.sample_index += 1
-            self.run_index = max(self.run_index - 1, 0)
-
-            (a, b, _, _) = _get_neighbours(self.width, self.samples, self.sample_index)
-            sign = 1
-            if abs(a - b) <= self.parameters.near:
-                context = self.contexts.near_run_context
-                predicted_sample = a
-            else:
-                context = self.contexts.run_context
-                predicted_sample = b
-                if a > b:
-                    sign = -1
-
-            errval = sign * context.read_error(
-                self.reader, self.parameters, self.run_index
-            )
-            self.samples[self.sample_index] = self.parameters.apply_diff(
-                predicted_sample, errval
-            )
+            if run_width <= n_remaining:
+                self.run_index = min(self.run_index + 1, 31)
+            if run_width == n_remaining:
+                return
+        extra_run_length = 0
+        for _ in range(run_widths[self.run_index]):
+            extra_run_length = (extra_run_length << 1) | self.reader.read_bit()
+        for _ in range(extra_run_length):
+            self.samples[self.sample_index] = run_value
             self.sample_index += 1
+        self.run_index = max(self.run_index - 1, 0)
+
+        (a, b, _, _) = _get_neighbours(self.width, self.samples, self.sample_index)
+        sign = 1
+        if abs(a - b) <= self.parameters.near:
+            context = self.contexts.near_run_context
+            predicted_sample = a
         else:
-            sign, context = self.contexts.get_regular_context(a, b, c, d)
-            predicted_sample = context.predict(self.parameters, sign, a, b, c)
-            errval = sign * context.read_error(self.reader, self.parameters)
-            self.samples[self.sample_index] = self.parameters.apply_diff(
-                predicted_sample, errval
-            )
-            self.sample_index += 1
+            context = self.contexts.run_context
+            predicted_sample = b
+            if a > b:
+                sign = -1
+
+        errval = sign * context.read_error(self.reader, self.parameters, self.run_index)
+        self.samples[self.sample_index] = self.parameters.apply_diff(
+            predicted_sample, errval
+        )
+        self.sample_index += 1
+
+    def read_regular(self, a, b, c, d):
+        sign, context = self.contexts.get_regular_context(a, b, c, d)
+        predicted_sample = context.predict(self.parameters, sign, a, b, c)
+        errval = sign * context.read_error(self.reader, self.parameters)
+        self.samples[self.sample_index] = self.parameters.apply_diff(
+            predicted_sample, errval
+        )
+        self.sample_index += 1
 
 
 class Contexts:
