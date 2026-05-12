@@ -11,12 +11,14 @@ class Writer:
         self.data |= bit << (7 - self.bit_count)
         self.bit_count += 1
         if self.bit_count == 8:
-            data = self.data
-            self.writer.write_u8(data)
-            self.data = 0
-            self.bit_count = 0
-            if data == 0xFF:
-                self.write_bit(0)
+            if self.data == 0xFF:
+                self.writer.write_u8(0xFE)
+                self.data = 0x80
+                self.bit_count = 1
+            else:
+                self.writer.write_u8(self.data)
+                self.data = 0
+                self.bit_count = 0
 
     def write_value(self, value: int, length: int, limit: int, qbpp: int = 8):
         # FIXME: Replace x with better name
@@ -56,11 +58,11 @@ class Reader:
     def read_bit(self) -> int:
         if self.bit_count == 0:
             data = self.reader.peek_u8()
-            if data == 0xFF:
-                if (self.reader.peek_u8(1) >> 7) != 0:
-                    raise Exception("End of stream")
-                self.data = (self.reader.read_u8() << 7) | self.reader.read_u8()
-                self.bit_count = 15
+            if data == 0xFE:
+                self.data = 0x7F
+                self.bit_count = 7
+            elif data == 0xFF:
+                raise Exception("End of stream")
             else:
                 self.data = self.reader.read_u8()
                 self.bit_count = 8
@@ -73,7 +75,7 @@ class Reader:
         while self.read_bit() == 0:
             value += 1
         if value > limit:
-            raise Exception("Value exceeds limit")
+            raise Exception("Golomb value exceeds limit")
         if value == limit:
             v = 0
             for _ in range(qbpp):
@@ -101,3 +103,15 @@ if __name__ == "__main__":
     buffer = jpeg.io.BufferedReader(buffer.data)
     reader = Reader(buffer)
     assert reader.read_value(2, 12) == 179
+
+    # Check bit stuffing
+    buffer = jpeg.io.BufferedWriter()
+    writer = Writer(buffer)
+    for _ in range(14):
+        writer.write_bit(1)
+    writer.flush()
+    assert buffer.data == b"\xfe\xfe"
+    buffer = jpeg.io.BufferedReader(buffer.data)
+    reader = Reader(buffer)
+    for _ in range(14):
+        assert reader.read_bit() == 1
