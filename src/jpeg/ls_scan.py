@@ -121,36 +121,28 @@ class Writer:
         # Write remaining bits that didn't fit into run width
         for i in reversed(range(run_widths[self.run_index])):
             self.writer.write_bit((run_counter >> i) & 0x1)
+
         self.run_index = max(self.run_index - 1, 0)
 
         (a, b, _, _) = _get_neighbours(self.width, self.samples, self.sample_index)
-        sign = 1
         if abs(a - b) <= self.parameters.near:
             context = self.contexts.near_run_context
-            predicted_sample = a
         else:
             context = self.contexts.run_context
-            predicted_sample = b
-            if a > b:
-                sign = -1
-        errval = sign * (self.samples[self.sample_index] - predicted_sample)
-
-        if self.parameters.near > 0:
-            # FIXME
-            # errval = quantize(errval)
-            # rx = computerx()
-            pass
-        errval = self.parameters.modrange(errval)
-        # FIXME: Is this the old run_index?
-        context.write_error(self.writer, self.parameters, errval, self.run_index)
+        context.write_sample(
+            self.writer,
+            self.parameters,
+            self.run_index,
+            self.samples[self.sample_index],
+            a,
+            b,
+        )
 
     def write_regular(self, a, b, c, d):
         sign, context = self.contexts.get_regular_context(a, b, c, d)
-        predicted_sample = context.predict(self.parameters, sign, a, b, c)
-        errval = sign * (self.samples[self.sample_index] - predicted_sample)
-        # FIXME: Error quantization
-        errval = self.parameters.modrange(errval)
-        context.write_error(self.writer, self.parameters, errval)
+        context.write_sample(
+            self.writer, self.parameters, sign, self.samples[self.sample_index], a, b, c
+        )
 
 
 class Reader:
@@ -186,38 +178,36 @@ class Reader:
                 self.run_index = min(self.run_index + 1, 31)
             if run_width == n_remaining:
                 return
+
         extra_run_length = 0
         for _ in range(run_widths[self.run_index]):
             extra_run_length = (extra_run_length << 1) | self.reader.read_bit()
         for _ in range(extra_run_length):
             self.samples[self.sample_index] = run_value
             self.sample_index += 1
+
+        sample_run_index = self.run_index
         self.run_index = max(self.run_index - 1, 0)
 
         (a, b, _, _) = _get_neighbours(self.width, self.samples, self.sample_index)
-        sign = 1
         if abs(a - b) <= self.parameters.near:
             context = self.contexts.near_run_context
-            predicted_sample = a
         else:
             context = self.contexts.run_context
-            predicted_sample = b
-            if a > b:
-                sign = -1
-
-        errval = sign * context.read_error(self.reader, self.parameters, self.run_index)
-        self.samples[self.sample_index] = self.parameters.apply_diff(
-            predicted_sample, errval
+        sample = context.read_sample(
+            self.reader,
+            self.parameters,
+            sample_run_index,
+            a,
+            b,
         )
+        self.samples[self.sample_index] = sample
         self.sample_index += 1
 
     def read_regular(self, a, b, c, d):
         sign, context = self.contexts.get_regular_context(a, b, c, d)
-        predicted_sample = context.predict(self.parameters, sign, a, b, c)
-        errval = sign * context.read_error(self.reader, self.parameters)
-        self.samples[self.sample_index] = self.parameters.apply_diff(
-            predicted_sample, errval
-        )
+        sample = context.read_sample(self.reader, self.parameters, sign, a, b, c)
+        self.samples[self.sample_index] = sample
         self.sample_index += 1
 
 
@@ -341,14 +331,6 @@ class CodingParameters:
             errval -= self.range
         return errval
 
-    def apply_diff(self, predicted_sample: int, errval: int) -> int:
-        sample = predicted_sample + errval
-        if sample < 0:
-            sample += self.range
-        if sample >= self.range:
-            sample -= self.range
-        return sample
-
 
 class RegularContext:
     def __init__(self, a):
@@ -357,9 +339,19 @@ class RegularContext:
         self.prediction_correction = 0
         self.frequency_of_occurence = 1
 
-    def write_error(
-        self, writer: jpeg.golomb_scan.Writer, parameters: CodingParameters, errval: int
+    def write_sample(
+        self,
+        writer: jpeg.golomb_scan.Writer,
+        parameters: CodingParameters,
+        sign: int,
+        sample: int,
+        a: int,
+        b: int,
+        c: int,
     ):
+        predicted_sample = self._predict(parameters, sign, a, b, c)
+        errval = sign * (sample - predicted_sample)
+        errval = parameters.modrange(errval)
         k = self._get_golomb_size()
         mapped_errval = self._map_error(parameters, errval, k)
         writer.write_value(
@@ -367,16 +359,40 @@ class RegularContext:
         )
         self._update_bias(parameters, errval)
 
-    def read_error(
-        self, reader: jpeg.golomb_scan.Reader, parameters: CodingParameters
+    def read_sample(
+        self,
+        reader: jpeg.golomb_scan.Reader,
+        parameters,
+        sign: int,
+        a: int,
+        b: int,
+        c: int,
     ) -> int:
+        predicted_sample = self._predict(parameters, sign, a, b, c)
+
         k = self._get_golomb_size()
         mapped_errval = reader.read_value(k, self._get_limit(parameters))
         errval = self._unmap_error(parameters, mapped_errval, k)
         self._update_bias(parameters, errval)
-        return errval
+        errval *= 2 * parameters.near + 1
+        errval *= sign
 
-    def predict(self, parameters, sign: int, a: int, b: int, c: int) -> int:
+        # FIXME: modulo RANGE*(2*NEAR+1)
+        sample = predicted_sample + errval
+
+        if sample < -parameters.near:
+            sample += parameters.range * (2 * parameters.near + 1)
+        elif sample > parameters.maxval + parameters.near:
+            sample -= parameters.range * (2 * parameters.near + 1)
+
+        if sample < 0:
+            sample = 0
+        if sample >= parameters.maxval:
+            sample = parameters.maxval
+
+        return sample
+
+    def _predict(self, parameters, sign: int, a: int, b: int, c: int) -> int:
         # Predict next value
         if c >= max(a, b):
             px = min(a, b)
@@ -470,29 +486,69 @@ class RunContext:
         self.frequency_of_occurence = 1
         self.negative_prediction_error = 0
 
-    def write_error(
+    def write_sample(
         self,
         writer: jpeg.golomb_scan.Writer,
         parameters: CodingParameters,
-        errval: int,
         run_index: int,
+        sample: int,
+        a: int,
+        b: int,
     ):
+        if self.ritype == 1:
+            errval = sample - a
+        else:
+            errval = sample - b
+            if a > b:
+                errval = -errval
+
+        # FIXME Quantize
+        if parameters.near > 0:
+            # errval = quantize(errval)
+            # rx = computerx()
+            pass
+
+        if errval < 0:
+            errval += parameters.range
+        if errval >= (parameters.range + 1) // 2:
+            errval -= parameters.range
+
         k = self._get_golomb_size()
         mapped_errval = self._map_error(errval, k)
         writer.write_value(mapped_errval, k, self._get_limit(parameters, run_index))
         self._update_state(parameters, errval, mapped_errval)
 
-    def read_error(
+    def read_sample(
         self,
         reader: jpeg.golomb_scan.Reader,
         parameters: CodingParameters,
         run_index: int,
+        a: int,
+        b: int,
     ) -> int:
         k = self._get_golomb_size()
         mapped_errval = reader.read_value(k, self._get_limit(parameters, run_index))
         errval = self._unmap_error(mapped_errval, k)
         self._update_state(parameters, errval, mapped_errval)
-        return errval
+
+        # FIXME: Dequantize
+        if parameters.near > 0:
+            pass
+
+        if self.ritype == 1:
+            predicted_sample = a
+        else:
+            predicted_sample = b
+            if a > b:
+                errval = -errval
+        sample = predicted_sample + errval
+
+        if sample < 0:
+            sample += parameters.range
+        if sample >= parameters.range:
+            sample -= parameters.range
+
+        return sample
 
     def _get_golomb_size(self) -> int:
         max_k = self.accumulated_prediction_error_magnitude
