@@ -112,6 +112,7 @@ class Writer:
 
             # Stop when hit the next line
             if self.sample_index % self.width == 0:
+                self.sample_index -= 1
                 # Use current block regardless of size - reader will know this is the end of the line
                 if run_counter != 0:
                     self.writer.write_bit(1)
@@ -122,6 +123,7 @@ class Writer:
         for i in reversed(range(run_widths[self.run_index])):
             self.writer.write_bit((run_counter >> i) & 0x1)
 
+        sample_run_index = self.run_index
         self.run_index = max(self.run_index - 1, 0)
 
         (a, b, _, _) = _get_neighbours(self.width, self.samples, self.sample_index)
@@ -132,7 +134,7 @@ class Writer:
         context.write_sample(
             self.writer,
             self.parameters,
-            self.run_index,
+            sample_run_index,
             self.samples[self.sample_index],
             a,
             b,
@@ -176,7 +178,7 @@ class Reader:
                 self.sample_index += 1
             if run_width <= n_remaining:
                 self.run_index = min(self.run_index + 1, 31)
-            if run_width == n_remaining:
+            if run_width >= n_remaining:
                 return
 
         extra_run_length = 0
@@ -324,13 +326,6 @@ class CodingParameters:
         else:
             return 4
 
-    def modrange(self, errval: int) -> int:
-        if errval < 0:
-            errval += self.range
-        if errval >= (self.range + 1) // 2:
-            errval -= self.range
-        return errval
-
 
 class RegularContext:
     def __init__(self, a):
@@ -351,7 +346,16 @@ class RegularContext:
     ):
         predicted_sample = self._predict(parameters, sign, a, b, c)
         errval = sign * (sample - predicted_sample)
-        errval = parameters.modrange(errval)
+        if errval > 0:
+            errval = (errval + parameters.near) // (2 * parameters.near + 1)
+        else:
+            errval = -(parameters.near - errval) // (2 * parameters.near + 1)
+
+        if errval < 0:
+            errval += parameters.range
+        if errval >= (parameters.range + 1) // 2:
+            errval -= parameters.range
+
         k = self._get_golomb_size()
         mapped_errval = self._map_error(parameters, errval, k)
         writer.write_value(

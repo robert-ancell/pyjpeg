@@ -59,6 +59,7 @@ class Reader:
         if self.bit_count == 0:
             data = self.reader.peek_u8()
             if data == 0xFE:
+                self.reader.read_u8()
                 self.data = 0x7F
                 self.bit_count = 7
             elif data == 0xFF:
@@ -75,7 +76,7 @@ class Reader:
         while self.read_bit() == 0:
             value += 1
         if value > limit:
-            raise Exception("Golomb value exceeds limit")
+            raise Exception(f"Golomb value exceeds limit of {limit}")
         if value == limit:
             v = 0
             for _ in range(qbpp):
