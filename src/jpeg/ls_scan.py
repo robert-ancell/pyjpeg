@@ -6,7 +6,7 @@ import jpeg.segment
 
 # Bit widths of runs of the same value.
 # fmt: off
-run_widths = [0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+run_widths = [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 # fmt: on
 
 
@@ -123,9 +123,6 @@ class Writer:
         for i in reversed(range(run_widths[self.run_index])):
             self.writer.write_bit((run_counter >> i) & 0x1)
 
-        sample_run_index = self.run_index
-        self.run_index = max(self.run_index - 1, 0)
-
         (a, b, _, _) = _get_neighbours(self.width, self.samples, self.sample_index)
         if abs(a - b) <= self.parameters.near:
             context = self.contexts.near_run_context
@@ -134,11 +131,12 @@ class Writer:
         context.write_sample(
             self.writer,
             self.parameters,
-            sample_run_index,
+            self.run_index,
             self.samples[self.sample_index],
             a,
             b,
         )
+        self.run_index = max(self.run_index - 1, 0)
 
     def write_regular(self, a, b, c, d):
         sign, context = self.contexts.get_regular_context(a, b, c, d)
@@ -164,10 +162,13 @@ class Reader:
 
     def read_sample(self):
         (a, b, c, d) = _get_neighbours(self.width, self.samples, self.sample_index)
-        if a == b == c == d:
+        if self.is_run_mode(a, b, c, d):
             self.read_run(a)
         else:
             self.read_regular(a, b, c, d)
+
+    def is_run_mode(self, a, b, c, d):
+        return a == b == c == d
 
     def read_run(self, run_value):
         while self.reader.read_bit() == 1:
@@ -188,9 +189,6 @@ class Reader:
             self.samples[self.sample_index] = run_value
             self.sample_index += 1
 
-        sample_run_index = self.run_index
-        self.run_index = max(self.run_index - 1, 0)
-
         (a, b, _, _) = _get_neighbours(self.width, self.samples, self.sample_index)
         if abs(a - b) <= self.parameters.near:
             context = self.contexts.near_run_context
@@ -199,10 +197,12 @@ class Reader:
         sample = context.read_sample(
             self.reader,
             self.parameters,
-            sample_run_index,
+            self.run_index,
             a,
             b,
         )
+        self.run_index = max(self.run_index - 1, 0)
+
         self.samples[self.sample_index] = sample
         self.sample_index += 1
 
@@ -520,7 +520,7 @@ class RunContext:
         k = self._get_golomb_size()
         mapped_errval = self._map_error(errval, k)
         writer.write_value(mapped_errval, k, self._get_limit(parameters, run_index))
-        self._update_state(parameters, errval, mapped_errval)
+        self._update_state(parameters, errval)
 
     def read_sample(
         self,
@@ -533,7 +533,7 @@ class RunContext:
         k = self._get_golomb_size()
         mapped_errval = reader.read_value(k, self._get_limit(parameters, run_index))
         errval = self._unmap_error(mapped_errval, k)
-        self._update_state(parameters, errval, mapped_errval)
+        self._update_state(parameters, errval)
 
         # FIXME: Dequantize
         if parameters.near > 0:
@@ -555,17 +555,16 @@ class RunContext:
         return sample
 
     def _get_golomb_size(self) -> int:
-        max_k = self.accumulated_prediction_error_magnitude
+        max_size = self.accumulated_prediction_error_magnitude
         if self.ritype == 1:
-            max_k += self.frequency_of_occurence >> 1
+            max_size += self.frequency_of_occurence >> 1
         k = 0
-        while self.frequency_of_occurence << k < max_k:
+        while (self.frequency_of_occurence << k) < max_size:
             k += 1
         return k
 
     def _get_limit(self, parameters: CodingParameters, run_index: int) -> int:
-        # The spec seems to have the limit wrong
-        return parameters.limit - parameters.qbpp - run_widths[run_index] - 2
+        return parameters.limit - parameters.qbpp - 1 - run_widths[run_index] - 1
 
     def _map_error(self, errval: int, k: int) -> int:
         less_negatives = (
@@ -599,13 +598,12 @@ class RunContext:
         else:
             return (mapped_errval + self.ritype) // 2
 
-    def _update_state(self, parameters, errval, mapped_errval):
+    def _update_state(self, parameters, errval):
         if errval < 0:
             self.negative_prediction_error += 1
-        # FIXME: This seems wrong in the spec and doesn't match libjpeg
-        self.accumulated_prediction_error_magnitude += (
-            mapped_errval - self.ritype
-        ) >> 1
+            self.accumulated_prediction_error_magnitude += -errval - self.ritype
+        else:
+            self.accumulated_prediction_error_magnitude += errval - self.ritype
         if self.frequency_of_occurence == parameters.reset:
             self.accumulated_prediction_error_magnitude >>= 1
             self.frequency_of_occurence >>= 1
