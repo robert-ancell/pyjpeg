@@ -200,8 +200,10 @@ for segment in stream.segments:
     ):
         for data_unit in segment.data_units:
             print_data_unit(data_unit)
-    elif isinstance(segment, jpeg.HuffmanLosslessScan) or isinstance(
-        segment, jpeg.ArithmeticLosslessScan or isinstance(segment, jpeg.LSScan)
+    elif (
+        isinstance(segment, jpeg.HuffmanLosslessScan)
+        or isinstance(segment, jpeg.ArithmeticLosslessScan)
+        or isinstance(segment, jpeg.LSScan)
     ):
         s = " Samples:"
         for sample in segment.samples:
