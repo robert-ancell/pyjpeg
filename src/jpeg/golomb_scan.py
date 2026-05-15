@@ -11,12 +11,11 @@ class Writer:
         self.data |= bit << (7 - self.bit_count)
         self.bit_count += 1
         if self.bit_count == 8:
+            self.writer.write_u8(self.data)
             if self.data == 0xFF:
-                self.writer.write_u8(0xFE)
-                self.data = 0x80
+                self.data = 0x00
                 self.bit_count = 1
             else:
-                self.writer.write_u8(self.data)
                 self.data = 0
                 self.bit_count = 0
 
@@ -57,13 +56,11 @@ class Reader:
 
     def read_bit(self) -> int:
         if self.bit_count == 0:
-            data = self.reader.peek_u8()
-            if data == 0xFE:
-                self.reader.read_u8()
-                self.data = 0x7F
-                self.bit_count = 7
-            elif data == 0xFF:
-                raise Exception("End of stream")
+            if self.reader.peek_u8() == 0xFF:
+                if (self.reader.peek_u8(1) & 0x80) != 0:
+                    raise Exception("End of stream")
+                self.data = self.reader.read_u8() << 7 | self.reader.read_u8()
+                self.bit_count = 15
             else:
                 self.data = self.reader.read_u8()
                 self.bit_count = 8
@@ -108,10 +105,10 @@ if __name__ == "__main__":
     # Check bit stuffing
     buffer = jpeg.io.BufferedWriter()
     writer = Writer(buffer)
-    for _ in range(14):
+    for _ in range(15):
         writer.write_bit(1)
     writer.flush()
-    assert buffer.data == b"\xfe\xfe"
+    assert buffer.data == b"\xff\x7f"
     buffer = jpeg.io.BufferedReader(buffer.data)
     reader = Reader(buffer)
     for _ in range(14):
