@@ -23,6 +23,7 @@ class Stream:
         segments = []
         sof = None
         dri = None
+        lse = None
         sos = None
         dnl = None
 
@@ -43,7 +44,7 @@ class Stream:
                         reader, sof, sos, dc_huffman_tables=dc_huffman_tables
                     )
             elif sof.is_ls():
-                return _parse_ls_scan(reader, sof, dri, sos)
+                return _parse_ls_scan(reader, sof, lse, dri, sos)
             else:
                 if sof.is_arithmetic():
                     return _parse_arithmetic_dct_scan(
@@ -150,7 +151,8 @@ class Stream:
             ):
                 segments.append(jpeg.ApplicationSpecificData.read(reader))
             elif marker == Marker.LSE:
-                segments.append(jpeg.LSPresetParameters.read(reader))
+                lse = jpeg.LSPresetParameters.read(reader)
+                segments.append(lse)
             elif marker == Marker.COM:
                 segments.append(jpeg.Comment.read(reader))
             else:
@@ -275,7 +277,7 @@ def _parse_arithmetic_lossless_scan(
     )
 
 
-def _parse_ls_scan(reader, sof, dri, sos):
+def _parse_ls_scan(reader, sof, lse, dri, sos):
     components = []
     for component in sos.components:
         components.append(jpeg.LSScanComponent())
@@ -285,7 +287,13 @@ def _parse_ls_scan(reader, sof, dri, sos):
     else:
         length = dri.restart_interval
     number_of_samples = length * len(components)
-    return jpeg.LSScan.read(reader, sof.samples_per_line, number_of_samples, components)
+    if lse is not None:
+        maxval = lse.maxval
+    else:
+        maxval = (1 << sof.precision) - 1
+    return jpeg.LSScan.read(
+        reader, sof.samples_per_line, number_of_samples, components, maxval=maxval
+    )
 
 
 if __name__ == "__main__":
