@@ -34,6 +34,7 @@ class Stream:
                     return _parse_arithmetic_lossless_scan(
                         reader,
                         sof,
+                        dri,
                         sos,
                         dc_arithmetic_conditioning_bounds=dc_arithmetic_conditioning_bounds,
                     )
@@ -42,12 +43,13 @@ class Stream:
                         reader, sof, sos, dc_huffman_tables=dc_huffman_tables
                     )
             elif sof.is_ls():
-                return _parse_ls_scan(reader, sof, sos)
+                return _parse_ls_scan(reader, sof, dri, sos)
             else:
                 if sof.is_arithmetic():
                     return _parse_arithmetic_dct_scan(
                         reader,
                         sof,
+                        dri,
                         sos,
                         dc_arithmetic_conditioning_bounds=dc_arithmetic_conditioning_bounds,
                         ac_arithmetic_kx=ac_arithmetic_kx,
@@ -56,6 +58,7 @@ class Stream:
                     return _parse_huffman_dct_scan(
                         reader,
                         sof,
+                        dri,
                         sos,
                         dc_huffman_tables=dc_huffman_tables,
                         ac_huffman_tables=ac_huffman_tables,
@@ -117,11 +120,9 @@ class Stream:
             elif marker == Marker.DNL:
                 dnl = jpeg.DefineNumberOfLines.read(reader)
                 segments.append(dnl)
-                dnl = dnl
             elif marker == Marker.DRI:
                 dri = jpeg.DefineRestartInterval.read(reader)
                 segments.append(dri)
-                dri = dri
             elif marker == Marker.EXP:
                 segments.append(jpeg.ExpandReferenceComponents.read(reader))
             elif marker == Marker.SOS:
@@ -167,6 +168,7 @@ def _size_in_dct_data_units(sof):
 def _parse_huffman_dct_scan(
     reader,
     sof,
+    dri,
     sos,
     dc_huffman_tables=[None, None, None, None],
     ac_huffman_tables=[None, None, None, None],
@@ -181,13 +183,18 @@ def _parse_huffman_dct_scan(
         )
     # FIXME: Handle scaling factor
     (width, height) = _size_in_dct_data_units(sof)
-    number_of_data_units = width * height * len(components)
+    if dri is None:
+        length = width * height
+    else:
+        length = dri.restart_interval
+    number_of_data_units = length * len(components)
     return jpeg.HuffmanDCTScan.read(reader, number_of_data_units, components)
 
 
 def _parse_arithmetic_dct_scan(
     reader,
     sof,
+    dri,
     sos,
     dc_arithmetic_conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
     ac_arithmetic_kx=[5, 5, 5, 5],
@@ -202,9 +209,13 @@ def _parse_arithmetic_dct_scan(
                 kx=ac_arithmetic_kx[component.ac_table],
             )
         )
-    # FIXME: Handle scaling factor, restart interval
+    # FIXME: Handle scaling factor
     (width, height) = _size_in_dct_data_units(sof)
-    number_of_data_units = width * height * len(components)
+    if dri is None:
+        length = width * height
+    else:
+        length = dri.restart_interval
+    number_of_data_units = length * len(components)
     return jpeg.ArithmeticDCTScan.read(reader, number_of_data_units, components)
 
 
@@ -218,9 +229,13 @@ def _parse_huffman_lossless_scan(
                 table=dc_huffman_tables[component.dc_table].table
             )
         )
-    # FIXME: Handle scaling factor, restart interval
+    # FIXME: Handle scaling factor
     assert sof.number_of_lines > 0
-    number_of_samples = sof.number_of_lines * sof.samples_per_line * len(components)
+    if dri is None:
+        length = sof.number_of_lines * sof.samples_per_line
+    else:
+        length = dri.restart_interval
+    number_of_samples = length * len(components)
     return jpeg.HuffmanLosslessScan.read(
         reader,
         sof.samples_per_line,
@@ -232,7 +247,7 @@ def _parse_huffman_lossless_scan(
 
 
 def _parse_arithmetic_lossless_scan(
-    reader, sof, sos, dc_arithmetic_conditioning_bounds=[None, None, None, None]
+    reader, sof, dri, sos, dc_arithmetic_conditioning_bounds=[None, None, None, None]
 ):
     components = []
     for component in sos.components:
@@ -245,7 +260,11 @@ def _parse_arithmetic_lossless_scan(
         )
     # FIXME: Handle scaling factor
     assert sof.number_of_lines > 0
-    number_of_samples = sof.number_of_lines * sof.samples_per_line * len(components)
+    if dri is None:
+        length = sof.number_of_lines * sof.samples_per_line
+    else:
+        length = dri.restart_interval
+    number_of_samples = length * len(components)
     return jpeg.ArithmeticLosslessScan.read(
         reader,
         sof.samples_per_line,
@@ -256,12 +275,16 @@ def _parse_arithmetic_lossless_scan(
     )
 
 
-def _parse_ls_scan(reader, sof, sos):
+def _parse_ls_scan(reader, sof, dri, sos):
     components = []
     for component in sos.components:
         components.append(jpeg.LSScanComponent())
     # FIXME: Handle scaling factor
-    number_of_samples = sof.number_of_lines * sof.samples_per_line * len(sos.components)
+    if dri is None:
+        length = sof.number_of_lines * sof.samples_per_line
+    else:
+        length = dri.restart_interval
+    number_of_samples = length * len(components)
     return jpeg.LSScan.read(reader, sof.samples_per_line, number_of_samples, components)
 
 
