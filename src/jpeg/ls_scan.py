@@ -25,22 +25,71 @@ class LSScanComponent:
 
 
 class LSScan(jpeg.segment.Segment):
-    def __init__(self, width, samples, components):
+    def __init__(
+        self,
+        width,
+        samples,
+        components,
+        near: int = 0,
+        maxval: int = 255,
+        gradient_threshold1: int = 0,
+        gradient_threshold2: int = 0,
+        gradient_threshold3: int = 0,
+        reset: int = 64,
+    ):
         assert len(components) > 0
         self.width = width
         self.samples = samples
         self.components = components
+        self.near = near
+        self.maxval = maxval
+        self.gradient_threshold1 = gradient_threshold1
+        self.gradient_threshold2 = gradient_threshold2
+        self.gradient_threshold3 = gradient_threshold3
+        self.reset = reset
 
     def write(self, writer: jpeg.io.Writer):
-        scan_writer = Writer(writer, self.width, self.samples)
+        scan_writer = Writer(
+            writer,
+            self.width,
+            self.samples,
+            near=self.near,
+            maxval=self.maxval,
+            gradient_threshold1=self.gradient_threshold1,
+            gradient_threshold2=self.gradient_threshold2,
+            gradient_threshold3=self.gradient_threshold3,
+            reset=self.reset,
+        )
         scan_writer.write()
 
     @classmethod
-    def read(cls, reader: jpeg.io.Reader, width, number_of_samples, components):
+    def read(
+        cls,
+        reader: jpeg.io.Reader,
+        width,
+        number_of_samples,
+        components,
+        near: int = 0,
+        maxval: int = 255,
+        gradient_threshold1: int = 0,
+        gradient_threshold2: int = 0,
+        gradient_threshold3: int = 0,
+        reset: int = 64,
+    ):
         assert len(components) > 0
-        scan_reader = Reader(reader, width, number_of_samples)
+        scan_reader = Reader(
+            reader,
+            width,
+            number_of_samples,
+            near=near,
+            maxval=maxval,
+            gradient_threshold1=gradient_threshold1,
+            gradient_threshold2=gradient_threshold2,
+            gradient_threshold3=gradient_threshold3,
+            reset=reset,
+        )
         samples = scan_reader.read_samples()
-        return cls(width, samples, components)
+        return cls(width, samples, components, maxval=maxval)
 
     def __eq__(self, other):
         return (
@@ -76,9 +125,27 @@ def _get_neighbours(width, samples, index):
 
 
 class Writer:
-    def __init__(self, writer, width, samples):
+    def __init__(
+        self,
+        writer,
+        width,
+        samples,
+        near: int = 0,
+        maxval: int = 255,
+        gradient_threshold1: int = 0,
+        gradient_threshold2: int = 0,
+        gradient_threshold3: int = 0,
+        reset: int = 64,
+    ):
         self.writer = jpeg.golomb_scan.Writer(writer)
-        self.parameters = CodingParameters()
+        self.parameters = CodingParameters(
+            near=near,
+            maxval=maxval,
+            gradient_threshold1=gradient_threshold1,
+            gradient_threshold2=gradient_threshold2,
+            gradient_threshold3=gradient_threshold3,
+            reset=reset,
+        )
         self.contexts = Contexts(self.parameters)
         self.width = width
         self.samples = samples
@@ -146,9 +213,26 @@ class Writer:
 
 
 class Reader:
-    def __init__(self, reader, width, number_of_samples):
+    def __init__(
+        self,
+        reader,
+        width,
+        number_of_samples,
+        near: int = 0,
+        maxval: int = 255,
+        gradient_threshold1: int = 0,
+        gradient_threshold2: int = 0,
+        gradient_threshold3: int = 0,
+        reset: int = 64,
+    ):
         self.reader = jpeg.golomb_scan.Reader(reader)
-        self.parameters = CodingParameters()
+        self.parameters = CodingParameters(
+            maxval=maxval,
+            gradient_threshold1=gradient_threshold1,
+            gradient_threshold2=gradient_threshold2,
+            gradient_threshold3=gradient_threshold3,
+            reset=reset,
+        )
         self.contexts = Contexts(self.parameters)
         self.width = width
         self.samples = [0] * number_of_samples
