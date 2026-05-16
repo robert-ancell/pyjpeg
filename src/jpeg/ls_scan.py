@@ -507,41 +507,41 @@ class RegularContext:
     def _get_limit(self, parameters) -> int:
         return parameters.limit - parameters.qbpp - 1
 
-    def _map_error(self, parameters, errval, k):
+    def _get_error_mapping_offset(self, parameters, k):
         if (
             parameters.near == 0
             and k == 0
             and 2 * self.bias <= -self.frequency_of_occurence
         ):
-            if errval >= 0:
-                return 2 * errval + 1
-            else:
-                return -2 * errval - 2
+            return 1
         else:
-            if errval >= 0:
-                return 2 * errval
-            else:
-                return -2 * errval - 1
+            return 0
+
+    def _map_error(self, parameters, errval, k):
+        offset = self._get_error_mapping_offset(parameters, k)
+        if errval < 0:
+            return ((-errval) * 2) - 1 - offset
+        else:
+            return (errval * 2) + offset
 
     def _unmap_error(self, parameters, mapped_errval, k):
-        if (
-            parameters.near == 0
-            and k == 0
-            and 2 * self.bias <= -self.frequency_of_occurence
-        ):
-            if mapped_errval % 2 == 1:
-                return (mapped_errval - 1) // 2
-            else:
-                return -((mapped_errval + 2) // 2)
+        if mapped_errval % 2 == 1:
+            errval = -((mapped_errval + 1) // 2)
         else:
-            if mapped_errval % 2 == 0:
-                return mapped_errval // 2
-            else:
-                return -((mapped_errval + 1) // 2)
+            errval = mapped_errval // 2
+
+        offset = self._get_error_mapping_offset(parameters, k)
+        if offset > 0:
+            return -(errval + 1)
+        elif offset < 0:
+            return -errval
+        else:
+            return errval
 
     def _update_bias(self, parameters, errval):
         self.bias += errval * (2 * parameters.near + 1)
         self.accumulated_prediction_error_magnitude += abs(errval)
+
         if self.frequency_of_occurence == parameters.reset:
             self.accumulated_prediction_error_magnitude >>= 1
             if self.bias >= 0:
@@ -555,16 +555,16 @@ class RegularContext:
         MAX_CORRECTION = 127
         if self.bias <= -self.frequency_of_occurence:
             self.bias += self.frequency_of_occurence
-            if self.prediction_correction > MIN_CORRECTION:
-                self.prediction_correction -= 1
             if self.bias <= -self.frequency_of_occurence:
                 self.bias = -self.frequency_of_occurence + 1
+            if self.prediction_correction > MIN_CORRECTION:
+                self.prediction_correction -= 1
         elif self.bias > 0:
             self.bias -= self.frequency_of_occurence
-            if self.prediction_correction < MAX_CORRECTION:
-                self.prediction_correction += 1
             if self.bias > 0:
                 self.bias = 0
+            if self.prediction_correction < MAX_CORRECTION:
+                self.prediction_correction += 1
 
 
 class RunContext:
@@ -604,7 +604,7 @@ class RunContext:
         k = self._get_golomb_size()
         mapped_errval = self._map_error(errval, k)
         writer.write_value(mapped_errval, k, self._get_limit(parameters, run_index))
-        self._update_state(parameters, errval)
+        self._update_accumulated_prediction_error(parameters, errval)
 
     def read_sample(
         self,
@@ -617,7 +617,7 @@ class RunContext:
         k = self._get_golomb_size()
         mapped_errval = reader.read_value(k, self._get_limit(parameters, run_index))
         errval = self._unmap_error(mapped_errval, k)
-        self._update_state(parameters, errval)
+        self._update_accumulated_prediction_error(parameters, errval)
 
         # FIXME: Dequantize
         if parameters.near > 0:
@@ -650,44 +650,48 @@ class RunContext:
     def _get_limit(self, parameters: CodingParameters, run_index: int) -> int:
         return parameters.limit - parameters.qbpp - 1 - run_widths[run_index] - 1
 
-    def _map_error(self, errval: int, k: int) -> int:
-        less_negatives = (
-            2 * self.negative_prediction_error
-        ) < self.frequency_of_occurence
-        if k == 0 and errval > 0 and less_negatives:
-            map = 1
-        elif errval < 0 and not less_negatives:
-            map = 1
-        elif errval < 0 and k != 0:
-            map = 1
+    def _get_error_mapping_offset(self, nonzero, k):
+        if (
+            nonzero
+            and k == 0
+            and 2 * self.negative_prediction_error < self.frequency_of_occurence
+        ):
+            return -1
         else:
-            map = 0
-        return 2 * abs(errval) - self.ritype - map
+            return 0
+
+    def _map_error(self, errval: int, k: int) -> int:
+        offset = self._get_error_mapping_offset(errval != 0, k)
+        if errval < 0:
+            return ((-errval) * 2) - 1 - offset - self.ritype
+        else:
+            return (errval * 2) + offset - self.ritype
 
     def _unmap_error(self, mapped_errval: int, k: int) -> int:
-        map = (mapped_errval + self.ritype) % 2
-        if map == 1:
-            abs_errval = (mapped_errval + self.ritype + 1) // 2
-            less_negatives = (
-                2 * self.negative_prediction_error
-            ) < self.frequency_of_occurence
-            if k == 0 and less_negatives:
-                return abs_errval
-            elif not less_negatives:
-                return -abs_errval
-            elif k != 0:
-                return -abs_errval
-            else:
-                assert False
-        else:
-            return (mapped_errval + self.ritype) // 2
+        mapped_errval += self.ritype
 
-    def _update_state(self, parameters, errval):
+        if mapped_errval % 2 == 1:
+            errval = -((mapped_errval + 1) // 2)
+        else:
+            errval = mapped_errval // 2
+
+        offset = self._get_error_mapping_offset(
+            self.ritype == 1 or mapped_errval != 0, k
+        )
+        if offset > 0:
+            return -(errval + 1)
+        elif offset < 0:
+            return -errval
+        else:
+            return errval
+
+    def _update_accumulated_prediction_error(self, parameters, errval):
         if errval < 0:
             self.negative_prediction_error += 1
             self.accumulated_prediction_error_magnitude += -errval - self.ritype
         else:
             self.accumulated_prediction_error_magnitude += errval - self.ritype
+
         if self.frequency_of_occurence == parameters.reset:
             self.accumulated_prediction_error_magnitude >>= 1
             self.frequency_of_occurence >>= 1
