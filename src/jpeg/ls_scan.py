@@ -475,7 +475,7 @@ class RegularContext:
 
         if sample < 0:
             sample = 0
-        if sample >= parameters.maxval:
+        if sample > parameters.maxval:
             sample = parameters.maxval
 
         return sample
@@ -531,10 +531,8 @@ class RegularContext:
             errval = mapped_errval // 2
 
         offset = self._get_error_mapping_offset(parameters, k)
-        if offset > 0:
+        if offset == 1:
             return -(errval + 1)
-        elif offset < 0:
-            return -errval
         else:
             return errval
 
