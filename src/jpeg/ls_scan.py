@@ -137,7 +137,6 @@ class Writer:
         gradient_threshold3: int = 0,
         reset: int = 64,
     ):
-        self.writer = jpeg.golomb_scan.Writer(writer)
         self.parameters = CodingParameters(
             near=near,
             maxval=maxval,
@@ -146,6 +145,7 @@ class Writer:
             gradient_threshold3=gradient_threshold3,
             reset=reset,
         )
+        self.writer = jpeg.golomb_scan.Writer(writer, qbpp=self.parameters.qbpp)
         self.contexts = Contexts(self.parameters)
         self.width = width
         self.samples = samples
@@ -225,7 +225,6 @@ class Reader:
         gradient_threshold3: int = 0,
         reset: int = 64,
     ):
-        self.reader = jpeg.golomb_scan.Reader(reader)
         self.parameters = CodingParameters(
             maxval=maxval,
             gradient_threshold1=gradient_threshold1,
@@ -233,6 +232,7 @@ class Reader:
             gradient_threshold3=gradient_threshold3,
             reset=reset,
         )
+        self.reader = jpeg.golomb_scan.Reader(reader, qbpp=self.parameters.qbpp)
         self.contexts = Contexts(self.parameters)
         self.width = width
         self.samples = [0] * number_of_samples
@@ -443,10 +443,7 @@ class RegularContext:
         k = self._get_golomb_size()
         mapped_errval = self._map_error(parameters, errval, k)
         writer.write_value(
-            mapped_errval,
-            self._get_golomb_size(),
-            self._get_limit(parameters),
-            qbpp=parameters.qbpp,
+            mapped_errval, self._get_golomb_size(), self._get_limit(parameters)
         )
         self._update_bias(parameters, errval)
 
@@ -462,9 +459,7 @@ class RegularContext:
         predicted_sample = self._predict(parameters, sign, a, b, c)
 
         k = self._get_golomb_size()
-        mapped_errval = reader.read_value(
-            k, self._get_limit(parameters), qbpp=parameters.qbpp
-        )
+        mapped_errval = reader.read_value(k, self._get_limit(parameters))
         errval = self._unmap_error(parameters, mapped_errval, k)
         self._update_bias(parameters, errval)
         errval *= 2 * parameters.near + 1
@@ -606,12 +601,7 @@ class RunContext:
 
         k = self._get_golomb_size()
         mapped_errval = self._map_error(errval, k)
-        writer.write_value(
-            mapped_errval,
-            k,
-            self._get_limit(parameters, run_index),
-            qbpp=parameters.qbpp,
-        )
+        writer.write_value(mapped_errval, k, self._get_limit(parameters, run_index))
         self._update_accumulated_prediction_error(parameters, errval)
 
     def read_sample(
@@ -623,9 +613,7 @@ class RunContext:
         b: int,
     ) -> int:
         k = self._get_golomb_size()
-        mapped_errval = reader.read_value(
-            k, self._get_limit(parameters, run_index), qbpp=parameters.qbpp
-        )
+        mapped_errval = reader.read_value(k, self._get_limit(parameters, run_index))
         errval = self._unmap_error(mapped_errval, k)
         self._update_accumulated_prediction_error(parameters, errval)
 

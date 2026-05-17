@@ -2,8 +2,9 @@ import jpeg.io
 
 
 class Writer:
-    def __init__(self, writer: jpeg.io.Writer):
+    def __init__(self, writer: jpeg.io.Writer, qbpp: int = 8):
         self.writer = writer
+        self.qbpp = qbpp
         self.data = 0
         self.bit_count = 0
 
@@ -19,7 +20,7 @@ class Writer:
                 self.data = 0
                 self.bit_count = 0
 
-    def write_value(self, value: int, length: int, limit: int, qbpp: int = 8):
+    def write_value(self, value: int, length: int, limit: int):
         # FIXME: Replace x with better name
         x = value >> length
 
@@ -32,7 +33,7 @@ class Writer:
 
             # Write raw value (must be at least one)
             v = value - 1
-            for i in reversed(range(qbpp)):
+            for i in reversed(range(self.qbpp)):
                 self.write_bit((v >> i) & 0x1)
             return
 
@@ -49,8 +50,9 @@ class Writer:
 
 
 class Reader:
-    def __init__(self, reader: jpeg.io.Reader):
+    def __init__(self, reader: jpeg.io.Reader, qbpp: int = 8):
         self.reader = reader
+        self.qbpp = qbpp
         self.data = 0
         self.bit_count = 0
 
@@ -68,7 +70,7 @@ class Reader:
         self.bit_count -= 1
         return bit
 
-    def read_value(self, length: int, limit: int, qbpp: int = 8) -> int:
+    def read_value(self, length: int, limit: int) -> int:
         value = 0
         while self.read_bit() == 0:
             value += 1
@@ -76,7 +78,7 @@ class Reader:
             raise Exception(f"Golomb value exceeds limit of {limit}")
         if value == limit:
             v = 0
-            for _ in range(qbpp):
+            for _ in range(self.qbpp):
                 v = (v << 1) | self.read_bit()
             return v + 1
         for _ in range(length):
