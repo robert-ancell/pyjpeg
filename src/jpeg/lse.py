@@ -58,7 +58,7 @@ class LSExtension(jpeg.segment.Segment):
 
 
 class LSPresetParameters(LSExtension):
-    def __init__(self, maxval=255, t1=3, t2=7, t3=21, reset=64):
+    def __init__(self, maxval=0, t1=0, t2=0, t3=0, reset=0):
         super().__init__(LSExtensionId.PRESET_PARAMETERS)
         self.maxval = maxval
         self.t1 = t1
