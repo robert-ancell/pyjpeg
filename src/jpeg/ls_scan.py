@@ -557,7 +557,7 @@ class RegularContext:
             self.bias += self.frequency_of_occurence
             if self.prediction_correction > MIN_CORRECTION:
                 self.prediction_correction -= 1
-            if self.bias < -self.frequency_of_occurence:
+            if self.bias <= -self.frequency_of_occurence:
                 self.bias = -self.frequency_of_occurence + 1
         elif self.bias > 0:
             self.bias -= self.frequency_of_occurence
