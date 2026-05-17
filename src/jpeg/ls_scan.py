@@ -443,7 +443,10 @@ class RegularContext:
         k = self._get_golomb_size()
         mapped_errval = self._map_error(parameters, errval, k)
         writer.write_value(
-            mapped_errval, self._get_golomb_size(), self._get_limit(parameters)
+            mapped_errval,
+            self._get_golomb_size(),
+            self._get_limit(parameters),
+            qbpp=parameters.qbpp,
         )
         self._update_bias(parameters, errval)
 
@@ -459,7 +462,9 @@ class RegularContext:
         predicted_sample = self._predict(parameters, sign, a, b, c)
 
         k = self._get_golomb_size()
-        mapped_errval = reader.read_value(k, self._get_limit(parameters))
+        mapped_errval = reader.read_value(
+            k, self._get_limit(parameters), qbpp=parameters.qbpp
+        )
         errval = self._unmap_error(parameters, mapped_errval, k)
         self._update_bias(parameters, errval)
         errval *= 2 * parameters.near + 1
@@ -601,7 +606,12 @@ class RunContext:
 
         k = self._get_golomb_size()
         mapped_errval = self._map_error(errval, k)
-        writer.write_value(mapped_errval, k, self._get_limit(parameters, run_index))
+        writer.write_value(
+            mapped_errval,
+            k,
+            self._get_limit(parameters, run_index),
+            qbpp=parameters.qbpp,
+        )
         self._update_accumulated_prediction_error(parameters, errval)
 
     def read_sample(
@@ -613,7 +623,9 @@ class RunContext:
         b: int,
     ) -> int:
         k = self._get_golomb_size()
-        mapped_errval = reader.read_value(k, self._get_limit(parameters, run_index))
+        mapped_errval = reader.read_value(
+            k, self._get_limit(parameters, run_index), qbpp=parameters.qbpp
+        )
         errval = self._unmap_error(mapped_errval, k)
         self._update_accumulated_prediction_error(parameters, errval)
 
