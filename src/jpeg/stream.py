@@ -287,6 +287,7 @@ def _parse_ls_scan(reader, sof, lse, dri, sos):
     else:
         length = dri.restart_interval
     number_of_samples = length * len(components)
+    maxval = 0
     if lse is not None:
         maxval = lse.maxval
     if maxval == 0:

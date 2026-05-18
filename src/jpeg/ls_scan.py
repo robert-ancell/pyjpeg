@@ -53,12 +53,14 @@ class LSScan(jpeg.segment.Segment):
             writer,
             self.width,
             self.samples,
-            near=self.near,
-            maxval=self.maxval,
-            gradient_threshold1=self.gradient_threshold1,
-            gradient_threshold2=self.gradient_threshold2,
-            gradient_threshold3=self.gradient_threshold3,
-            reset=self.reset,
+            CodingParameters(
+                near=self.near,
+                maxval=self.maxval,
+                gradient_threshold1=self.gradient_threshold1,
+                gradient_threshold2=self.gradient_threshold2,
+                gradient_threshold3=self.gradient_threshold3,
+                reset=self.reset,
+            ),
         )
         scan_writer.write()
 
@@ -81,12 +83,14 @@ class LSScan(jpeg.segment.Segment):
             reader,
             width,
             number_of_samples,
-            near=near,
-            maxval=maxval,
-            gradient_threshold1=gradient_threshold1,
-            gradient_threshold2=gradient_threshold2,
-            gradient_threshold3=gradient_threshold3,
-            reset=reset,
+            CodingParameters(
+                near=near,
+                maxval=maxval,
+                gradient_threshold1=gradient_threshold1,
+                gradient_threshold2=gradient_threshold2,
+                gradient_threshold3=gradient_threshold3,
+                reset=reset,
+            ),
         )
         samples = scan_reader.read_samples()
         return cls(width, samples, components, maxval=maxval)
@@ -125,26 +129,8 @@ def _get_neighbours(width, samples, index):
 
 
 class Writer:
-    def __init__(
-        self,
-        writer,
-        width,
-        samples,
-        near: int = 0,
-        maxval: int = 255,
-        gradient_threshold1: int = 0,
-        gradient_threshold2: int = 0,
-        gradient_threshold3: int = 0,
-        reset: int = 64,
-    ):
-        self.parameters = CodingParameters(
-            near=near,
-            maxval=maxval,
-            gradient_threshold1=gradient_threshold1,
-            gradient_threshold2=gradient_threshold2,
-            gradient_threshold3=gradient_threshold3,
-            reset=reset,
-        )
+    def __init__(self, writer, width, samples, parameters: CodingParameters):
+        self.parameters = parameters
         self.writer = jpeg.golomb_scan.Writer(writer, qbpp=self.parameters.qbpp)
         self.contexts = Contexts(self.parameters)
         self.width = width
@@ -213,25 +199,8 @@ class Writer:
 
 
 class Reader:
-    def __init__(
-        self,
-        reader,
-        width,
-        number_of_samples,
-        near: int = 0,
-        maxval: int = 255,
-        gradient_threshold1: int = 0,
-        gradient_threshold2: int = 0,
-        gradient_threshold3: int = 0,
-        reset: int = 64,
-    ):
-        self.parameters = CodingParameters(
-            maxval=maxval,
-            gradient_threshold1=gradient_threshold1,
-            gradient_threshold2=gradient_threshold2,
-            gradient_threshold3=gradient_threshold3,
-            reset=reset,
-        )
+    def __init__(self, reader, width, number_of_samples, parameters: CodingParameters):
+        self.parameters = parameters
         self.reader = jpeg.golomb_scan.Reader(reader, qbpp=self.parameters.qbpp)
         self.contexts = Contexts(self.parameters)
         self.width = width
