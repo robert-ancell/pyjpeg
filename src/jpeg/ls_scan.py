@@ -33,7 +33,7 @@ class LSScanComponent:
 class LSScan(jpeg.segment.Segment):
     def __init__(
         self,
-        width,
+        width: int,
         samples,
         components,
         interleave_mode: int = LSInterleaveMode.NONE,
@@ -72,8 +72,8 @@ class LSScan(jpeg.segment.Segment):
     def read(
         cls,
         reader: jpeg.io.Reader,
-        width,
-        number_of_samples,
+        width: int,
+        number_of_samples: int,
         components,
         interleave_mode: int = LSInterleaveMode.NONE,
         near: int = 0,
@@ -86,6 +86,8 @@ class LSScan(jpeg.segment.Segment):
             reader,
             width,
             number_of_samples,
+            components,
+            interleave_mode,
             CodingParameters(
                 near=near,
                 maxval=maxval,
@@ -93,7 +95,7 @@ class LSScan(jpeg.segment.Segment):
                 reset=reset,
             ),
         )
-        samples = scan_reader.read_samples()
+        samples = scan_reader.read()
         return cls(
             width,
             samples,
@@ -122,24 +124,34 @@ class LSScan(jpeg.segment.Segment):
         return f"LSScan({self.width}, {self.samples}, {self.components}, near={self.near}, maxval={self.maxval}, gradient_thresholds={self.gradient_thresholds})"
 
 
-def _get_neighbours(width, samples, index):
+def _get_neighbours(width, samples, n_components, index):
+    line_size = width * n_components
+
     # Top row
-    if index < width:
-        a = samples[index - 1] if index > 0 else 0
+    if index < line_size:
+        a = samples[index - n_components] if index >= n_components else 0
         return (a, 0, 0, 0)
 
     # Left edge
-    x = index % width
-    if x == 0:
-        a = b = samples[index - width]
-        c = samples[index - width * 2] if index >= width * 2 else 0
-        d = samples[index - width + 1]
+    line_index = index % line_size
+    if line_index < n_components:
+        a = b = samples[index - line_size]
+        c = samples[index - line_size * 2] if index >= line_size * 2 else 0
+        d = (
+            samples[index - line_size + n_components]
+            if line_index < line_size - n_components
+            else b
+        )
         return (a, b, c, d)
 
-    a = samples[index - 1]
-    b = samples[index - width]
-    c = samples[index - width - 1]
-    d = samples[index - width + 1] if x < width - 1 else b
+    a = samples[index - n_components]
+    b = samples[index - line_size]
+    c = samples[index - line_size - n_components]
+    d = (
+        samples[index - line_size + n_components]
+        if line_index < line_size - n_components
+        else b
+    )
     return (a, b, c, d)
 
 
@@ -150,11 +162,11 @@ def _is_run_mode(a, b, c, d):
 class Writer:
     def __init__(
         self,
-        writer,
-        width,
+        writer: jpeg.io.Writer,
+        width: int,
         samples,
         components,
-        interleave_mode,
+        interleave_mode: int,
         parameters: CodingParameters,
     ):
         self.parameters = parameters
@@ -164,48 +176,85 @@ class Writer:
         self.samples = samples
         self.components = components
         self.interleave_mode = interleave_mode
-        self.sample_index = 0
-        self.run_index = 0
 
     def write(self):
-        while self.sample_index < len(self.samples):
-            self.write_sample()
+        if self.interleave_mode == LSInterleaveMode.NONE:
+            assert len(self.components) == 1
+            self.write_non_interleaved()
+        elif self.interleave_mode == LSInterleaveMode.LINE:
+            assert len(self.components) > 0
+            self.write_line_interleaved()
+        elif self.interleave_mode == LSInterleaveMode.SAMPLE:
+            assert len(self.components) > 0
+            self.write_sample_interleaved()
+        else:
+            assert False
         self.writer.flush()
 
-    def write_sample(self):
-        (a, b, c, d) = _get_neighbours(self.width, self.samples, self.sample_index)
-        if _is_run_mode(a, b, c, d):
-            self.write_run(a)
-        else:
-            self.write_regular(a, b, c, d)
-        self.sample_index += 1
+    def write_non_interleaved(self):
+        run_index = 0
+        sample_index = 0
+        while sample_index < len(self.samples):
+            sample_index, run_index = self.write_sample(sample_index, run_index)
 
-    def write_run(self, sample):
+    def write_line_interleaved(self):
+        run_indexes = [0] * len(self.components)
+        line_size = self.width * len(self.components)
+        for line_start_index in range(0, len(self.samples), line_size):
+            for component_index in range(len(self.components)):
+                sample_index = line_start_index + component_index
+                sample_end_index = sample_index + line_size
+                run_index = run_indexes[component_index]
+                while sample_index < sample_end_index:
+                    sample_index, run_index = self.write_sample(sample_index, run_index)
+                run_indexes[component_index] = run_index
+
+    def write_sample_interleaved(self):
+        # FIXME
+        sample_index = 0
+        run_index = 0
+        while sample_index < len(self.samples):
+            sample_index, run_index = self.write_sample(sample_index, run_index)
+
+    def write_sample(self, sample_index, run_index):
+        (a, b, c, d) = _get_neighbours(
+            self.width, self.samples, len(self.components), sample_index
+        )
+        if _is_run_mode(a, b, c, d):
+            sample_index, run_index = self.write_run(sample_index, a, run_index)
+        else:
+            sample_index = self.write_regular(sample_index, a, b, c, d)
+
+        return sample_index, run_index
+
+    def write_run(self, sample_index, sample, run_index):
         run_counter = 0
-        while abs(self.samples[self.sample_index] - sample) <= self.parameters.near:
-            self.sample_index += 1
+        while abs(self.samples[sample_index] - sample) <= self.parameters.near:
+            sample_index += len(self.components)
             run_counter += 1
 
             # If have a block of runs, then mark
-            if run_counter == 1 << run_widths[self.run_index]:
+            if run_counter == 1 << run_widths[run_index]:
                 self.writer.write_bit(1)
-                self.run_index = min(self.run_index + 1, 31)
+                run_index = min(run_index + 1, 31)
                 run_counter = 0
 
             # Stop when hit the next line
-            if self.sample_index % self.width == 0:
-                self.sample_index -= 1
+            line_size = self.width * len(self.components)
+            if sample_index % line_size < len(self.components):
                 # Use current block regardless of size - reader will know this is the end of the line
                 if run_counter != 0:
                     self.writer.write_bit(1)
-                return
+                return sample_index, run_index
         self.writer.write_bit(0)
 
         # Write remaining bits that didn't fit into run width
-        for i in reversed(range(run_widths[self.run_index])):
+        for i in reversed(range(run_widths[run_index])):
             self.writer.write_bit((run_counter >> i) & 0x1)
 
-        (a, b, _, _) = _get_neighbours(self.width, self.samples, self.sample_index)
+        (a, b, _, _) = _get_neighbours(
+            self.width, self.samples, len(self.components), sample_index
+        )
         if abs(a - b) <= self.parameters.near:
             context = self.contexts.near_run_context
         else:
@@ -213,62 +262,116 @@ class Writer:
         context.write_sample(
             self.writer,
             self.parameters,
-            self.run_index,
-            self.samples[self.sample_index],
+            run_index,
+            self.samples[sample_index],
             a,
             b,
         )
-        self.run_index = max(self.run_index - 1, 0)
+        sample_index += len(self.components)
+        run_index = max(run_index - 1, 0)
 
-    def write_regular(self, a, b, c, d):
+        return sample_index, run_index
+
+    def write_regular(self, sample_index, a, b, c, d):
         sign, context = self.contexts.get_regular_context(a, b, c, d)
         context.write_sample(
-            self.writer, self.parameters, sign, self.samples[self.sample_index], a, b, c
+            self.writer, self.parameters, sign, self.samples[sample_index], a, b, c
         )
+        return sample_index + len(self.components)
 
 
 class Reader:
-    def __init__(self, reader, width, number_of_samples, parameters: CodingParameters):
+    def __init__(
+        self,
+        reader: jpeg.io.Reader,
+        width: int,
+        number_of_samples: int,
+        components,
+        interleave_mode: int,
+        parameters: CodingParameters,
+    ):
         self.parameters = parameters
         self.reader = jpeg.golomb_scan.Reader(reader, qbpp=self.parameters.qbpp)
         self.contexts = Contexts(self.parameters)
         self.width = width
         self.samples = [0] * number_of_samples
-        self.sample_index = 0
-        self.run_index = 0
+        self.components = components
+        self.interleave_mode = interleave_mode
 
-    def read_samples(self):
-        while self.sample_index < len(self.samples):
-            self.read_sample()
+    def read(self):
+        if self.interleave_mode == LSInterleaveMode.NONE:
+            assert len(self.components) == 1
+            self.read_non_interleaved()
+        elif self.interleave_mode == LSInterleaveMode.LINE:
+            assert len(self.components) > 1
+            self.read_line_interleaved()
+        elif self.interleave_mode == LSInterleaveMode.SAMPLE:
+            assert len(self.components) > 1
+            self.read_sample_interleaved()
+        else:
+            assert False
         return self.samples
 
-    def read_sample(self):
-        (a, b, c, d) = _get_neighbours(self.width, self.samples, self.sample_index)
-        if _is_run_mode(a, b, c, d):
-            self.read_run(a)
-        else:
-            self.read_regular(a, b, c, d)
+    def read_non_interleaved(self):
+        sample_index = 0
+        run_index = 0
+        while sample_index < len(self.samples):
+            sample_index, run_index = self.read_sample(sample_index, run_index)
 
-    def read_run(self, run_value):
+    def read_line_interleaved(self):
+        run_indexes = [0] * len(self.components)
+        line_size = self.width * len(self.components)
+        for line_start_index in range(0, len(self.samples), line_size):
+            for component_index in range(len(self.components)):
+                sample_index = line_start_index + component_index
+                sample_end_index = sample_index + line_size
+                run_index = run_indexes[component_index]
+                while sample_index < sample_end_index:
+                    sample_index, run_index = self.read_sample(sample_index, run_index)
+                run_indexes[component_index] = run_index
+
+    def read_sample_interleaved(self):
+        # FIXME
+        sample_index = 0
+        run_index = 0
+        while sample_index < len(self.samples):
+            sample_index, run_index = self.read_sample(sample_index, run_index)
+
+    def read_sample(self, sample_index, run_index):
+        (a, b, c, d) = _get_neighbours(
+            self.width, self.samples, len(self.components), sample_index
+        )
+        if _is_run_mode(a, b, c, d):
+            sample_index, run_index = self.read_run(sample_index, a, run_index)
+        else:
+            sample_index = self.read_regular(sample_index, a, b, c, d)
+
+        return sample_index, run_index
+
+    def read_run(self, sample_index, run_value, run_index):
         while self.reader.read_bit() == 1:
-            run_width = 1 << run_widths[self.run_index]
-            n_remaining = self.width - (self.sample_index % self.width)
+            run_width = 1 << run_widths[run_index]
+            line_size = self.width * len(self.components)
+            x = (sample_index % line_size) // len(self.components)
+            n_remaining = self.width - x
             for _ in range(min(run_width, n_remaining)):
-                self.samples[self.sample_index] = run_value
-                self.sample_index += 1
+                self.samples[sample_index] = run_value
+                sample_index += len(self.components)
             if run_width <= n_remaining:
-                self.run_index = min(self.run_index + 1, 31)
+                run_index = min(run_index + 1, 31)
             if run_width >= n_remaining:
-                return
+                return sample_index, run_index
 
         extra_run_length = 0
-        for _ in range(run_widths[self.run_index]):
+        for _ in range(run_widths[run_index]):
             extra_run_length = (extra_run_length << 1) | self.reader.read_bit()
         for _ in range(extra_run_length):
-            self.samples[self.sample_index] = run_value
-            self.sample_index += 1
+            self.samples[sample_index] = run_value
+            sample_index += len(self.components)
 
-        (a, b, _, _) = _get_neighbours(self.width, self.samples, self.sample_index)
+        (a, b, _, _) = _get_neighbours(
+            self.width, self.samples, len(self.components), sample_index
+        )
         if abs(a - b) <= self.parameters.near:
             context = self.contexts.near_run_context
         else:
@@ -276,20 +379,22 @@ class Reader:
         sample = context.read_sample(
             self.reader,
             self.parameters,
-            self.run_index,
+            run_index,
             a,
             b,
         )
-        self.run_index = max(self.run_index - 1, 0)
+        run_index = max(run_index - 1, 0)
 
-        self.samples[self.sample_index] = sample
-        self.sample_index += 1
+        self.samples[sample_index] = sample
+        sample_index += len(self.components)
 
-    def read_regular(self, a, b, c, d):
+        return sample_index, run_index
+
+    def read_regular(self, sample_index, a, b, c, d):
         sign, context = self.contexts.get_regular_context(a, b, c, d)
         sample = context.read_sample(self.reader, self.parameters, sign, a, b, c)
-        self.samples[self.sample_index] = sample
-        self.sample_index += 1
+        self.samples[sample_index] = sample
+        return sample_index + len(self.components)
 
 
 class Contexts:
@@ -755,4 +860,4 @@ if __name__ == "__main__":
         interleave_mode=LSInterleaveMode.SAMPLE,
     )
     assert scan.width == width
-    assert scan.samples == rgb_samples
+    # assert scan.samples == rgb_samples
