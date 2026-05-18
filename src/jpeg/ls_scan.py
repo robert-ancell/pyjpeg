@@ -355,6 +355,9 @@ class CodingParameters:
         if self.reset == 0:
             self.reset = 64
 
+        assert self.gradient_threshold2 >= self.gradient_threshold1
+        assert self.gradient_threshold3 >= self.gradient_threshold2
+
         # Derived parameters
         self.range = ((maxval + 2 * near) // (2 * near + 1)) + 1
         self.qbpp = math.ceil(math.log2(self.range))
