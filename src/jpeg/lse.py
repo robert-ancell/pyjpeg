@@ -113,7 +113,7 @@ class LSMappingTable(LSExtension):
         return f"LSMappingTable({self.table_id}, {self.table})"
 
 
-class LSOversizeImageDimension(LSExtension):
+class LSOversizeImageDimensions(LSExtension):
     def __init__(self, number_of_bytes, number_of_lines, samples_per_line):
         super().__init__(LSExtensionId.OVERSIZE_IMAGE_DIMENSION)
         self.number_of_bytes = number_of_bytes
@@ -143,7 +143,7 @@ class LSOversizeImageDimension(LSExtension):
         )
 
     def __repr__(self):
-        return f"LSOversizeImageDimension({self.number_of_bytes}, {self.number_of_lines}, {self.samples_per_line})"
+        return f"LSOversizeImageDimensions({self.number_of_bytes}, {self.number_of_lines}, {self.samples_per_line})"
 
 
 if __name__ == "__main__":

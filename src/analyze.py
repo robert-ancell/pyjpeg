@@ -219,6 +219,13 @@ for segment in stream.segments:
         print(" Maximum value: %d" % segment.maxval)
         print(" Gradient thresholds: %d, %d, %d" % (segment.t1, segment.t2, segment.t3))
         print(" Reset: %d" % segment.reset)
+    elif isinstance(segment, jpeg.LSMappingTable):
+        print("LSE Mapping Table")
+        # FIXME
+    elif isinstance(segment, jpeg.LSOversizeImageDimensions):
+        print("LSE Oversize Image Dimensions")
+        print(" Number of lines: %d" % segment.number_of_lines)
+        print(" Number of samples per line: %d" % segment.samples_per_line)
     elif isinstance(segment, jpeg.EndOfImage):
         print("EOI End of Image")
     else:
