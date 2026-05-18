@@ -309,18 +309,19 @@ def _parse_ls_scan(
     else:
         length = dri.restart_interval
     number_of_samples = length * len(components)
-    near = sos.spectral_selection[0]
-    maxval = 0
-    gradient_threshold1 = 0
-    gradient_threshold2 = 0
-    gradient_threshold3 = 0
-    reset = 0
+    near, interleave_mode = sos.spectral_selection
     if lse_coding_parameters is not None:
         maxval = lse_coding_parameters.maxval
-        gradient_threshold1 = lse_coding_parameters.t1
-        gradient_threshold2 = lse.t2
-        gradient_threshold3 = lse.t3
+        gradient_thresholds = (
+            lse_coding_parameters.t1,
+            lse_coding_parameters.t2,
+            lse_coding_parameters.t3,
+        )
         reset = lse_coding_parameters.reset
+    else:
+        maxval = 0
+        gradient_thresholds = (0, 0, 0)
+        reset = 0
     if maxval == 0:
         maxval = (1 << sof.precision) - 1
     return jpeg.LSScan.read(
@@ -328,11 +329,10 @@ def _parse_ls_scan(
         samples_per_line,
         number_of_samples,
         components,
+        interleave_mode=interleave_mode,
         near=near,
         maxval=maxval,
-        gradient_threshold1=gradient_threshold1,
-        gradient_threshold2=gradient_threshold2,
-        gradient_threshold3=gradient_threshold3,
+        gradient_thresholds=gradient_thresholds,
         reset=reset,
     )
 

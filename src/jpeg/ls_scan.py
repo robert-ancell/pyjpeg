@@ -10,6 +10,12 @@ run_widths = [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 5, 5, 6, 6, 
 # fmt: on
 
 
+class LSInterleaveMode:
+    NONE = 0
+    LINE = 1
+    SAMPLE = 2
+
+
 class LSScanComponent:
     def __init__(self, sampling_factor=(1, 1)):
         self.sampling_factor = sampling_factor
@@ -30,22 +36,20 @@ class LSScan(jpeg.segment.Segment):
         width,
         samples,
         components,
+        interleave_mode: int = LSInterleaveMode.NONE,
         near: int = 0,
         maxval: int = 255,
-        gradient_threshold1: int = 0,
-        gradient_threshold2: int = 0,
-        gradient_threshold3: int = 0,
+        gradient_thresholds=(0, 0, 0),
         reset: int = 0,
     ):
         assert len(components) > 0
         self.width = width
         self.samples = samples
         self.components = components
+        self.interleave_mode = interleave_mode
         self.near = near
         self.maxval = maxval
-        self.gradient_threshold1 = gradient_threshold1
-        self.gradient_threshold2 = gradient_threshold2
-        self.gradient_threshold3 = gradient_threshold3
+        self.gradient_thresholds = gradient_thresholds
         self.reset = reset
 
     def write(self, writer: jpeg.io.Writer):
@@ -56,9 +60,7 @@ class LSScan(jpeg.segment.Segment):
             CodingParameters(
                 near=self.near,
                 maxval=self.maxval,
-                gradient_threshold1=self.gradient_threshold1,
-                gradient_threshold2=self.gradient_threshold2,
-                gradient_threshold3=self.gradient_threshold3,
+                gradient_thresholds=self.gradient_thresholds,
                 reset=self.reset,
             ),
         )
@@ -71,11 +73,10 @@ class LSScan(jpeg.segment.Segment):
         width,
         number_of_samples,
         components,
+        interleave_mode: int = LSInterleaveMode.NONE,
         near: int = 0,
         maxval: int = 255,
-        gradient_threshold1: int = 0,
-        gradient_threshold2: int = 0,
-        gradient_threshold3: int = 0,
+        gradient_thresholds=(0, 0, 0),
         reset: int = 0,
     ):
         assert len(components) > 0
@@ -86,14 +87,21 @@ class LSScan(jpeg.segment.Segment):
             CodingParameters(
                 near=near,
                 maxval=maxval,
-                gradient_threshold1=gradient_threshold1,
-                gradient_threshold2=gradient_threshold2,
-                gradient_threshold3=gradient_threshold3,
+                gradient_thresholds=gradient_thresholds,
                 reset=reset,
             ),
         )
         samples = scan_reader.read_samples()
-        return cls(width, samples, components, maxval=maxval)
+        return cls(
+            width,
+            samples,
+            components,
+            interleave_mode=interleave_mode,
+            near=near,
+            maxval=maxval,
+            gradient_thresholds=gradient_thresholds,
+            reset=reset,
+        )
 
     def __eq__(self, other):
         return (
@@ -101,10 +109,15 @@ class LSScan(jpeg.segment.Segment):
             and other.width == self.width
             and other.samples == self.samples
             and other.components == self.components
+            and other.interleave_mode == self.interleave_mode
+            and other.near == self.near
+            and other.maxval == self.maxval
+            and other.gradient_thresholds == self.gradient_thresholds
+            and other.reset == self.reset
         )
 
     def __repr__(self):
-        return f"LSScan({self.width}, {self.samples}, {self.components})"
+        return f"LSScan({self.width}, {self.samples}, {self.components}, near={self.near}, maxval={self.maxval}, gradient_thresholds={self.gradient_thresholds})"
 
 
 def _get_neighbours(width, samples, index):
@@ -297,66 +310,55 @@ class Contexts:
         return sign, self.regular_contexts[context_index]
 
 
+def _generate_gradient_thresholds(near: int, maxval: int, gradient_thresholds):
+    def clamp(i, j):
+        if i > maxval or i < j:
+            return j
+        else:
+            return i
+
+    BASIC_T1 = 3
+    BASIC_T2 = 7
+    BASIC_T3 = 21
+    t1, t2, t3 = gradient_thresholds
+    if maxval >= 128:
+        factor = (min(maxval, 4095) + 128) // 256
+        if t1 == 0:
+            t1 = clamp(factor * (BASIC_T1 - 2) + 2 + 3 * near, near + 1)
+        if t2 == 0:
+            t2 = clamp(factor * (BASIC_T2 - 3) + 3 + 5 * near, t1)
+        if t3 == 0:
+            t3 = clamp(factor * (BASIC_T3 - 4) + 4 + 7 * near, t2)
+    else:
+        factor = 256 // (maxval + 1)
+        if t1 == 0:
+            t1 = clamp(max(2, BASIC_T1 // factor + 3 * near), near + 1)
+        if t2 == 0:
+            t2 = clamp(max(3, BASIC_T2 // factor + 5 * near), t1)
+        if t3 == 0:
+            t3 = clamp(max(4, BASIC_T3 // factor + 7 * near), t2)
+    return (t1, t2, t3)
+
+
 class CodingParameters:
     def __init__(
         self,
         near: int = 0,
         maxval: int = 255,
-        gradient_threshold1: int = 0,
-        gradient_threshold2: int = 0,
-        gradient_threshold3: int = 0,
+        gradient_thresholds=(0, 0, 0),
         reset: int = 0,
     ):
-        self.near = 0
+        self.near = near
         self.maxval = maxval
-        self.gradient_threshold1 = gradient_threshold1
-        self.gradient_threshold2 = gradient_threshold2
-        self.gradient_threshold3 = gradient_threshold3
+        self.gradient_thresholds = _generate_gradient_thresholds(
+            near, maxval, gradient_thresholds
+        )
         self.reset = reset
-
-        BASIC_T1 = 3
-        BASIC_T2 = 7
-        BASIC_T3 = 21
-
-        def clamp(i, j):
-            if i > maxval or i < j:
-                return j
-            else:
-                return i
-
-        if maxval >= 128:
-            factor = (min(maxval, 4095) + 128) // 256
-            if self.gradient_threshold1 == 0:
-                self.gradient_threshold1 = clamp(
-                    factor * (BASIC_T1 - 2) + 2 + 3 * near, near + 1
-                )
-            if self.gradient_threshold2 == 0:
-                self.gradient_threshold2 = clamp(
-                    factor * (BASIC_T2 - 3) + 3 + 5 * near, self.gradient_threshold1
-                )
-            if self.gradient_threshold3 == 0:
-                self.gradient_threshold3 = clamp(
-                    factor * (BASIC_T3 - 4) + 4 + 7 * near, self.gradient_threshold2
-                )
-        else:
-            factor = 256 // (maxval + 1)
-            if self.gradient_threshold1 == 0:
-                self.gradient_threshold1 = clamp(
-                    max(2, BASIC_T1 // factor + 3 * near), near + 1
-                )
-            if self.gradient_threshold2 == 0:
-                self.gradient_threshold2 = clamp(
-                    max(3, BASIC_T2 // factor + 5 * near), self.gradient_threshold1
-                )
-            if self.gradient_threshold3 == 0:
-                self.gradient_threshold3 = clamp(
-                    max(4, BASIC_T3 // factor + 7 * near), self.gradient_threshold2
-                )
         if self.reset == 0:
             self.reset = 64
 
-        assert self.gradient_threshold2 >= self.gradient_threshold1
-        assert self.gradient_threshold3 >= self.gradient_threshold2
+        assert self.gradient_thresholds[1] >= self.gradient_thresholds[0]
+        assert self.gradient_thresholds[2] >= self.gradient_thresholds[1]
 
         # Derived parameters
         self.range = ((maxval + 2 * near) // (2 * near + 1)) + 1
@@ -365,21 +367,21 @@ class CodingParameters:
         self.limit = 2 * (bpp + max(8, bpp))
 
     def classify(self, d: int) -> int:
-        if d <= -self.gradient_threshold3:
+        if d <= -self.gradient_thresholds[2]:
             return -4
-        elif d <= -self.gradient_threshold2:
+        elif d <= -self.gradient_thresholds[1]:
             return -3
-        elif d <= -self.gradient_threshold1:
+        elif d <= -self.gradient_thresholds[0]:
             return -2
         elif d < -self.near:
             return -1
         elif d <= self.near:
             return 0
-        elif d < self.gradient_threshold1:
+        elif d < self.gradient_thresholds[0]:
             return 1
-        elif d < self.gradient_threshold2:
+        elif d < self.gradient_thresholds[1]:
             return 2
-        elif d < self.gradient_threshold3:
+        elif d < self.gradient_thresholds[2]:
             return 3
         else:
             return 4

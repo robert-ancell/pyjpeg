@@ -31,7 +31,7 @@ from jpeg.huffman_dct_scan import HuffmanDCTScan, HuffmanDCTScanComponent
 from jpeg.huffman_lossless_scan import HuffmanLosslessScan, HuffmanLosslessScanComponent
 from jpeg.huffman_tables import *
 from jpeg.io import BufferedReader, BufferedWriter, Reader, Writer
-from jpeg.ls_scan import LSScan, LSScanComponent
+from jpeg.ls_scan import LSInterleaveMode, LSScan, LSScanComponent
 from jpeg.lse import (
     LSCodingParameters,
     LSExtension,
