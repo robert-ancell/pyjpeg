@@ -3,7 +3,7 @@ import jpeg.segment
 
 
 class LSExtensionId:
-    PRESET_PARAMETERS = 1
+    CODING_PARAMETERS = 1
     MAPPING_TABLE = 2
     MAPPING_TABLE_CONTINUATION = 3
     OVERSIZE_IMAGE_DIMENSION = 4
@@ -20,14 +20,14 @@ class LSExtension(jpeg.segment.Segment):
         length = reader.read_u16()
         assert length >= 3
         id = reader.read_u8()
-        if id == LSExtensionId.PRESET_PARAMETERS:
+        if id == LSExtensionId.CODING_PARAMETERS:
             assert length == 13
             maxval = reader.read_u16()
             t1 = reader.read_u16()
             t2 = reader.read_u16()
             t3 = reader.read_u16()
             reset = reader.read_u16()
-            return LSPresetParameters(maxval=maxval, t1=t1, t2=t2, t3=t3, reset=reset)
+            return LSCodingParameters(maxval=maxval, t1=t1, t2=t2, t3=t3, reset=reset)
         elif id == LSExtensionId.MAPPING_TABLE:
             assert length >= 5
             table_id = reader.read_u8()
@@ -51,9 +51,9 @@ class LSExtension(jpeg.segment.Segment):
             raise Exception("Unknown JPEG-LS extension id %d" % id)
 
 
-class LSPresetParameters(LSExtension):
+class LSCodingParameters(LSExtension):
     def __init__(self, maxval=0, t1=0, t2=0, t3=0, reset=0):
-        super().__init__(LSExtensionId.PRESET_PARAMETERS)
+        super().__init__(LSExtensionId.CODING_PARAMETERS)
         self.maxval = maxval
         self.t1 = t1
         self.t2 = t2
@@ -63,7 +63,7 @@ class LSPresetParameters(LSExtension):
     def write(self, writer: jpeg.io.Writer):
         writer.write_marker(jpeg.marker.Marker.LSE)
         writer.write_u16(13)
-        writer.write_u8(LSExtensionId.PRESET_PARAMETERS)
+        writer.write_u8(LSExtensionId.CODING_PARAMETERS)
         writer.write_u16(self.maxval)
         writer.write_u16(self.t1)
         writer.write_u16(self.t2)
@@ -72,7 +72,7 @@ class LSPresetParameters(LSExtension):
 
     def __eq__(self, other):
         return (
-            isinstance(other, LSPresetParameters)
+            isinstance(other, LSCodingParameters)
             and other.maxval == self.maxval
             and other.t1 == self.t1
             and other.t2 == self.t2
@@ -81,7 +81,7 @@ class LSPresetParameters(LSExtension):
         )
 
     def __repr__(self):
-        return f"LSPresetParameters({self.maxval}, {self.t1}, {self.t2}, {self.t3}, {self.reset})"
+        return f"LSCodingParameters({self.maxval}, {self.t1}, {self.t2}, {self.t3}, {self.reset})"
 
 
 class LSMappingTable(LSExtension):
@@ -139,13 +139,13 @@ class LSOversizeImageDimensions(LSExtension):
 
 if __name__ == "__main__":
     writer = jpeg.io.BufferedWriter()
-    LSPresetParameters(maxval=255, t1=3, t2=7, t3=21, reset=64).write(writer)
+    LSCodingParameters(maxval=255, t1=3, t2=7, t3=21, reset=64).write(writer)
     assert (
         writer.data == b"\xff\xf8\x00\x0d\x01\x00\xff\x00\x03\x00\x07\x00\x15\x00\x40"
     )
 
     reader = jpeg.io.BufferedReader(writer.data)
-    lse = LSPresetParameters.read(reader)
+    lse = LSCodingParameters.read(reader)
     assert lse.maxval == 255
     assert lse.t1 == 3
     assert lse.t2 == 7

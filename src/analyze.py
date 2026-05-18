@@ -214,8 +214,8 @@ for segment in stream.segments:
     elif isinstance(segment, jpeg.DefineNumberOfLines):
         print("DNL Define Number of Lines")
         print(" Number of lines: %d" % segment.number_of_lines)
-    elif isinstance(segment, jpeg.LSPresetParameters):
-        print("LSE Preset Parameters")
+    elif isinstance(segment, jpeg.LSCodingParameters):
+        print("LSE Coding Parameters")
         print(" Maximum value: %d" % segment.maxval)
         print(" Gradient thresholds: %d, %d, %d" % (segment.t1, segment.t2, segment.t3))
         print(" Reset: %d" % segment.reset)

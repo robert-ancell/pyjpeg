@@ -23,7 +23,7 @@ class Stream:
         segments = []
         sof = None
         dri = None
-        lse_parameters = None
+        lse_coding_parameters = None
         lse_oversize_image_dimensions = None
         sos = None
         dnl = None
@@ -46,7 +46,12 @@ class Stream:
                     )
             elif sof.is_ls():
                 return _parse_ls_scan(
-                    reader, sof, lse_parameters, lse_oversize_image_dimensions, dri, sos
+                    reader,
+                    sof,
+                    lse_coding_parameters,
+                    lse_oversize_image_dimensions,
+                    dri,
+                    sos,
                 )
             else:
                 if sof.is_arithmetic():
@@ -157,8 +162,8 @@ class Stream:
                 segments.append(jpeg.ApplicationSpecificData.read(reader))
             elif marker == Marker.LSE:
                 lse = jpeg.LSExtension.read(reader)
-                if isinstance(lse, jpeg.LSPresetParameters):
-                    lse_parameters = lse
+                if isinstance(lse, jpeg.LSCodingParameters):
+                    lse_coding_parameters = lse
                 elif isinstance(lse, jpeg.LSOversizeImageDimensions):
                     lse_oversize_image_dimensions = lse
                 segments.append(lse)
@@ -287,7 +292,7 @@ def _parse_arithmetic_lossless_scan(
 
 
 def _parse_ls_scan(
-    reader, sof, lse_parameters, lse_oversize_image_dimensions, dri, sos
+    reader, sof, lse_coding_parameters, lse_oversize_image_dimensions, dri, sos
 ):
     components = []
     for component in sos.components:
@@ -310,12 +315,12 @@ def _parse_ls_scan(
     gradient_threshold2 = 0
     gradient_threshold3 = 0
     reset = 0
-    if lse_parameters is not None:
-        maxval = lse_parameters.maxval
-        gradient_threshold1 = lse_parameters.t1
+    if lse_coding_parameters is not None:
+        maxval = lse_coding_parameters.maxval
+        gradient_threshold1 = lse_coding_parameters.t1
         gradient_threshold2 = lse.t2
         gradient_threshold3 = lse.t3
-        reset = lse_parameters.reset
+        reset = lse_coding_parameters.reset
     if maxval == 0:
         maxval = (1 << sof.precision) - 1
     return jpeg.LSScan.read(
