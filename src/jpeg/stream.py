@@ -287,13 +287,31 @@ def _parse_ls_scan(reader, sof, lse, dri, sos):
     else:
         length = dri.restart_interval
     number_of_samples = length * len(components)
+    near = sos.spectral_selection[0]
     maxval = 0
+    gradient_threshold1 = 0
+    gradient_threshold2 = 0
+    gradient_threshold3 = 0
+    reset = 0
     if lse is not None:
         maxval = lse.maxval
+        gradient_threshold1 = lse.t1
+        gradient_threshold2 = lse.t2
+        gradient_threshold3 = lse.t3
+        reset = lse.reset
     if maxval == 0:
         maxval = (1 << sof.precision) - 1
     return jpeg.LSScan.read(
-        reader, sof.samples_per_line, number_of_samples, components, maxval=maxval
+        reader,
+        sof.samples_per_line,
+        number_of_samples,
+        components,
+        near=near,
+        maxval=maxval,
+        gradient_threshold1=gradient_threshold1,
+        gradient_threshold2=gradient_threshold2,
+        gradient_threshold3=gradient_threshold3,
+        reset=reset,
     )
 
 

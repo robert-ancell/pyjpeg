@@ -35,7 +35,7 @@ class LSScan(jpeg.segment.Segment):
         gradient_threshold1: int = 0,
         gradient_threshold2: int = 0,
         gradient_threshold3: int = 0,
-        reset: int = 64,
+        reset: int = 0,
     ):
         assert len(components) > 0
         self.width = width
@@ -76,7 +76,7 @@ class LSScan(jpeg.segment.Segment):
         gradient_threshold1: int = 0,
         gradient_threshold2: int = 0,
         gradient_threshold3: int = 0,
-        reset: int = 64,
+        reset: int = 0,
     ):
         assert len(components) > 0
         scan_reader = Reader(
@@ -305,7 +305,7 @@ class CodingParameters:
         gradient_threshold1: int = 0,
         gradient_threshold2: int = 0,
         gradient_threshold3: int = 0,
-        reset: int = 64,
+        reset: int = 0,
     ):
         self.near = 0
         self.maxval = maxval
@@ -352,6 +352,8 @@ class CodingParameters:
                 self.gradient_threshold3 = clamp(
                     max(4, BASIC_T3 // factor + 7 * near), self.gradient_threshold2
                 )
+        if self.reset == 0:
+            self.reset = 64
 
         # Derived parameters
         self.range = ((maxval + 2 * near) // (2 * near + 1)) + 1
