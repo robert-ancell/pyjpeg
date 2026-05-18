@@ -289,7 +289,7 @@ def _parse_ls_scan(reader, sof, lse, dri, sos):
     number_of_samples = length * len(components)
     if lse is not None:
         maxval = lse.maxval
-    else:
+    if maxval == 0:
         maxval = (1 << sof.precision) - 1
     return jpeg.LSScan.read(
         reader, sof.samples_per_line, number_of_samples, components, maxval=maxval
