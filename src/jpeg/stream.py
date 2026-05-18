@@ -324,6 +324,10 @@ def _parse_ls_scan(
         reset = 0
     if maxval == 0:
         maxval = (1 << sof.precision) - 1
+    if len(components) == 1:
+        assert interleave_mode == jpeg.LSInterleaveMode.NONE
+    else:
+        assert interleave_mode != jpeg.LSInterleaveMode.NONE
     return jpeg.LSScan.read(
         reader,
         samples_per_line,

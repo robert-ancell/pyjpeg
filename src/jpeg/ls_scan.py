@@ -57,6 +57,8 @@ class LSScan(jpeg.segment.Segment):
             writer,
             self.width,
             self.samples,
+            self.components,
+            self.interleave_mode,
             CodingParameters(
                 near=self.near,
                 maxval=self.maxval,
@@ -141,13 +143,27 @@ def _get_neighbours(width, samples, index):
     return (a, b, c, d)
 
 
+def _is_run_mode(a, b, c, d):
+    return a == b == c == d
+
+
 class Writer:
-    def __init__(self, writer, width, samples, parameters: CodingParameters):
+    def __init__(
+        self,
+        writer,
+        width,
+        samples,
+        components,
+        interleave_mode,
+        parameters: CodingParameters,
+    ):
         self.parameters = parameters
         self.writer = jpeg.golomb_scan.Writer(writer, qbpp=self.parameters.qbpp)
         self.contexts = Contexts(self.parameters)
         self.width = width
         self.samples = samples
+        self.components = components
+        self.interleave_mode = interleave_mode
         self.sample_index = 0
         self.run_index = 0
 
@@ -158,7 +174,7 @@ class Writer:
 
     def write_sample(self):
         (a, b, c, d) = _get_neighbours(self.width, self.samples, self.sample_index)
-        if a == b == c == d:
+        if _is_run_mode(a, b, c, d):
             self.write_run(a)
         else:
             self.write_regular(a, b, c, d)
@@ -228,13 +244,10 @@ class Reader:
 
     def read_sample(self):
         (a, b, c, d) = _get_neighbours(self.width, self.samples, self.sample_index)
-        if self.is_run_mode(a, b, c, d):
+        if _is_run_mode(a, b, c, d):
             self.read_run(a)
         else:
             self.read_regular(a, b, c, d)
-
-    def is_run_mode(self, a, b, c, d):
-        return a == b == c == d
 
     def read_run(self, run_value):
         while self.reader.read_bit() == 1:
@@ -700,3 +713,46 @@ if __name__ == "__main__":
     scan = LSScan.read(reader, width, len(samples), [LSScanComponent()])
     assert scan.width == width
     assert scan.samples == samples
+
+    rgb_samples = []
+    for s in samples:
+        rgb_samples.append(s)
+        rgb_samples.append(s)
+        rgb_samples.append(s)
+    writer = jpeg.io.BufferedWriter()
+    scan = LSScan(
+        width,
+        rgb_samples,
+        [LSScanComponent(), LSScanComponent(), LSScanComponent()],
+        interleave_mode=LSInterleaveMode.LINE,
+    )
+    scan.write(writer)
+    reader = jpeg.io.BufferedReader(writer.data)
+    scan = LSScan.read(
+        reader,
+        width,
+        len(rgb_samples),
+        [LSScanComponent(), LSScanComponent(), LSScanComponent()],
+        interleave_mode=LSInterleaveMode.LINE,
+    )
+    assert scan.width == width
+    assert scan.samples == rgb_samples
+
+    writer = jpeg.io.BufferedWriter()
+    scan = LSScan(
+        width,
+        rgb_samples,
+        [LSScanComponent(), LSScanComponent(), LSScanComponent()],
+        interleave_mode=LSInterleaveMode.SAMPLE,
+    )
+    scan.write(writer)
+    reader = jpeg.io.BufferedReader(writer.data)
+    scan = LSScan.read(
+        reader,
+        width,
+        len(rgb_samples),
+        [LSScanComponent(), LSScanComponent(), LSScanComponent()],
+        interleave_mode=LSInterleaveMode.SAMPLE,
+    )
+    assert scan.width == width
+    assert scan.samples == rgb_samples
