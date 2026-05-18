@@ -122,10 +122,12 @@ class Stream:
                 for table in dqt.tables:
                     quantization_tables[table.destination] = table.values
             elif marker == Marker.DNL:
-                dnl = jpeg.DefineNumberOfLines.read(reader)
+                dnl = jpeg.DefineNumberOfLines.read(reader, variable_length=sof.is_ls())
                 segments.append(dnl)
             elif marker == Marker.DRI:
-                dri = jpeg.DefineRestartInterval.read(reader)
+                dri = jpeg.DefineRestartInterval.read(
+                    reader, variable_length=sof.is_ls()
+                )
                 segments.append(dri)
             elif marker == Marker.EXP:
                 segments.append(jpeg.ExpandReferenceComponents.read(reader))

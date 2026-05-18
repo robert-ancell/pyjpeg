@@ -38,18 +38,11 @@ class LSExtension(jpeg.segment.Segment):
                 reader.read(weight)
             return LSMappingTable(table_id, [])
         elif id == LSExtensionId.OVERSIZE_IMAGE_DIMENSION:
-
-            def read_size(reader, number_of_bytes):
-                value = 0
-                for _ in range(number_of_bytes):
-                    value = (value << 8) | reader.read_u8()
-                return value
-
             assert length >= 4
             number_of_bytes = reader.read_u8()
             assert length == 4 + number_of_bytes * 2
-            number_of_lines = read_size(reader, number_of_bytes)
-            samples_per_line = read_size(reader, number_of_bytes)
+            number_of_lines = reader.read_unsigned(number_of_bytes)
+            samples_per_line = reader.read_unsigned(number_of_bytes)
             assert samples_per_line > 0
             return LSOversizeImageDimensions(
                 number_of_lines, samples_per_line, number_of_bytes=number_of_bytes
@@ -125,18 +118,12 @@ class LSOversizeImageDimensions(LSExtension):
         self.number_of_bytes = number_of_bytes
 
     def write(self, writer: jpeg.io.Writer):
-        def write_size(writer, number_of_bytes, value):
-            shift = 8 * (self.number_of_bytes - 1)
-            for _ in range(self.number_of_bytes):
-                writer.write_u8((value >> shift) & 0xFF)
-                shift -= 8
-
         writer.write_marker(jpeg.marker.Marker.LSE)
         writer.write_u16(4 + 2 * self.number_of_bytes)
         writer.write_u8(LSExtensionId.OVERSIZE_IMAGE_DIMENSION)
         writer.write_u8(self.number_of_bytes)
-        write_size(writer, self.number_of_bytes, self.number_of_lines)
-        write_size(writer, self.number_of_bytes, self.samples_per_line)
+        writer.write_unsigned(self.number_of_lines, self.number_of_bytes)
+        writer.write_unsigned(self.samples_per_line, self.number_of_bytes)
 
     def __eq__(self, other):
         return (
