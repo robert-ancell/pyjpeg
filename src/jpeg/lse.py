@@ -45,13 +45,14 @@ class LSExtension(jpeg.segment.Segment):
                     value = (value << 8) | reader.read_u8()
                 return value
 
-            assert length >= 3
+            assert length >= 4
             number_of_bytes = reader.read_u8()
             assert length == 4 + number_of_bytes * 2
             number_of_lines = read_size(reader, number_of_bytes)
             samples_per_line = read_size(reader, number_of_bytes)
-            return LSOversizeImageDimension(
-                number_of_bytes, number_of_lines, samples_per_line
+            assert samples_per_line > 0
+            return LSOversizeImageDimensions(
+                number_of_lines, samples_per_line, number_of_bytes=number_of_bytes
             )
         else:
             raise Exception("Unknown JPEG-LS extension id %d" % id)
@@ -114,11 +115,14 @@ class LSMappingTable(LSExtension):
 
 
 class LSOversizeImageDimensions(LSExtension):
-    def __init__(self, number_of_bytes, number_of_lines, samples_per_line):
+    def __init__(self, number_of_lines, samples_per_line, number_of_bytes=2):
         super().__init__(LSExtensionId.OVERSIZE_IMAGE_DIMENSION)
-        self.number_of_bytes = number_of_bytes
+        assert number_of_bytes >= 2 and number_of_bytes <= 4
+        assert number_of_lines < 1 << (8 * number_of_bytes)
+        assert samples_per_line < 1 << (8 * number_of_bytes)
         self.number_of_lines = number_of_lines
         self.samples_per_line = samples_per_line
+        self.number_of_bytes = number_of_bytes
 
     def write(self, writer: jpeg.io.Writer):
         def write_size(writer, number_of_bytes, value):
@@ -128,7 +132,7 @@ class LSOversizeImageDimensions(LSExtension):
                 shift -= 8
 
         writer.write_marker(jpeg.marker.Marker.LSE)
-        writer.write_u16(4 * 2 * self.number_of_bytes)
+        writer.write_u16(4 + 2 * self.number_of_bytes)
         writer.write_u8(LSExtensionId.OVERSIZE_IMAGE_DIMENSION)
         writer.write_u8(self.number_of_bytes)
         write_size(writer, self.number_of_bytes, self.number_of_lines)
@@ -136,14 +140,14 @@ class LSOversizeImageDimensions(LSExtension):
 
     def __eq__(self, other):
         return (
-            isinstance(other, LSOversizeImageDimension)
-            and other.number_of_bytes == self.number_of_bytes
+            isinstance(other, LSOversizeImageDimensions)
             and other.number_of_lines == self.number_of_lines
             and other.samples_per_line == self.samples_per_line
+            and other.number_of_bytes == self.number_of_bytes
         )
 
     def __repr__(self):
-        return f"LSOversizeImageDimensions({self.number_of_bytes}, {self.number_of_lines}, {self.samples_per_line})"
+        return f"LSOversizeImageDimensions({self.number_of_lines}, {self.samples_per_line}, number_of_bytes={self.number_of_bytes})"
 
 
 if __name__ == "__main__":

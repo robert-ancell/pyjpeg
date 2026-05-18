@@ -23,7 +23,8 @@ class Stream:
         segments = []
         sof = None
         dri = None
-        lse = None
+        lse_parameters = None
+        lse_oversize_image_dimensions = None
         sos = None
         dnl = None
 
@@ -44,7 +45,9 @@ class Stream:
                         reader, sof, sos, dc_huffman_tables=dc_huffman_tables
                     )
             elif sof.is_ls():
-                return _parse_ls_scan(reader, sof, lse, dri, sos)
+                return _parse_ls_scan(
+                    reader, sof, lse_parameters, lse_oversize_image_dimensions, dri, sos
+                )
             else:
                 if sof.is_arithmetic():
                     return _parse_arithmetic_dct_scan(
@@ -151,7 +154,11 @@ class Stream:
             ):
                 segments.append(jpeg.ApplicationSpecificData.read(reader))
             elif marker == Marker.LSE:
-                lse = jpeg.LSPresetParameters.read(reader)
+                lse = jpeg.LSExtension.read(reader)
+                if isinstance(lse, jpeg.LSPresetParameters):
+                    lse_parameters = lse
+                elif isinstance(lse, jpeg.LSOversizeImageDimensions):
+                    lse_oversize_image_dimensions = lse
                 segments.append(lse)
             elif marker == Marker.COM:
                 segments.append(jpeg.Comment.read(reader))
@@ -277,13 +284,21 @@ def _parse_arithmetic_lossless_scan(
     )
 
 
-def _parse_ls_scan(reader, sof, lse, dri, sos):
+def _parse_ls_scan(
+    reader, sof, lse_parameters, lse_oversize_image_dimensions, dri, sos
+):
     components = []
     for component in sos.components:
         components.append(jpeg.LSScanComponent())
     # FIXME: Handle scaling factor
+    if lse_oversize_image_dimensions is not None:
+        number_of_lines = lse_oversize_image_dimensions.number_of_lines
+        samples_per_line = lse_oversize_image_dimensions.samples_per_line
+    else:
+        number_of_lines = sof.number_of_lines
+        samples_per_line = sof.samples_per_line
     if dri is None:
-        length = sof.number_of_lines * sof.samples_per_line
+        length = number_of_lines * samples_per_line
     else:
         length = dri.restart_interval
     number_of_samples = length * len(components)
@@ -293,17 +308,17 @@ def _parse_ls_scan(reader, sof, lse, dri, sos):
     gradient_threshold2 = 0
     gradient_threshold3 = 0
     reset = 0
-    if lse is not None:
-        maxval = lse.maxval
-        gradient_threshold1 = lse.t1
+    if lse_parameters is not None:
+        maxval = lse_parameters.maxval
+        gradient_threshold1 = lse_parameters.t1
         gradient_threshold2 = lse.t2
         gradient_threshold3 = lse.t3
-        reset = lse.reset
+        reset = lse_parameters.reset
     if maxval == 0:
         maxval = (1 << sof.precision) - 1
     return jpeg.LSScan.read(
         reader,
-        sof.samples_per_line,
+        samples_per_line,
         number_of_samples,
         components,
         near=near,
