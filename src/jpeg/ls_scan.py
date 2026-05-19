@@ -182,8 +182,8 @@ class Codec:
         # This matches what libjpeg does.
         a = max(2, (get_range(parameters.maxval, parameters.near) + 2**5) // 2**6)
         self.regular_contexts = [RegularContext(a) for _ in range(405)]
-        self.run_context = RunContext(a, 0)
-        self.near_run_context = RunContext(a, 1)
+        self.run_interrupt_context = RunInterruptContext(a, False)
+        self.near_run_interrupt_context = RunInterruptContext(a, True)
 
     def is_run_mode(self, sample_index, n_components):
         run_sample = [0] * n_components
@@ -207,9 +207,9 @@ class Codec:
             sample_index,
         )
         if abs(a - b) <= self.parameters.near:
-            return self.near_run_context
+            return self.near_run_interrupt_context
         else:
-            return self.run_context
+            return self.run_interrupt_context
 
     def get_regular_context(self, a, b, c, d):
         q1 = self.parameters.classify(d - b)
@@ -320,7 +320,7 @@ class Writer(Codec):
             self.writer.write_bit((run_counter >> i) & 0x1)
 
         if len(run_sample) > 1:
-            context = self.run_context
+            context = self.run_interrupt_context
         else:
             context = self.get_interrupt_context(sample_index)
         for component_index in range(len(run_sample)):
@@ -470,7 +470,7 @@ class Reader(Codec):
             sample_index += len(self.components)
 
         if len(run_sample) > 1:
-            context = self.run_context
+            context = self.run_interrupt_context
         else:
             context = self.get_interrupt_context(sample_index)
         for component_index in range(len(run_sample)):
@@ -738,11 +738,10 @@ class RegularContext:
                 self.prediction_correction += 1
 
 
-# FIXME: Rename to RunInterruptContext, change ritype to near
-class RunContext:
-    def __init__(self, a: int, ritype: int):
+class RunInterruptContext:
+    def __init__(self, a: int, near: bool):
         self.accumulated_prediction_error_magnitude = a
-        self.ritype = ritype
+        self.near = near
         self.frequency_of_occurence = 1
         self.negative_prediction_error = 0
 
@@ -755,7 +754,7 @@ class RunContext:
         a: int,
         b: int,
     ):
-        if self.ritype == 1:
+        if self.near:
             errval = sample - a
         else:
             errval = sample - b
@@ -795,7 +794,7 @@ class RunContext:
         if parameters.near > 0:
             pass
 
-        if self.ritype == 1:
+        if self.near:
             predicted_sample = a
         else:
             predicted_sample = b
@@ -812,7 +811,7 @@ class RunContext:
 
     def _get_golomb_size(self) -> int:
         max_size = self.accumulated_prediction_error_magnitude
-        if self.ritype == 1:
+        if self.near:
             max_size += self.frequency_of_occurence >> 1
         k = 0
         while (self.frequency_of_occurence << k) < max_size:
@@ -835,21 +834,23 @@ class RunContext:
     def _map_error(self, errval: int, k: int) -> int:
         offset = self._get_error_mapping_offset(errval != 0, k)
         if errval < 0:
-            return ((-errval) * 2) - 1 - offset - self.ritype
+            mapped_errval = ((-errval) * 2) - 1 - offset
         else:
-            return (errval * 2) + offset - self.ritype
+            mapped_errval = (errval * 2) + offset
+        if self.near:
+            mapped_errval -= 1
+        return mapped_errval
 
     def _unmap_error(self, mapped_errval: int, k: int) -> int:
-        mapped_errval += self.ritype
+        if self.near:
+            mapped_errval += 1
 
         if mapped_errval % 2 == 1:
             errval = -((mapped_errval + 1) // 2)
         else:
             errval = mapped_errval // 2
 
-        offset = self._get_error_mapping_offset(
-            self.ritype == 1 or mapped_errval != 0, k
-        )
+        offset = self._get_error_mapping_offset(self.near or mapped_errval != 0, k)
         if offset > 0:
             return -(errval + 1)
         elif offset < 0:
@@ -860,9 +861,11 @@ class RunContext:
     def _update_accumulated_prediction_error(self, parameters, errval):
         if errval < 0:
             self.negative_prediction_error += 1
-            self.accumulated_prediction_error_magnitude += -errval - self.ritype
+            self.accumulated_prediction_error_magnitude += -errval
         else:
-            self.accumulated_prediction_error_magnitude += errval - self.ritype
+            self.accumulated_prediction_error_magnitude += errval
+        if self.near:
+            self.accumulated_prediction_error_magnitude -= 1
 
         if self.frequency_of_occurence == parameters.reset:
             self.accumulated_prediction_error_magnitude >>= 1
