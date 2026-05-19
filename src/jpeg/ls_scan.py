@@ -160,7 +160,75 @@ def _is_run_mode(a, b, c, d):
     return a == b == c == d
 
 
-class Writer:
+class Codec:
+    def __init__(
+        self,
+        width,
+        samples,
+        components,
+        interleave_mode: int,
+        parameters: CodingParameters,
+    ):
+        self.width = width
+        self.samples = samples
+        self.components = components
+        self.interleave_mode = interleave_mode
+        self.parameters = parameters
+
+        def get_range(maxval, near):
+            return ((maxval + 2 * near) // (2 * near + 1)) + 1
+
+        # Note the spec says 365 contexts, but this can't map all possible 5*9*9 combinations.
+        # This matches what libjpeg does.
+        a = max(2, (get_range(parameters.maxval, parameters.near) + 2**5) // 2**6)
+        self.regular_contexts = [RegularContext(a) for _ in range(405)]
+        self.run_context = RunContext(a, 0)
+        self.near_run_context = RunContext(a, 1)
+
+    def is_run_mode(self, sample_index, n_components):
+        run_sample = [0] * n_components
+        for component_index in range(n_components):
+            (a, b, c, d) = _get_neighbours(
+                self.width,
+                self.samples,
+                len(self.components),
+                sample_index + component_index,
+            )
+            if not _is_run_mode(a, b, c, d):
+                return False, None
+            run_sample[component_index] = a
+        return True, run_sample
+
+    def get_interrupt_context(self, sample_index):
+        (a, b, _, _) = _get_neighbours(
+            self.width,
+            self.samples,
+            len(self.components),
+            sample_index,
+        )
+        if abs(a - b) <= self.parameters.near:
+            return self.near_run_context
+        else:
+            return self.run_context
+
+    def get_regular_context(self, a, b, c, d):
+        q1 = self.parameters.classify(d - b)
+        q2 = self.parameters.classify(b - c)
+        q3 = self.parameters.classify(c - a)
+
+        if q1 < 0 or (q1 == 0 and q2 < 0) or (q1 == 0 and q2 == 0 and q3 < 0):
+            q1 = -q1
+            q2 = -q2
+            q3 = -q3
+            sign = -1
+        else:
+            sign = 1
+
+        context_index = ((q3 + 4) * 9 + (q2 + 4)) * 5 + q1
+        return sign, self.regular_contexts[context_index]
+
+
+class Writer(Codec):
     def __init__(
         self,
         writer: jpeg.io.Writer,
@@ -170,13 +238,8 @@ class Writer:
         interleave_mode: int,
         parameters: CodingParameters,
     ):
-        self.parameters = parameters
+        super().__init__(width, samples, components, interleave_mode, parameters)
         self.writer = jpeg.golomb_scan.Writer(writer, qbpp=self.parameters.qbpp)
-        self.contexts = Contexts(self.parameters)
-        self.width = width
-        self.samples = samples
-        self.components = components
-        self.interleave_mode = interleave_mode
 
     def write(self):
         if self.interleave_mode == LSInterleaveMode.NONE:
@@ -231,20 +294,6 @@ class Writer:
 
         return sample_index, run_index
 
-    def is_run_mode(self, sample_index, n_components):
-        run_sample = [0] * n_components
-        for component_index in range(n_components):
-            (a, b, c, d) = _get_neighbours(
-                self.width,
-                self.samples,
-                len(self.components),
-                sample_index + component_index,
-            )
-            if not _is_run_mode(a, b, c, d):
-                return False, None
-            run_sample[component_index] = a
-        return True, run_sample
-
     def write_run(self, sample_index, run_sample, run_index):
         run_counter = 0
         while self.in_run(sample_index, run_sample):
@@ -271,7 +320,7 @@ class Writer:
             self.writer.write_bit((run_counter >> i) & 0x1)
 
         if len(run_sample) > 1:
-            context = self.contexts.run_context
+            context = self.run_context
         else:
             context = self.get_interrupt_context(sample_index)
         for component_index in range(len(run_sample)):
@@ -306,18 +355,6 @@ class Writer:
                 return False
         return True
 
-    def get_interrupt_context(self, sample_index):
-        (a, b, _, _) = _get_neighbours(
-            self.width,
-            self.samples,
-            len(self.components),
-            sample_index,
-        )
-        if abs(a - b) <= self.parameters.near:
-            return self.contexts.near_run_context
-        else:
-            return self.contexts.run_context
-
     def write_regular(self, sample_index, n_components):
         for component_index in range(n_components):
             (a, b, c, d) = _get_neighbours(
@@ -326,7 +363,7 @@ class Writer:
                 len(self.components),
                 sample_index + component_index,
             )
-            sign, context = self.contexts.get_regular_context(a, b, c, d)
+            sign, context = self.get_regular_context(a, b, c, d)
             context.write_sample(
                 self.writer,
                 self.parameters,
@@ -339,7 +376,7 @@ class Writer:
         return sample_index + len(self.components)
 
 
-class Reader:
+class Reader(Codec):
     def __init__(
         self,
         reader: jpeg.io.Reader,
@@ -349,13 +386,10 @@ class Reader:
         interleave_mode: int,
         parameters: CodingParameters,
     ):
-        self.parameters = parameters
+        super().__init__(
+            width, [0] * number_of_samples, components, interleave_mode, parameters
+        )
         self.reader = jpeg.golomb_scan.Reader(reader, qbpp=self.parameters.qbpp)
-        self.contexts = Contexts(self.parameters)
-        self.width = width
-        self.samples = [0] * number_of_samples
-        self.components = components
-        self.interleave_mode = interleave_mode
 
     def read(self):
         if self.interleave_mode == LSInterleaveMode.NONE:
@@ -408,21 +442,6 @@ class Reader:
 
         return sample_index, run_index
 
-    # FIXME: Common to Writer
-    def is_run_mode(self, sample_index, n_components):
-        run_sample = [0] * n_components
-        for component_index in range(n_components):
-            (a, b, c, d) = _get_neighbours(
-                self.width,
-                self.samples,
-                len(self.components),
-                sample_index + component_index,
-            )
-            if not _is_run_mode(a, b, c, d):
-                return False, None
-            run_sample[component_index] = a
-        return True, run_sample
-
     def read_run(self, sample_index, run_sample, run_index):
         while self.reader.read_bit() == 1:
             run_width = 1 << run_widths[run_index]
@@ -451,7 +470,7 @@ class Reader:
             sample_index += len(self.components)
 
         if len(run_sample) > 1:
-            context = self.contexts.run_context
+            context = self.run_context
         else:
             context = self.get_interrupt_context(sample_index)
         for component_index in range(len(run_sample)):
@@ -474,19 +493,6 @@ class Reader:
 
         return sample_index, run_index
 
-    # FIXME: Common to Writer
-    def get_interrupt_context(self, sample_index):
-        (a, b, _, _) = _get_neighbours(
-            self.width,
-            self.samples,
-            len(self.components),
-            sample_index,
-        )
-        if abs(a - b) <= self.parameters.near:
-            return self.contexts.near_run_context
-        else:
-            return self.contexts.run_context
-
     def read_regular(self, sample_index, n_components):
         for component_index in range(n_components):
             (a, b, c, d) = _get_neighbours(
@@ -495,42 +501,10 @@ class Reader:
                 len(self.components),
                 sample_index + component_index,
             )
-            sign, context = self.contexts.get_regular_context(a, b, c, d)
+            sign, context = self.get_regular_context(a, b, c, d)
             sample = context.read_sample(self.reader, self.parameters, sign, a, b, c)
             self.samples[sample_index + component_index] = sample
         return sample_index + len(self.components)
-
-
-# FIXME: Rename to RegularContexts and move run contexts out
-class Contexts:
-    def __init__(self, parameters):
-        def get_range(maxval, near):
-            return ((maxval + 2 * near) // (2 * near + 1)) + 1
-
-        a = max(2, (get_range(parameters.maxval, parameters.near) + 2**5) // 2**6)
-
-        self.parameters = parameters
-        # Note the spec says 365 contexts, but this can't map all possible 5*9*9 combinations.
-        # This matches what libjpeg does.
-        self.regular_contexts = [RegularContext(a) for _ in range(405)]
-        self.run_context = RunContext(a, 0)
-        self.near_run_context = RunContext(a, 1)
-
-    def get_regular_context(self, a, b, c, d):
-        q1 = self.parameters.classify(d - b)
-        q2 = self.parameters.classify(b - c)
-        q3 = self.parameters.classify(c - a)
-
-        if q1 < 0 or (q1 == 0 and q2 < 0) or (q1 == 0 and q2 == 0 and q3 < 0):
-            q1 = -q1
-            q2 = -q2
-            q3 = -q3
-            sign = -1
-        else:
-            sign = 1
-
-        context_index = ((q3 + 4) * 9 + (q2 + 4)) * 5 + q1
-        return sign, self.regular_contexts[context_index]
 
 
 def _generate_gradient_thresholds(near: int, maxval: int, gradient_thresholds):
