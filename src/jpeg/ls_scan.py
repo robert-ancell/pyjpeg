@@ -155,11 +155,6 @@ def _get_neighbours(width, samples, n_components, index):
     return (a, b, c, d)
 
 
-# FIXME: Use near
-def _is_run_mode(a, b, c, d):
-    return a == b == c == d
-
-
 class Codec:
     def __init__(
         self,
@@ -194,7 +189,14 @@ class Codec:
                 len(self.components),
                 sample_index + component_index,
             )
-            if not _is_run_mode(a, b, c, d):
+            d1 = d - b
+            d2 = b - c
+            d3 = c - a
+            if (
+                abs(d1) > self.parameters.near
+                or abs(d2) > self.parameters.near
+                or abs(d3) > self.parameters.near
+            ):
                 return False, None
             run_sample[component_index] = a
         return True, run_sample
