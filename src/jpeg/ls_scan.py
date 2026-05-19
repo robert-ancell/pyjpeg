@@ -155,6 +155,7 @@ def _get_neighbours(width, samples, n_components, index):
     return (a, b, c, d)
 
 
+# FIXME: Use near
 def _is_run_mode(a, b, c, d):
     return a == b == c == d
 
@@ -195,7 +196,7 @@ class Writer:
         run_index = 0
         sample_index = 0
         while sample_index < len(self.samples):
-            sample_index, run_index = self.write_sample(sample_index, run_index)
+            sample_index, run_index = self.write_sample(sample_index, 1, run_index)
 
     def write_line_interleaved(self):
         run_indexes = [0] * len(self.components)
@@ -206,30 +207,47 @@ class Writer:
                 sample_end_index = sample_index + line_size
                 run_index = run_indexes[component_index]
                 while sample_index < sample_end_index:
-                    sample_index, run_index = self.write_sample(sample_index, run_index)
+                    sample_index, run_index = self.write_sample(
+                        sample_index, 1, run_index
+                    )
                 run_indexes[component_index] = run_index
 
     def write_sample_interleaved(self):
-        # FIXME
         sample_index = 0
         run_index = 0
         while sample_index < len(self.samples):
-            sample_index, run_index = self.write_sample(sample_index, run_index)
+            sample_index, run_index = self.write_sample(
+                sample_index, len(self.components), run_index
+            )
 
-    def write_sample(self, sample_index, run_index):
-        (a, b, c, d) = _get_neighbours(
-            self.width, self.samples, len(self.components), sample_index
-        )
-        if _is_run_mode(a, b, c, d):
-            sample_index, run_index = self.write_run(sample_index, a, run_index)
+    def write_sample(self, sample_index, n_components, run_index):
+        in_run, run_sample = self.is_run_mode(sample_index, n_components)
+        if in_run:
+            sample_index, run_index = self.write_run(
+                sample_index, run_sample, run_index
+            )
         else:
-            sample_index = self.write_regular(sample_index, a, b, c, d)
+            sample_index = self.write_regular(sample_index, n_components)
 
         return sample_index, run_index
 
-    def write_run(self, sample_index, sample, run_index):
+    def is_run_mode(self, sample_index, n_components):
+        run_sample = [0] * n_components
+        for component_index in range(n_components):
+            (a, b, c, d) = _get_neighbours(
+                self.width,
+                self.samples,
+                len(self.components),
+                sample_index + component_index,
+            )
+            if not _is_run_mode(a, b, c, d):
+                return False, None
+            run_sample[component_index] = a
+        return True, run_sample
+
+    def write_run(self, sample_index, run_sample, run_index):
         run_counter = 0
-        while abs(self.samples[sample_index] - sample) <= self.parameters.near:
+        while self.in_run(sample_index, run_sample):
             sample_index += len(self.components)
             run_counter += 1
 
@@ -252,31 +270,72 @@ class Writer:
         for i in reversed(range(run_widths[run_index])):
             self.writer.write_bit((run_counter >> i) & 0x1)
 
-        (a, b, _, _) = _get_neighbours(
-            self.width, self.samples, len(self.components), sample_index
-        )
-        if abs(a - b) <= self.parameters.near:
-            context = self.contexts.near_run_context
-        else:
+        if len(run_sample) > 1:
             context = self.contexts.run_context
-        context.write_sample(
-            self.writer,
-            self.parameters,
-            run_index,
-            self.samples[sample_index],
-            a,
-            b,
-        )
+        else:
+            context = self.get_interrupt_context(sample_index)
+        for component_index in range(len(run_sample)):
+            (a, b, _, _) = _get_neighbours(
+                self.width,
+                self.samples,
+                len(self.components),
+                sample_index + component_index,
+            )
+            context.write_sample(
+                self.writer,
+                self.parameters,
+                run_index,
+                self.samples[sample_index + component_index],
+                a,
+                b,
+            )
         sample_index += len(self.components)
         run_index = max(run_index - 1, 0)
 
         return sample_index, run_index
 
-    def write_regular(self, sample_index, a, b, c, d):
-        sign, context = self.contexts.get_regular_context(a, b, c, d)
-        context.write_sample(
-            self.writer, self.parameters, sign, self.samples[sample_index], a, b, c
+    def in_run(self, sample_index, run_sample):
+        for component_index, sample in enumerate(run_sample):
+            if (
+                abs(
+                    self.samples[sample_index + component_index]
+                    - run_sample[component_index]
+                )
+                > self.parameters.near
+            ):
+                return False
+        return True
+
+    def get_interrupt_context(self, sample_index):
+        (a, b, _, _) = _get_neighbours(
+            self.width,
+            self.samples,
+            len(self.components),
+            sample_index,
         )
+        if abs(a - b) <= self.parameters.near:
+            return self.contexts.near_run_context
+        else:
+            return self.contexts.run_context
+
+    def write_regular(self, sample_index, n_components):
+        for component_index in range(n_components):
+            (a, b, c, d) = _get_neighbours(
+                self.width,
+                self.samples,
+                len(self.components),
+                sample_index + component_index,
+            )
+            sign, context = self.contexts.get_regular_context(a, b, c, d)
+            context.write_sample(
+                self.writer,
+                self.parameters,
+                sign,
+                self.samples[sample_index + component_index],
+                a,
+                b,
+                c,
+            )
         return sample_index + len(self.components)
 
 
@@ -316,7 +375,7 @@ class Reader:
         sample_index = 0
         run_index = 0
         while sample_index < len(self.samples):
-            sample_index, run_index = self.read_sample(sample_index, run_index)
+            sample_index, run_index = self.read_sample(sample_index, 1, run_index)
 
     def read_line_interleaved(self):
         run_indexes = [0] * len(self.components)
@@ -327,35 +386,54 @@ class Reader:
                 sample_end_index = sample_index + line_size
                 run_index = run_indexes[component_index]
                 while sample_index < sample_end_index:
-                    sample_index, run_index = self.read_sample(sample_index, run_index)
+                    sample_index, run_index = self.read_sample(
+                        sample_index, 1, run_index
+                    )
                 run_indexes[component_index] = run_index
 
     def read_sample_interleaved(self):
-        # FIXME
         sample_index = 0
         run_index = 0
         while sample_index < len(self.samples):
-            sample_index, run_index = self.read_sample(sample_index, run_index)
+            sample_index, run_index = self.read_sample(
+                sample_index, len(self.components), run_index
+            )
 
-    def read_sample(self, sample_index, run_index):
-        (a, b, c, d) = _get_neighbours(
-            self.width, self.samples, len(self.components), sample_index
-        )
-        if _is_run_mode(a, b, c, d):
-            sample_index, run_index = self.read_run(sample_index, a, run_index)
+    def read_sample(self, sample_index, n_components, run_index):
+        in_run, run_sample = self.is_run_mode(sample_index, n_components)
+        if in_run:
+            sample_index, run_index = self.read_run(sample_index, run_sample, run_index)
         else:
-            sample_index = self.read_regular(sample_index, a, b, c, d)
+            sample_index = self.read_regular(sample_index, n_components)
 
         return sample_index, run_index
 
-    def read_run(self, sample_index, run_value, run_index):
+    # FIXME: Common to Writer
+    def is_run_mode(self, sample_index, n_components):
+        run_sample = [0] * n_components
+        for component_index in range(n_components):
+            (a, b, c, d) = _get_neighbours(
+                self.width,
+                self.samples,
+                len(self.components),
+                sample_index + component_index,
+            )
+            if not _is_run_mode(a, b, c, d):
+                return False, None
+            run_sample[component_index] = a
+        return True, run_sample
+
+    def read_run(self, sample_index, run_sample, run_index):
         while self.reader.read_bit() == 1:
             run_width = 1 << run_widths[run_index]
             line_size = self.width * len(self.components)
             x = (sample_index % line_size) // len(self.components)
             n_remaining = self.width - x
             for _ in range(min(run_width, n_remaining)):
-                self.samples[sample_index] = run_value
+                for component_index in range(len(run_sample)):
+                    self.samples[sample_index + component_index] = run_sample[
+                        component_index
+                    ]
                 sample_index += len(self.components)
             if run_width <= n_remaining:
                 run_index = min(run_index + 1, 31)
@@ -366,37 +444,64 @@ class Reader:
         for _ in range(run_widths[run_index]):
             extra_run_length = (extra_run_length << 1) | self.reader.read_bit()
         for _ in range(extra_run_length):
-            self.samples[sample_index] = run_value
+            for component_index in range(len(run_sample)):
+                self.samples[sample_index + component_index] = run_sample[
+                    component_index
+                ]
             sample_index += len(self.components)
 
-        (a, b, _, _) = _get_neighbours(
-            self.width, self.samples, len(self.components), sample_index
-        )
-        if abs(a - b) <= self.parameters.near:
-            context = self.contexts.near_run_context
-        else:
+        if len(run_sample) > 1:
             context = self.contexts.run_context
-        sample = context.read_sample(
-            self.reader,
-            self.parameters,
-            run_index,
-            a,
-            b,
-        )
+        else:
+            context = self.get_interrupt_context(sample_index)
+        for component_index in range(len(run_sample)):
+            (a, b, _, _) = _get_neighbours(
+                self.width,
+                self.samples,
+                len(self.components),
+                sample_index + component_index,
+            )
+            sample = context.read_sample(
+                self.reader,
+                self.parameters,
+                run_index,
+                a,
+                b,
+            )
+            self.samples[sample_index + component_index] = sample
         run_index = max(run_index - 1, 0)
-
-        self.samples[sample_index] = sample
         sample_index += len(self.components)
 
         return sample_index, run_index
 
-    def read_regular(self, sample_index, a, b, c, d):
-        sign, context = self.contexts.get_regular_context(a, b, c, d)
-        sample = context.read_sample(self.reader, self.parameters, sign, a, b, c)
-        self.samples[sample_index] = sample
+    # FIXME: Common to Writer
+    def get_interrupt_context(self, sample_index):
+        (a, b, _, _) = _get_neighbours(
+            self.width,
+            self.samples,
+            len(self.components),
+            sample_index,
+        )
+        if abs(a - b) <= self.parameters.near:
+            return self.contexts.near_run_context
+        else:
+            return self.contexts.run_context
+
+    def read_regular(self, sample_index, n_components):
+        for component_index in range(n_components):
+            (a, b, c, d) = _get_neighbours(
+                self.width,
+                self.samples,
+                len(self.components),
+                sample_index + component_index,
+            )
+            sign, context = self.contexts.get_regular_context(a, b, c, d)
+            sample = context.read_sample(self.reader, self.parameters, sign, a, b, c)
+            self.samples[sample_index + component_index] = sample
         return sample_index + len(self.components)
 
 
+# FIXME: Rename to RegularContexts and move run contexts out
 class Contexts:
     def __init__(self, parameters):
         def get_range(maxval, near):
@@ -659,6 +764,7 @@ class RegularContext:
                 self.prediction_correction += 1
 
 
+# FIXME: Rename to RunInterruptContext, change ritype to near
 class RunContext:
     def __init__(self, a: int, ritype: int):
         self.accumulated_prediction_error_magnitude = a
@@ -860,4 +966,4 @@ if __name__ == "__main__":
         interleave_mode=LSInterleaveMode.SAMPLE,
     )
     assert scan.width == width
-    # assert scan.samples == rgb_samples
+    assert scan.samples == rgb_samples
