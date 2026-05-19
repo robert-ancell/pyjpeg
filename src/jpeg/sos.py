@@ -73,11 +73,11 @@ class StartOfScan(jpeg.segment.Segment):
     def ls(
         cls,
         components,
-        near: int = 0,
+        difference_bound: int = 0,
         interleave_mode: int = 0,
         point_transform: int = 0,
     ):
-        return cls(components, (near, interleave_mode), 0, point_transform)
+        return cls(components, (difference_bound, interleave_mode), 0, point_transform)
 
     def write(self, writer: jpeg.io.Writer):
         writer.write_marker(jpeg.marker.Marker.SOS)

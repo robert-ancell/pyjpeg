@@ -309,7 +309,7 @@ def _parse_ls_scan(
     else:
         length = dri.restart_interval
     number_of_samples = length * len(components)
-    near, interleave_mode = sos.spectral_selection
+    difference_bound, interleave_mode = sos.spectral_selection
     if lse_coding_parameters is not None:
         maxval = lse_coding_parameters.maxval
         gradient_thresholds = (
@@ -334,7 +334,7 @@ def _parse_ls_scan(
         number_of_samples,
         components,
         interleave_mode=interleave_mode,
-        near=near,
+        difference_bound=difference_bound,
         maxval=maxval,
         gradient_thresholds=gradient_thresholds,
         reset=reset,

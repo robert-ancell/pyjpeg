@@ -37,7 +37,7 @@ class LSScan(jpeg.segment.Segment):
         samples,
         components,
         interleave_mode: int = LSInterleaveMode.NONE,
-        near: int = 0,
+        difference_bound: int = 0,
         maxval: int = 255,
         gradient_thresholds=(0, 0, 0),
         reset: int = 0,
@@ -47,7 +47,7 @@ class LSScan(jpeg.segment.Segment):
         self.samples = samples
         self.components = components
         self.interleave_mode = interleave_mode
-        self.near = near
+        self.difference_bound = difference_bound
         self.maxval = maxval
         self.gradient_thresholds = gradient_thresholds
         self.reset = reset
@@ -60,7 +60,7 @@ class LSScan(jpeg.segment.Segment):
             self.components,
             self.interleave_mode,
             CodingParameters(
-                near=self.near,
+                difference_bound=self.difference_bound,
                 maxval=self.maxval,
                 gradient_thresholds=self.gradient_thresholds,
                 reset=self.reset,
@@ -76,7 +76,7 @@ class LSScan(jpeg.segment.Segment):
         number_of_samples: int,
         components,
         interleave_mode: int = LSInterleaveMode.NONE,
-        near: int = 0,
+        difference_bound: int = 0,
         maxval: int = 255,
         gradient_thresholds=(0, 0, 0),
         reset: int = 0,
@@ -89,7 +89,7 @@ class LSScan(jpeg.segment.Segment):
             components,
             interleave_mode,
             CodingParameters(
-                near=near,
+                difference_bound=difference_bound,
                 maxval=maxval,
                 gradient_thresholds=gradient_thresholds,
                 reset=reset,
@@ -101,7 +101,7 @@ class LSScan(jpeg.segment.Segment):
             samples,
             components,
             interleave_mode=interleave_mode,
-            near=near,
+            difference_bound=difference_bound,
             maxval=maxval,
             gradient_thresholds=gradient_thresholds,
             reset=reset,
@@ -114,14 +114,14 @@ class LSScan(jpeg.segment.Segment):
             and other.samples == self.samples
             and other.components == self.components
             and other.interleave_mode == self.interleave_mode
-            and other.near == self.near
+            and other.difference_bound == self.difference_bound
             and other.maxval == self.maxval
             and other.gradient_thresholds == self.gradient_thresholds
             and other.reset == self.reset
         )
 
     def __repr__(self):
-        return f"LSScan({self.width}, {self.samples}, {self.components}, near={self.near}, maxval={self.maxval}, gradient_thresholds={self.gradient_thresholds})"
+        return f"LSScan({self.width}, {self.samples}, {self.components}, difference_bound={self.difference_bound}, maxval={self.maxval}, gradient_thresholds={self.gradient_thresholds})"
 
 
 def _get_neighbours(width, samples, n_components, index):
@@ -170,12 +170,15 @@ class Codec:
         self.interleave_mode = interleave_mode
         self.parameters = parameters
 
-        def get_range(maxval, near):
-            return ((maxval + 2 * near) // (2 * near + 1)) + 1
+        def get_range(maxval, difference_bound):
+            return ((maxval + 2 * difference_bound) // (2 * difference_bound + 1)) + 1
 
         # Note the spec says 365 contexts, but this can't map all possible 5*9*9 combinations.
         # This matches what libjpeg does.
-        a = max(2, (get_range(parameters.maxval, parameters.near) + 2**5) // 2**6)
+        a = max(
+            2,
+            (get_range(parameters.maxval, parameters.difference_bound) + 2**5) // 2**6,
+        )
         self.regular_contexts = [RegularContext(a) for _ in range(405)]
         self.run_interrupt_context = RunInterruptContext(a, False)
         self.near_run_interrupt_context = RunInterruptContext(a, True)
@@ -193,9 +196,9 @@ class Codec:
             d2 = b - c
             d3 = c - a
             if (
-                abs(d1) > self.parameters.near
-                or abs(d2) > self.parameters.near
-                or abs(d3) > self.parameters.near
+                abs(d1) > self.parameters.difference_bound
+                or abs(d2) > self.parameters.difference_bound
+                or abs(d3) > self.parameters.difference_bound
             ):
                 return False, None
             run_sample[component_index] = a
@@ -208,7 +211,7 @@ class Codec:
             len(self.components),
             sample_index,
         )
-        if abs(a - b) <= self.parameters.near:
+        if abs(a - b) <= self.parameters.difference_bound:
             return self.near_run_interrupt_context
         else:
             return self.run_interrupt_context
@@ -352,7 +355,7 @@ class Writer(Codec):
                     self.samples[sample_index + component_index]
                     - run_sample[component_index]
                 )
-                > self.parameters.near
+                > self.parameters.difference_bound
             ):
                 return False
         return True
@@ -509,7 +512,9 @@ class Reader(Codec):
         return sample_index + len(self.components)
 
 
-def _generate_gradient_thresholds(near: int, maxval: int, gradient_thresholds):
+def _generate_gradient_thresholds(
+    difference_bound: int, maxval: int, gradient_thresholds
+):
     def clamp(i, j):
         if i > maxval or i < j:
             return j
@@ -523,34 +528,38 @@ def _generate_gradient_thresholds(near: int, maxval: int, gradient_thresholds):
     if maxval >= 128:
         factor = (min(maxval, 4095) + 128) // 256
         if t1 == 0:
-            t1 = clamp(factor * (BASIC_T1 - 2) + 2 + 3 * near, near + 1)
+            t1 = clamp(
+                factor * (BASIC_T1 - 2) + 2 + 3 * difference_bound, difference_bound + 1
+            )
         if t2 == 0:
-            t2 = clamp(factor * (BASIC_T2 - 3) + 3 + 5 * near, t1)
+            t2 = clamp(factor * (BASIC_T2 - 3) + 3 + 5 * difference_bound, t1)
         if t3 == 0:
-            t3 = clamp(factor * (BASIC_T3 - 4) + 4 + 7 * near, t2)
+            t3 = clamp(factor * (BASIC_T3 - 4) + 4 + 7 * difference_bound, t2)
     else:
         factor = 256 // (maxval + 1)
         if t1 == 0:
-            t1 = clamp(max(2, BASIC_T1 // factor + 3 * near), near + 1)
+            t1 = clamp(
+                max(2, BASIC_T1 // factor + 3 * difference_bound), difference_bound + 1
+            )
         if t2 == 0:
-            t2 = clamp(max(3, BASIC_T2 // factor + 5 * near), t1)
+            t2 = clamp(max(3, BASIC_T2 // factor + 5 * difference_bound), t1)
         if t3 == 0:
-            t3 = clamp(max(4, BASIC_T3 // factor + 7 * near), t2)
+            t3 = clamp(max(4, BASIC_T3 // factor + 7 * difference_bound), t2)
     return (t1, t2, t3)
 
 
 class CodingParameters:
     def __init__(
         self,
-        near: int = 0,
+        difference_bound: int = 0,
         maxval: int = 255,
         gradient_thresholds=(0, 0, 0),
         reset: int = 0,
     ):
-        self.near = near
+        self.difference_bound = difference_bound
         self.maxval = maxval
         self.gradient_thresholds = _generate_gradient_thresholds(
-            near, maxval, gradient_thresholds
+            difference_bound, maxval, gradient_thresholds
         )
         self.reset = reset
         if self.reset == 0:
@@ -560,7 +569,7 @@ class CodingParameters:
         assert self.gradient_thresholds[2] >= self.gradient_thresholds[1]
 
         # Derived parameters
-        self.range = ((maxval + 2 * near) // (2 * near + 1)) + 1
+        self.range = ((maxval + 2 * difference_bound) // (2 * difference_bound + 1)) + 1
         self.qbpp = math.ceil(math.log2(self.range))
         bpp = max(2, math.ceil(math.log2(maxval + 1)))
         self.limit = 2 * (bpp + max(8, bpp))
@@ -572,9 +581,9 @@ class CodingParameters:
             return -3
         elif d <= -self.gradient_thresholds[0]:
             return -2
-        elif d < -self.near:
+        elif d < -self.difference_bound:
             return -1
-        elif d <= self.near:
+        elif d <= self.difference_bound:
             return 0
         elif d < self.gradient_thresholds[0]:
             return 1
@@ -606,9 +615,13 @@ class RegularContext:
         predicted_sample = self._predict(parameters, sign, a, b, c)
         errval = sign * (sample - predicted_sample)
         if errval > 0:
-            errval = (errval + parameters.near) // (2 * parameters.near + 1)
+            errval = (errval + parameters.difference_bound) // (
+                2 * parameters.difference_bound + 1
+            )
         else:
-            errval = -(parameters.near - errval) // (2 * parameters.near + 1)
+            errval = -(parameters.difference_bound - errval) // (
+                2 * parameters.difference_bound + 1
+            )
 
         if errval < 0:
             errval += parameters.range
@@ -637,16 +650,16 @@ class RegularContext:
         mapped_errval = reader.read_value(k, self._get_limit(parameters))
         errval = self._unmap_error(parameters, mapped_errval, k)
         self._update_bias(parameters, errval)
-        errval *= 2 * parameters.near + 1
+        errval *= 2 * parameters.difference_bound + 1
         errval *= sign
 
         # FIXME: modulo RANGE*(2*NEAR+1)
         sample = predicted_sample + errval
 
-        if sample < -parameters.near:
-            sample += parameters.range * (2 * parameters.near + 1)
-        elif sample > parameters.maxval + parameters.near:
-            sample -= parameters.range * (2 * parameters.near + 1)
+        if sample < -parameters.difference_bound:
+            sample += parameters.range * (2 * parameters.difference_bound + 1)
+        elif sample > parameters.maxval + parameters.difference_bound:
+            sample -= parameters.range * (2 * parameters.difference_bound + 1)
 
         if sample < 0:
             sample = 0
@@ -684,7 +697,7 @@ class RegularContext:
 
     def _get_error_mapping_offset(self, parameters, k):
         if (
-            parameters.near == 0
+            parameters.difference_bound == 0
             and k == 0
             and 2 * self.bias <= -self.frequency_of_occurence
         ):
@@ -712,7 +725,7 @@ class RegularContext:
             return errval
 
     def _update_bias(self, parameters, errval):
-        self.bias += errval * (2 * parameters.near + 1)
+        self.bias += errval * (2 * parameters.difference_bound + 1)
         self.accumulated_prediction_error_magnitude += abs(errval)
 
         if self.frequency_of_occurence == parameters.reset:
@@ -764,7 +777,7 @@ class RunInterruptContext:
                 errval = -errval
 
         # FIXME Quantize
-        if parameters.near > 0:
+        if parameters.difference_bound > 0:
             # errval = quantize(errval)
             # rx = computerx()
             pass
@@ -793,7 +806,7 @@ class RunInterruptContext:
         self._update_accumulated_prediction_error(parameters, errval)
 
         # FIXME: Dequantize
-        if parameters.near > 0:
+        if parameters.difference_bound > 0:
             pass
 
         if self.near:
