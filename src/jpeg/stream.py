@@ -312,11 +312,7 @@ def _parse_ls_scan(
     difference_bound, interleave_mode = sos.spectral_selection
     if lse_coding_parameters is not None:
         maxval = lse_coding_parameters.maxval
-        gradient_thresholds = (
-            lse_coding_parameters.t1,
-            lse_coding_parameters.t2,
-            lse_coding_parameters.t3,
-        )
+        gradient_thresholds = lse_coding_parameters.gradient_thresholds
         reset = lse_coding_parameters.reset
     else:
         maxval = 0

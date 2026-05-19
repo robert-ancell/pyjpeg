@@ -217,7 +217,14 @@ for segment in stream.segments:
     elif isinstance(segment, jpeg.LSCodingParameters):
         print("LSE Coding Parameters")
         print(" Maximum value: %d" % segment.maxval)
-        print(" Gradient thresholds: %d, %d, %d" % (segment.t1, segment.t2, segment.t3))
+        print(
+            " Gradient thresholds: %d, %d, %d"
+            % (
+                segment.gradient_thresholds[0],
+                segment.gradient_thresholds[1],
+                segment.gradient_thresholds[2],
+            )
+        )
         print(" Reset: %d" % segment.reset)
     elif isinstance(segment, jpeg.LSMappingTable):
         print("LSE Mapping Table")

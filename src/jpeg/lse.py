@@ -27,7 +27,9 @@ class LSExtension(jpeg.segment.Segment):
             t2 = reader.read_u16()
             t3 = reader.read_u16()
             reset = reader.read_u16()
-            return LSCodingParameters(maxval=maxval, t1=t1, t2=t2, t3=t3, reset=reset)
+            return LSCodingParameters(
+                maxval=maxval, gradient_thresholds=(t1, t2, t3), reset=reset
+            )
         elif id == LSExtensionId.MAPPING_TABLE:
             assert length >= 5
             table_id = reader.read_u8()
@@ -52,12 +54,10 @@ class LSExtension(jpeg.segment.Segment):
 
 
 class LSCodingParameters(LSExtension):
-    def __init__(self, maxval=0, t1=0, t2=0, t3=0, reset=0):
+    def __init__(self, maxval=0, gradient_thresholds=(0, 0, 0), reset=0):
         super().__init__(LSExtensionId.CODING_PARAMETERS)
         self.maxval = maxval
-        self.t1 = t1
-        self.t2 = t2
-        self.t3 = t3
+        self.gradient_thresholds = gradient_thresholds
         self.reset = reset
 
     def write(self, writer: jpeg.io.Writer):
@@ -65,23 +65,21 @@ class LSCodingParameters(LSExtension):
         writer.write_u16(13)
         writer.write_u8(LSExtensionId.CODING_PARAMETERS)
         writer.write_u16(self.maxval)
-        writer.write_u16(self.t1)
-        writer.write_u16(self.t2)
-        writer.write_u16(self.t3)
+        writer.write_u16(self.gradient_thresholds[0])
+        writer.write_u16(self.gradient_thresholds[1])
+        writer.write_u16(self.gradient_thresholds[2])
         writer.write_u16(self.reset)
 
     def __eq__(self, other):
         return (
             isinstance(other, LSCodingParameters)
             and other.maxval == self.maxval
-            and other.t1 == self.t1
-            and other.t2 == self.t2
-            and other.t3 == self.t3
+            and other.gradient_thresholds == self.gradient_thresholds
             and other.reset == self.reset
         )
 
     def __repr__(self):
-        return f"LSCodingParameters({self.maxval}, {self.t1}, {self.t2}, {self.t3}, {self.reset})"
+        return f"LSCodingParameters({self.maxval}, {self.gradient_thresholds}, {self.reset})"
 
 
 class LSMappingTable(LSExtension):
@@ -139,7 +137,9 @@ class LSOversizeImageDimensions(LSExtension):
 
 if __name__ == "__main__":
     writer = jpeg.io.BufferedWriter()
-    LSCodingParameters(maxval=255, t1=3, t2=7, t3=21, reset=64).write(writer)
+    LSCodingParameters(maxval=255, gradient_thresholds=(3, 7, 21), reset=64).write(
+        writer
+    )
     assert (
         writer.data == b"\xff\xf8\x00\x0d\x01\x00\xff\x00\x03\x00\x07\x00\x15\x00\x40"
     )
@@ -147,7 +147,5 @@ if __name__ == "__main__":
     reader = jpeg.io.BufferedReader(writer.data)
     lse = LSCodingParameters.read(reader)
     assert lse.maxval == 255
-    assert lse.t1 == 3
-    assert lse.t2 == 7
-    assert lse.t3 == 21
+    assert lse.gradient_thresholds == (3, 7, 21)
     assert lse.reset == 64
