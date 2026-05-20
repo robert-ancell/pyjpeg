@@ -595,6 +595,25 @@ class CodingParameters:
             return 4
 
 
+def _reconstruct(
+    parameters: CodingParameters, predicted_sample: int, errval: int
+) -> int:
+    delta = 2 * parameters.difference_bound + 1
+    sample = predicted_sample + errval * delta
+
+    if sample < -parameters.difference_bound:
+        sample += parameters.range * delta
+    if sample > parameters.maxval + parameters.difference_bound:
+        sample -= parameters.range * delta
+
+    if sample > parameters.maxval:
+        sample = parameters.maxval
+    if sample < 0:
+        sample = 0
+
+    return sample
+
+
 class RegularContext:
     def __init__(self, a):
         self.accumulated_prediction_error_magnitude = a
@@ -645,26 +664,11 @@ class RegularContext:
         c: int,
     ) -> int:
         predicted_sample = self._predict(parameters, sign, a, b, c)
-
         k = self._get_golomb_size()
         mapped_errval = reader.read_value(k, self._get_limit(parameters))
         errval = self._unmap_error(parameters, mapped_errval, k)
         self._update_bias(parameters, errval)
-        errval *= 2 * parameters.difference_bound + 1
-        errval *= sign
-
-        # FIXME: modulo RANGE*(2*NEAR+1)
-        sample = predicted_sample + errval
-
-        if sample < -parameters.difference_bound:
-            sample += parameters.range * (2 * parameters.difference_bound + 1)
-        elif sample > parameters.maxval + parameters.difference_bound:
-            sample -= parameters.range * (2 * parameters.difference_bound + 1)
-
-        if sample < 0:
-            sample = 0
-        if sample > parameters.maxval:
-            sample = parameters.maxval
+        sample = _reconstruct(parameters, predicted_sample, sign * errval)
 
         return sample
 
@@ -804,25 +808,13 @@ class RunInterruptContext:
         mapped_errval = reader.read_value(k, self._get_limit(parameters, run_index))
         errval = self._unmap_error(mapped_errval, k)
         self._update_accumulated_prediction_error(parameters, errval)
-
-        # FIXME: Dequantize
-        if parameters.difference_bound > 0:
-            pass
-
         if self.near:
             predicted_sample = a
         else:
             predicted_sample = b
             if a > b:
                 errval = -errval
-        sample = predicted_sample + errval
-
-        if sample < 0:
-            sample += parameters.range
-        if sample >= parameters.range:
-            sample -= parameters.range
-
-        return sample
+        return _reconstruct(parameters, predicted_sample, errval)
 
     def _get_golomb_size(self) -> int:
         max_size = self.accumulated_prediction_error_magnitude
