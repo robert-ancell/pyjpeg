@@ -157,7 +157,8 @@ for segment in stream.segments:
         )  # FIXME: Note if zero defined later
         print(" Number of samples per line: %d" % segment.samples_per_line)
         for component in segment.components:
-            print(" Component %d/%d:" % (component.id, len(segment.components)))
+            print(" Component:")
+            print("  Id: %d" % component.id)
             print(
                 "  Sampling Factor: %dx%d"
                 % (component.sampling_factor[0], component.sampling_factor[1])
@@ -167,10 +168,8 @@ for segment in stream.segments:
     elif isinstance(segment, jpeg.StartOfScan):
         print("SOS Start of Scan")
         for component in segment.components:
-            print(
-                " Component %d/%d:"
-                % (component.component_selector, len(segment.components))
-            )
+            print(" Component:")
+            print("  Id: %d" % component.component_selector)
             print("  DC Table: %d" % component.dc_table)
             if not is_lossless:
                 print("  AC Table: %d" % component.ac_table)
