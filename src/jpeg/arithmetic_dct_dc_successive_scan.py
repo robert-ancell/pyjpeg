@@ -3,19 +3,24 @@ import jpeg.io
 
 
 class ArithmeticDCTDCSuccessiveScan(jpeg.segment.Segment):
-    def __init__(self, data_units, point_transform=0):
+    def __init__(self, data_units: list[list[int]], point_transform: int = 0) -> None:
         self.data_units = data_units
         self.point_transform = point_transform
 
-    def write(self, writer: jpeg.io.Writer):
-        writer = jpeg.arithmetic.Writer(writer)
+    def write(self, writer: jpeg.io.Writer) -> None:
+        scan_writer = jpeg.arithmetic.Writer(writer)
         for data_unit in self.data_units:
-            writer.write_fixed_bit((data_unit[0] >> self.point_transform) & 0x1)
+            scan_writer.write_fixed_bit((data_unit[0] >> self.point_transform) & 0x1)
 
-        writer.flush()
+        scan_writer.flush()
 
     @classmethod
-    def read(cls, reader: jpeg.io.Reader, data_units, point_transform=0):
+    def read(
+        cls,
+        reader: jpeg.io.Reader,
+        data_units: list[list[int]],
+        point_transform: int = 0,
+    ) -> ArithmeticDCTDCSuccessiveScan:
         scan_reader = jpeg.arithmetic.Reader(reader)
         updated_data_units = []
         for data_unit in data_units:
@@ -39,8 +44,8 @@ if __name__ == "__main__":
     scan = ArithmeticDCTDCSuccessiveScan(data_units, point_transform=3)
     scan.write(writer)
 
-    def mask_coefficients(data_units, mask):
-        masked_data_units = []
+    def mask_coefficients(data_units: list[list[int]], mask: int) -> list[list[int]]:
+        masked_data_units: list[list[int]] = []
         for data_unit in data_units:
             masked_data_unit = [0] * 64
             masked_data_unit[0] = data_unit[0] & mask

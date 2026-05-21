@@ -3,11 +3,11 @@ import jpeg.segment
 
 
 class ExpandReferenceComponents(jpeg.segment.Segment):
-    def __init__(self, expand_horizontal: bool, expand_vertical: bool):
+    def __init__(self, expand_horizontal: bool, expand_vertical: bool) -> None:
         self.expand_horizontal = expand_horizontal
         self.expand_vertical = expand_vertical
 
-    def write(self, writer: jpeg.io.Writer):
+    def write(self, writer: jpeg.io.Writer) -> None:
         writer.write_marker(jpeg.marker.Marker.EXP)
         writer.write_u16(3)
         value = 0
@@ -18,7 +18,7 @@ class ExpandReferenceComponents(jpeg.segment.Segment):
         writer.write_u8(value)
 
     @classmethod
-    def read(cls, reader: jpeg.io.Reader):
+    def read(cls, reader: jpeg.io.Reader) -> ExpandReferenceComponents:
         marker = reader.read_marker()
         assert marker == jpeg.marker.Marker.EXP
         length = reader.read_u16()
@@ -30,14 +30,14 @@ class ExpandReferenceComponents(jpeg.segment.Segment):
         assert expand_vertical in (0, 1)
         return cls(expand_horizontal != 0, expand_vertical != 0)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, ExpandReferenceComponents)
             and other.expand_horizontal == self.expand_horizontal
             and other.expand_vertical == self.expand_vertical
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"ExpandReferenceComponents({self.expand_horizontal}, {self.expand_vertical})"
 
 

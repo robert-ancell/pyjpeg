@@ -9,21 +9,21 @@ class DensityUnit:
 
 
 class Density:
-    def __init__(self, unit=0, x=0, y=0):
+    def __init__(self, unit: int = 0, x: int = 0, y: int = 0) -> None:
         self.unit = unit
         self.x = x
         self.y = y
 
     @classmethod
-    def aspect_ratio(cls, x, y):
+    def aspect_ratio(cls, x: int, y: int) -> Density:
         return cls(DensityUnit.ASPECT_RATIO, x, y)
 
     @classmethod
-    def dpi(cls, x, y):
+    def dpi(cls, x: int, y: int) -> Density:
         return cls(DensityUnit.DPI, x, y)
 
     @classmethod
-    def dpcm(cls, x, y):
+    def dpcm(cls, x: int, y: int) -> Density:
         return cls(DensityUnit.DPCM, x, y)
 
 
@@ -34,12 +34,12 @@ class AdobeColorSpace:
 
 
 class ApplicationSpecificData(jpeg.segment.Segment):
-    def __init__(self, n: int):
+    def __init__(self, n: int) -> None:
         assert n >= 0 and n <= 15
         self.n = n
 
     @classmethod
-    def read(cls, reader: jpeg.io.Reader):
+    def read(cls, reader: jpeg.io.Reader) -> ApplicationSpecificData:
         marker = reader.read_marker()
         assert marker >= jpeg.marker.Marker.APP0 and marker <= jpeg.marker.Marker.APP15
         length = reader.read_u16()
@@ -86,18 +86,18 @@ class ApplicationSpecificData(jpeg.segment.Segment):
 class JFIFData(ApplicationSpecificData):
     def __init__(
         self,
-        version=(1, 2),
-        density=Density.aspect_ratio(1, 1),
-        thumbnail_size=(0, 0),
-        thumbnail_data=b"",
-    ):
+        version: tuple[int, int] = (1, 2),
+        density: Density = Density.aspect_ratio(1, 1),
+        thumbnail_size: tuple[int, int] = (0, 0),
+        thumbnail_data: bytes = b"",
+    ) -> None:
         super().__init__(0)
         self.version = version
         self.density = density
         self.thumbnail_size = thumbnail_size
         self.thumbnail_data = thumbnail_data
 
-    def write(self, writer: jpeg.io.Writer):
+    def write(self, writer: jpeg.io.Writer) -> None:
         writer.write_marker(jpeg.marker.Marker.APP0)
         writer.write_u16(16 + len(self.thumbnail_data))
         writer.write(b"JFIF\x00")
@@ -110,8 +110,8 @@ class JFIFData(ApplicationSpecificData):
         writer.write_u8(self.thumbnail_size[1])
         writer.write(self.thumbnail_data)
 
-    def __repr__(self):
-        return f"ApplicationSpecificData.jfif(version={self.version}, density={self.density}, thumbnail_size={self.thumbnail_size}, thumbnail_data={self.thumbnail_data})"
+    def __repr__(self) -> str:
+        return f"ApplicationSpecificData.jfif(version={self.version}, density={self.density}, thumbnail_size={self.thumbnail_size}, thumbnail_data={self.thumbnail_data!r})"
 
 
 # FIXME
@@ -121,15 +121,19 @@ class JFXXData(ApplicationSpecificData):
 
 class AdobeData(ApplicationSpecificData):
     def __init__(
-        self, version=101, flags0=0, flags1=0, color_space=AdobeColorSpace.Y_CB_CR
-    ):
+        self,
+        version: int = 101,
+        flags0: int = 0,
+        flags1: int = 0,
+        color_space: int = AdobeColorSpace.Y_CB_CR,
+    ) -> None:
         super().__init__(14)
         self.version = version
         self.flags0 = flags0
         self.flags1 = flags1
         self.color_space = color_space
 
-    def write(self, writer: jpeg.io.Writer):
+    def write(self, writer: jpeg.io.Writer) -> None:
         writer.write_marker(jpeg.marker.Marker.APP14)
         writer.write_u16(14)
         writer.write(b"Adobe")
@@ -138,10 +142,7 @@ class AdobeData(ApplicationSpecificData):
         writer.write_u16(self.flags1)
         writer.write_u8(self.color_space)
 
-    def __repr__(self):
-        return f"AdobeData(version={self.version}, flags0={self.flags0}, flags1={self.flags1}, color_space={self.color_space})"
-
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, AdobeData)
             and other.version == self.version
@@ -150,21 +151,24 @@ class AdobeData(ApplicationSpecificData):
             and other.color_space == self.color_space
         )
 
+    def __repr__(self) -> str:
+        return f"AdobeData(version={self.version}, flags0={self.flags0}, flags1={self.flags1}, color_space={self.color_space})"
+
 
 class UnknownApplicationSpecificData(ApplicationSpecificData):
-    def __init__(self, n, data):
+    def __init__(self, n: int, data: bytes) -> None:
         super().__init__(n)
         self.data = data
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, UnknownApplicationSpecificData)
             and other.n == self.n
             and other.data == self.data
         )
 
-    def __repr__(self):
-        return f"UnknownApplicationSpecificData({self.n}, {self.data})"
+    def __repr__(self) -> str:
+        return f"UnknownApplicationSpecificData({self.n}, {self.data!r})"
 
 
 if __name__ == "__main__":

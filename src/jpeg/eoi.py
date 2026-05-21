@@ -3,21 +3,21 @@ import jpeg.segment
 
 
 class EndOfImage(jpeg.segment.Segment):
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
-    def write(self, writer: jpeg.io.Writer):
+    def write(self, writer: jpeg.io.Writer) -> None:
         writer.write_marker(jpeg.marker.Marker.EOI)
 
     @classmethod
-    def read(cls, reader: jpeg.io.Reader):
+    def read(cls, reader: jpeg.io.Reader) -> EndOfImage:
         assert reader.read_marker() == jpeg.marker.Marker.EOI
         return cls()
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return isinstance(other, EndOfImage)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "EndOfImage()"
 
 

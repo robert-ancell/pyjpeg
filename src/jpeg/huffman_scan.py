@@ -1,12 +1,19 @@
+import jpeg.huffman
+import jpeg.io
 import jpeg.scan
 
 
 class Writer:
-    def __init__(self, writer):
+    def __init__(self, writer: jpeg.io.Writer) -> None:
         self.writer = jpeg.scan.Writer(writer)
 
     # DC coefficient, written as a change from previous DC coefficient.
-    def write_dc(self, dc_diff, encoder, symbol_frequencies=None):
+    def write_dc(
+        self,
+        dc_diff: int,
+        encoder: jpeg.huffman.Encoder,
+        symbol_frequencies: list[int] | None = None,
+    ) -> None:
         assert dc_diff >= -32767 and dc_diff <= 32768
         length = self._get_magnitude_length(dc_diff)
         symbol = length
@@ -14,42 +21,66 @@ class Writer:
         self._write_magnitude(dc_diff, length)
 
     # Zero AC coefficients until end of block.
-    def write_eob(self, encoder, block_count=1, symbol_frequencies=None):
+    def write_eob(
+        self,
+        encoder: jpeg.huffman.Encoder,
+        block_count: int = 1,
+        symbol_frequencies: list[int] | None = None,
+    ) -> None:
         assert 1 <= block_count <= 32767
         length = self._get_magnitude_length(block_count)
         self._write_ac(length - 1, 0, encoder, symbol_frequencies=symbol_frequencies)
         self._write_magnitude(block_count, length - 1)
 
     # Run of 16 zero AC coefficients.
-    def write_zrl(self, encoder, symbol_frequencies=None):
+    def write_zrl(
+        self, encoder: jpeg.huffman.Encoder, symbol_frequencies: list[int] | None = None
+    ) -> None:
         self._write_ac(15, 0, encoder, symbol_frequencies=symbol_frequencies)
 
     # AC Coefficient after [run_length] zero coefficients.
-    def write_ac(self, run_length, ac, encoder, symbol_frequencies=None):
+    def write_ac(
+        self,
+        run_length: int,
+        ac: int,
+        encoder: jpeg.huffman.Encoder,
+        symbol_frequencies: list[int] | None = None,
+    ) -> None:
         assert ac != 0 and ac >= -16383 and ac <= 16383
         self._write_ac(run_length, ac, encoder, symbol_frequencies=symbol_frequencies)
 
-    def write_ac_correction_bits(self, correction_bits):
+    def write_ac_correction_bits(self, correction_bits: list[int]) -> None:
         self.writer.write_bits(correction_bits)
 
-    def flush(self):
+    def flush(self) -> None:
         self.writer.flush(pad_bit=1)
 
-    def _write_ac(self, run_length, ac, encoder, symbol_frequencies=None):
+    def _write_ac(
+        self,
+        run_length: int,
+        ac: int,
+        encoder: jpeg.huffman.Encoder,
+        symbol_frequencies: list[int] | None = None,
+    ) -> None:
         length = self._get_magnitude_length(ac)
         symbol = run_length << 4 | length
         self._write_symbol(symbol, encoder, symbol_frequencies)
         self._write_magnitude(ac, length)
 
     # Write a Huffman symbol
-    def _write_symbol(self, symbol, encoder, symbol_frequencies=None):
+    def _write_symbol(
+        self,
+        symbol: int,
+        encoder: jpeg.huffman.Encoder,
+        symbol_frequencies: list[int] | None = None,
+    ) -> None:
         if symbol_frequencies is not None:
             symbol_frequencies[symbol] += 1
         if encoder is not None:
             encoder.write_symbol(self.writer, symbol)
 
     # Get the number of bits required to write the magnitude
-    def _get_magnitude_length(self, magnitude):
+    def _get_magnitude_length(self, magnitude: int) -> int:
         magnitude = abs(magnitude)
         length = 0
         while magnitude > ((1 << length) - 1):
@@ -57,7 +88,7 @@ class Writer:
         return length
 
     # Write AC/DC mangnitude bits
-    def _write_magnitude(self, magnitude, length):
+    def _write_magnitude(self, magnitude: int, length: int) -> None:
         if length == 0 or length == 16:
             return
         if magnitude < 0:
@@ -70,31 +101,31 @@ class Writer:
 
 
 class Reader:
-    def __init__(self, reader):
+    def __init__(self, reader: jpeg.io.Reader) -> None:
         self.reader = jpeg.scan.Reader(reader)
 
-    def read_dc(self, decoder):
+    def read_dc(self, decoder: jpeg.huffman.Decoder) -> int:
         length = decoder.read_symbol(self.reader)
         assert length <= 16
         return self._read_magnitude(length)
 
-    def read_ac(self, decoder):
+    def read_ac(self, decoder: jpeg.huffman.Decoder) -> tuple[int, int]:
         run_length_and_length = decoder.read_symbol(self.reader)
         run_length = run_length_and_length >> 4
         length = run_length_and_length & 0xF
         return (run_length, self._read_magnitude(length))
 
-    def read_ac_correction_bit(self, decoder):
+    def read_ac_correction_bit(self, decoder: jpeg.huffman.Decoder) -> int:
         return self.reader.read_bit()
 
-    def read_eob_count(self, length):
+    def read_eob_count(self, length: int) -> int:
         count = 0
         for i in range(length):
             bit = self.reader.read_bit()
             count = (count << 1) | bit
         return count
 
-    def _read_magnitude(self, length):
+    def _read_magnitude(self, length: int) -> int:
         if length == 0:
             return 0
         if length == 16:

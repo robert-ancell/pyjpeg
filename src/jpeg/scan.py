@@ -1,10 +1,10 @@
 class Writer:
-    def __init__(self, writer):
+    def __init__(self, writer: jpeg.io.Writer) -> None:
         self.writer = writer
         self.data = 0
         self.bit_count = 0
 
-    def write_bit(self, bit):
+    def write_bit(self, bit: int) -> None:
         self.data |= bit << (7 - self.bit_count)
         self.bit_count += 1
         if self.bit_count == 8:
@@ -14,11 +14,11 @@ class Writer:
             self.data = 0
             self.bit_count = 0
 
-    def write_bits(self, bits):
+    def write_bits(self, bits: list[int]) -> None:
         for bit in bits:
             self.write_bit(bit)
 
-    def flush(self, pad_bit=1):
+    def flush(self, pad_bit: int = 1) -> None:
         if self.bit_count == 0:
             return
         n_padding = 8 - self.bit_count
@@ -27,12 +27,12 @@ class Writer:
 
 
 class Reader:
-    def __init__(self, reader):
+    def __init__(self, reader: jpeg.io.Reader) -> None:
         self.reader = reader
         self.data = 0
         self.bit_count = 0
 
-    def read_bit(self):
+    def read_bit(self) -> int:
         if self.bit_count == 0:
             data = self.reader.peek_u8()
             if data == 0xFF:

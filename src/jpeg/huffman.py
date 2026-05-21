@@ -1,4 +1,4 @@
-def make_huffman_table(frequencies):
+def make_huffman_table(frequencies: list[int]) -> list[list[int]]:
     assert len(frequencies) == 256
 
     codesize = [0] * 257
@@ -28,7 +28,7 @@ def make_huffman_table(frequencies):
 
         # All codes complete
         if v2 == -1:
-            table = []
+            table: list[list[int]] = []
             for i in range(16):
                 table.append([])
             for symbol, size in enumerate(codesize[:-1]):
@@ -53,7 +53,7 @@ def make_huffman_table(frequencies):
             v2 = others[v2]
 
 
-def _code_to_bits(code, length):
+def _code_to_bits(code: int, length: int) -> list[int]:
     bits = []
     for i in range(length):
         if code & (1 << (length - i - 1)) != 0:
@@ -64,7 +64,7 @@ def _code_to_bits(code, length):
 
 
 class Encoder:
-    def __init__(self, table):
+    def __init__(self, table: list[list[int]]) -> None:
         self.codes = {}
 
         code = 0
@@ -76,7 +76,7 @@ class Encoder:
                 # FIXME: Handle overflow
             code <<= 1
 
-    def write_symbol(self, writer, symbol):
+    def write_symbol(self, writer: jpeg.scan.Writer, symbol: int) -> None:
         code = self.codes.get(symbol)
         if code is None:
             raise Exception("Unknown Huffman symbol")
@@ -84,7 +84,7 @@ class Encoder:
 
 
 class Decoder:
-    def __init__(self, table):
+    def __init__(self, table: list[list[int]]) -> None:
         self.symbol_tree = [None, None]
         self.symbol_frequencies = [0] * 256
 
@@ -107,7 +107,7 @@ class Decoder:
                 # FIXME: Handle overflow
             code <<= 1
 
-    def read_symbol(self, reader):
+    def read_symbol(self, reader: jpeg.scan.Reader) -> int:
         symbol_tree = self.symbol_tree
         while True:
             bit = reader.read_bit()

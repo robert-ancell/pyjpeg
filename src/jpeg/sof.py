@@ -22,26 +22,33 @@ class FrameType:
 
 
 class FrameComponent:
-    def __init__(self, id: int, sampling_factor: tuple, quantization_table_index: int):
+    def __init__(
+        self, id: int, sampling_factor: tuple[int, int], quantization_table_index: int
+    ) -> None:
         self.id = id
         self.sampling_factor = sampling_factor
         self.quantization_table_index = quantization_table_index
 
     @classmethod
     def dct(
-        cls, id: int, sampling_factor: tuple = (1, 1), quantization_table_index: int = 0
-    ):
+        cls,
+        id: int,
+        sampling_factor: tuple[int, int] = (1, 1),
+        quantization_table_index: int = 0,
+    ) -> FrameComponent:
         return cls(id, sampling_factor, quantization_table_index)
 
     @classmethod
-    def lossless(cls, id: int, sampling_factor: tuple = (1, 1)):
+    def lossless(
+        cls, id: int, sampling_factor: tuple[int, int] = (1, 1)
+    ) -> FrameComponent:
         return cls(id, sampling_factor, 0)
 
     @classmethod
-    def ls(cls, id: int, sampling_factor: tuple = (1, 1)):
+    def ls(cls, id: int, sampling_factor: tuple[int, int] = (1, 1)) -> FrameComponent:
         return cls(id, sampling_factor, 0)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, FrameComponent)
             and other.id == self.id
@@ -49,7 +56,7 @@ class FrameComponent:
             and other.quantization_table_index == self.quantization_table_index
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"FrameComponent({self.id}, {self.sampling_factor}, {self.quantization_table_index})"
 
 
@@ -60,8 +67,8 @@ class StartOfFrame(jpeg.segment.Segment):
         precision: int,
         number_of_lines: int,
         samples_per_line: int,
-        components,
-    ):
+        components: list[FrameComponent],
+    ) -> None:
         self.n = n
         self.precision = precision
         self.number_of_lines = number_of_lines
@@ -69,7 +76,12 @@ class StartOfFrame(jpeg.segment.Segment):
         self.components = components
 
     @classmethod
-    def baseline(cls, number_of_lines: int, samples_per_line: int, components):
+    def baseline(
+        cls,
+        number_of_lines: int,
+        samples_per_line: int,
+        components: list[FrameComponent],
+    ) -> StartOfFrame:
         return cls(FrameType.BASELINE, 8, number_of_lines, samples_per_line, components)
 
     @classmethod
@@ -77,10 +89,10 @@ class StartOfFrame(jpeg.segment.Segment):
         cls,
         number_of_lines: int,
         samples_per_line: int,
-        components,
+        components: list[FrameComponent],
         precision: int = 8,
         arithmetic: bool = False,
-    ):
+    ) -> StartOfFrame:
         if arithmetic:
             n = FrameType.EXTENDED_ARITHMETIC
         else:
@@ -92,10 +104,10 @@ class StartOfFrame(jpeg.segment.Segment):
         cls,
         number_of_lines: int,
         samples_per_line: int,
-        components,
+        components: list[FrameComponent],
         precision: int = 8,
         arithmetic: bool = False,
-    ):
+    ) -> StartOfFrame:
         if arithmetic:
             n = FrameType.PROGRESSIVE_ARITHMETIC
         else:
@@ -107,10 +119,10 @@ class StartOfFrame(jpeg.segment.Segment):
         cls,
         number_of_lines: int,
         samples_per_line: int,
-        components,
+        components: list[FrameComponent],
         precision: int = 8,
         arithmetic: bool = False,
-    ):
+    ) -> StartOfFrame:
         if arithmetic:
             n = FrameType.LOSSLESS_ARITHMETIC
         else:
@@ -119,13 +131,17 @@ class StartOfFrame(jpeg.segment.Segment):
 
     @classmethod
     def ls(
-        cls, number_of_lines: int, samples_per_line: int, components, precision: int = 8
-    ):
+        cls,
+        number_of_lines: int,
+        samples_per_line: int,
+        components: list[FrameComponent],
+        precision: int = 8,
+    ) -> StartOfFrame:
         return cls(
             FrameType.LS, precision, number_of_lines, samples_per_line, components
         )
 
-    def is_arithmetic(self):
+    def is_arithmetic(self) -> bool:
         return self.n in (
             FrameType.EXTENDED_ARITHMETIC,
             FrameType.PROGRESSIVE_ARITHMETIC,
@@ -135,13 +151,13 @@ class StartOfFrame(jpeg.segment.Segment):
             FrameType.DIFFERENTIAL_LOSSLESS_ARITHMETIC,
         )
 
-    def is_lossless(self):
+    def is_lossless(self) -> bool:
         return self.n in (FrameType.LOSSLESS_HUFFMAN, FrameType.LOSSLESS_ARITHMETIC)
 
-    def is_ls(self):
+    def is_ls(self) -> bool:
         return self.n == FrameType.LS
 
-    def write(self, writer: jpeg.io.Writer):
+    def write(self, writer: jpeg.io.Writer) -> None:
         writer.write_marker(jpeg.marker.Marker.SOF0 + self.n)
         writer.write_u16(8 + len(self.components) * 3)
         writer.write_u8(self.precision)
@@ -156,7 +172,7 @@ class StartOfFrame(jpeg.segment.Segment):
             writer.write_u8(component.quantization_table_index)
 
     @classmethod
-    def read(cls, reader: jpeg.io.Reader):
+    def read(cls, reader: jpeg.io.Reader) -> StartOfFrame:
         marker = reader.read_marker()
         assert marker in (
             jpeg.marker.Marker.SOF0,
@@ -203,7 +219,7 @@ class StartOfFrame(jpeg.segment.Segment):
             components,
         )
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, StartOfFrame)
             and other.n == self.n
@@ -213,7 +229,7 @@ class StartOfFrame(jpeg.segment.Segment):
             and other.components == self.components
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self.n == 0:
             return f"StartOfFrame.baseline({self.number_of_lines}, {self.samples_per_line}, {self.components})"
         elif self.n in (1, 9):

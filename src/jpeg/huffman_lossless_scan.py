@@ -5,16 +5,16 @@ import jpeg.segment
 
 
 class HuffmanLosslessScanComponent:
-    def __init__(self, table):
+    def __init__(self, table: list[list[int]]) -> None:
         self.table = table
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, HuffmanLosslessScanComponent)
             and other.table == self.table
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"HuffmanLosslessScanComponent({self.table})"
 
 
@@ -22,18 +22,20 @@ class HuffmanLosslessScan(jpeg.segment.Segment):
     def __init__(
         self,
         samples_per_line: int,
-        samples,
-        components,
+        samples: list[int],
+        components: list[HuffmanLosslessScanComponent],
         precision: int = 8,
         predictor: int = 1,
-    ):
+    ) -> None:
         self.samples_per_line = samples_per_line
         self.samples = samples
         self.components = components
         self.precision = precision
         self.predictor = predictor
 
-    def write(self, writer: jpeg.io.Writer, symbol_frequencies=None):
+    def write(
+        self, writer: jpeg.io.Writer, symbol_frequencies: list[list[int]] | None = None
+    ) -> None:
         scan_writer = jpeg.huffman_scan.Writer(writer)
 
         dc_encoders = []
@@ -73,13 +75,13 @@ class HuffmanLosslessScan(jpeg.segment.Segment):
     @classmethod
     def read(
         cls,
-        reader,
+        reader: jpeg.io.Reader,
         samples_per_line: int,
         number_of_samples: int,
-        components,
+        components: list[HuffmanLosslessScanComponent],
         precision: int = 8,
-        predictor=1,
-    ):
+        predictor: int = 1,
+    ) -> HuffmanLosslessScan:
         scan_reader = jpeg.huffman_scan.Reader(reader)
         dc_decoders = []
         for scan_component in components:
@@ -107,7 +109,7 @@ class HuffmanLosslessScan(jpeg.segment.Segment):
 
         return cls(samples_per_line, samples, components, predictor=predictor)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, HuffmanLosslessScan)
             and other.samples_per_line == self.samples_per_line
@@ -117,7 +119,7 @@ class HuffmanLosslessScan(jpeg.segment.Segment):
             and other.predictor == self.predictor
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"HuffmanLosslessScan({self.samples_per_line}, {self.samples}, {self.components}, precision={self.precision}, predictor={self.predictor})"
 
 

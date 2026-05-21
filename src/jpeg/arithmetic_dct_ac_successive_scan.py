@@ -5,18 +5,21 @@ import jpeg.segment
 
 class ArithmeticDCTACSuccessiveScan(jpeg.segment.Segment):
     def __init__(
-        self, data_units, spectral_selection=(1, 63), point_transform: int = 0
-    ):
+        self,
+        data_units: list[list[int]],
+        spectral_selection: tuple[int, int] = (1, 63),
+        point_transform: int = 0,
+    ) -> None:
         self.data_units = data_units
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
 
-    def write(self, writer: jpeg.io.Writer):
+    def write(self, writer: jpeg.io.Writer) -> None:
         eob_states = [jpeg.arithmetic.State() for _ in range(63)]
         nonzero_states = [jpeg.arithmetic.State() for _ in range(63)]
         additional_states = [jpeg.arithmetic.State() for _ in range(63)]
 
-        writer = jpeg.arithmetic.Writer(writer)
+        scan_writer = jpeg.arithmetic.Writer(writer)
         for data_unit in self.data_units:
             eob = self.spectral_selection[1] + 1
             while eob > self.spectral_selection[0]:
@@ -44,16 +47,16 @@ class ArithmeticDCTACSuccessiveScan(jpeg.segment.Segment):
             while k <= self.spectral_selection[1]:
                 if k >= eob_prev:
                     if k == eob:
-                        writer.write_bit(eob_states[k - 1], 1)
+                        scan_writer.write_bit(eob_states[k - 1], 1)
                         break
-                    writer.write_bit(eob_states[k - 1], 0)
+                    scan_writer.write_bit(eob_states[k - 1], 0)
 
                 # Encode run of zeros
                 while (
                     jpeg.dct.transform_coefficient(data_unit[k], self.point_transform)
                     == 0
                 ):
-                    writer.write_bit(nonzero_states[k - 1], 0)
+                    scan_writer.write_bit(nonzero_states[k - 1], 0)
                     k += 1
 
                 old_transformed_coefficient = jpeg.dct.transform_coefficient(
@@ -63,27 +66,27 @@ class ArithmeticDCTACSuccessiveScan(jpeg.segment.Segment):
                     data_unit[k], self.point_transform
                 )
                 if old_transformed_coefficient == 0:
-                    writer.write_bit(nonzero_states[k - 1], 1)
+                    scan_writer.write_bit(nonzero_states[k - 1], 1)
                     if transformed_coefficient < 0:
-                        writer.write_fixed_bit(1)
+                        scan_writer.write_fixed_bit(1)
                     else:
-                        writer.write_fixed_bit(0)
+                        scan_writer.write_fixed_bit(0)
                 else:
-                    writer.write_bit(
+                    scan_writer.write_bit(
                         additional_states[k - 1], transformed_coefficient & 0x1
                     )
                 k += 1
 
-        writer.flush()
+        scan_writer.flush()
 
     @classmethod
     def read(
         cls,
         reader: jpeg.io.Reader,
-        approximate_data_units,
-        spectral_selection=(1, 63),
+        approximate_data_units: list[list[int]],
+        spectral_selection: tuple[int, int] = (1, 63),
         point_transform: int = 0,
-    ):
+    ) -> ArithmeticDCTACSuccessiveScan:
         eob_states = [jpeg.arithmetic.State() for _ in range(63)]
         nonzero_states = [jpeg.arithmetic.State() for _ in range(63)]
         additional_states = [jpeg.arithmetic.State() for _ in range(63)]
@@ -92,7 +95,7 @@ class ArithmeticDCTACSuccessiveScan(jpeg.segment.Segment):
         for _ in range(len(approximate_data_units)):
             updated_data_units.append([0] * 64)
 
-        reader = jpeg.arithmetic.Reader(reader)
+        scan_reader = jpeg.arithmetic.Reader(reader)
         for data_unit_index, data_unit in enumerate(data_units):
             updated_data_unit = updated_data_units[data_unit_index]
 
@@ -110,7 +113,7 @@ class ArithmeticDCTACSuccessiveScan(jpeg.segment.Segment):
             k = spectral_selection[0]
             while k <= spectral_selection[1]:
                 if k >= eob_prev:
-                    bit = reader.read_bit(eob_states[k - 1])
+                    bit = scan_reader.read_bit(eob_states[k - 1])
                     if bit == 1:
                         break
 
@@ -120,7 +123,7 @@ class ArithmeticDCTACSuccessiveScan(jpeg.segment.Segment):
 
                 if old_transformed_coefficient == 0:
                     while True:
-                        bit = reader.read_bit(nonzero_states[k - 1])
+                        bit = scan_reader.read_bit(nonzero_states[k - 1])
                         if bit == 1:
                             break
                         k += 1
@@ -131,14 +134,14 @@ class ArithmeticDCTACSuccessiveScan(jpeg.segment.Segment):
                         if old_transformed_coefficient != 0:
                             break
                 if old_transformed_coefficient == 0:
-                    if reader.read_fixed_bit() == 0:
+                    if scan_reader.read_fixed_bit() == 0:
                         new_ac = 1
                     else:
                         new_ac = -1
                     updated_data_unit[k] = new_ac << point_transform
                     k += 1
                 else:
-                    correction_bit = reader.read_bit(additional_states[k - 1])
+                    correction_bit = scan_reader.read_bit(additional_states[k - 1])
                     if old_transformed_coefficient < 0:
                         correction_bit = -correction_bit
                     updated_data_unit[k] = (
@@ -163,7 +166,7 @@ if __name__ == "__main__":
     scan = ArithmeticDCTACSuccessiveScan(data_units, point_transform=3)
     scan.write(writer)
 
-    def mask_coefficients(data_units, mask):
+    def mask_coefficients(data_units: list[list[int]], mask: int) -> list[list[int]]:
         masked_data_units = []
         for data_unit in data_units:
             masked_data_unit = [0] * 64

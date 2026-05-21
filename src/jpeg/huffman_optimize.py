@@ -1,57 +1,65 @@
+import jpeg.huffman
 import jpeg.segment
 
 
 class NullWriter(jpeg.io.Writer):
-    def write_u8(self, data):
+    def write_u8(self, data: int) -> None:
         pass
 
 
-def optimize(segments):
-    dc_huffman_tables = [None, None, None, None]
-    ac_huffman_tables = [None, None, None, None]
-    symbol_frequencies = []
-    sos = None
+def optimize(segments: list[jpeg.segment.Segment]) -> list[jpeg.segment.Segment]:
+    dc_huffman_table_indexes = [-1, -1, -1, -1]
+    ac_huffman_table_indexes = [-1, -1, -1, -1]
+    symbol_frequencies: list[list[int]] = []
+    sos: jpeg.StartOfScan | None = None
     for segment in segments:
         if isinstance(segment, jpeg.DefineHuffmanTables):
             for table in segment.tables:
                 if table.table_class == 0:
-                    dc_huffman_tables[table.destination] = len(symbol_frequencies)
+                    dc_huffman_table_indexes[table.destination] = len(
+                        symbol_frequencies
+                    )
                 else:
-                    ac_huffman_tables[table.destination] = len(symbol_frequencies)
+                    ac_huffman_table_indexes[table.destination] = len(
+                        symbol_frequencies
+                    )
                 symbol_frequencies.append([0] * 256)
         elif isinstance(segment, jpeg.StartOfScan):
             sos = segment
         elif isinstance(segment, jpeg.HuffmanDCTScan):
             scan_dc_symbol_frequencies = []
             scan_ac_symbol_frequencies = []
+            assert sos is not None
             for component in sos.components:
-                scan_dc_symbol_frequencies.append(
-                    symbol_frequencies[dc_huffman_tables[component.dc_table]]
-                )
-                scan_ac_symbol_frequencies.append(
-                    symbol_frequencies[ac_huffman_tables[component.ac_table]]
-                )
+                index = dc_huffman_table_indexes[component.dc_table]
+                assert index >= 0
+                scan_dc_symbol_frequencies.append(symbol_frequencies[index])
+                index = ac_huffman_table_indexes[component.ac_table]
+                assert index >= 0
+                scan_ac_symbol_frequencies.append(symbol_frequencies[index])
             segment.write(
                 NullWriter(),
                 dc_symbol_frequencies=scan_dc_symbol_frequencies,
                 ac_symbol_frequencies=scan_ac_symbol_frequencies,
             )
         elif isinstance(segment, jpeg.HuffmanDCTACSuccessiveScan):
+            assert sos is not None
             assert len(sos.components) == 1
-            scan_symbol_frequencies = symbol_frequencies[
-                ac_huffman_tables[sos.components[0].ac_table]
-            ]
-            segment.write(NullWriter(), symbol_frequencies=scan_symbol_frequencies)
+            index = ac_huffman_table_indexes[sos.components[0].ac_table]
+            assert index >= 0
+            segment.write(NullWriter(), symbol_frequencies=symbol_frequencies[index])
         elif isinstance(segment, jpeg.HuffmanLosslessScan):
             scan_symbol_frequencies = []
+            assert sos is not None
             for component in sos.components:
-                scan_symbol_frequencies.append(
-                    symbol_frequencies[dc_huffman_tables[component.dc_table]]
-                )
+                index = dc_huffman_table_indexes[component.dc_table]
+                assert index >= 0
+                scan_symbol_frequencies.append(symbol_frequencies[index])
             segment.write(NullWriter(), symbol_frequencies=scan_symbol_frequencies)
 
-    dc_huffman_tables = [None, None, None, None]
-    ac_huffman_tables = [None, None, None, None]
+    empty_table: list[list[int]] = [[] * 255]
+    dc_huffman_tables = [empty_table, empty_table, empty_table, empty_table]
+    ac_huffman_tables = [empty_table, empty_table, empty_table, empty_table]
     sos = None
     table_index = 0
     for segment in segments:
@@ -62,19 +70,28 @@ def optimize(segments):
                 )
                 table_index += 1
                 if table.table_class == 0:
-                    dc_huffman_tables[table.destination] = table
+                    dc_huffman_tables[table.destination] = table.table
                 else:
-                    ac_huffman_tables[table.destination] = table
+                    ac_huffman_tables[table.destination] = table.table
         elif isinstance(segment, jpeg.StartOfScan):
             sos = segment
         elif isinstance(segment, jpeg.HuffmanDCTScan):
-            for i, component in enumerate(segment.components):
-                component.dc_table = dc_huffman_tables[sos.components[i].dc_table].table
-                component.ac_table = ac_huffman_tables[sos.components[i].ac_table].table
+            assert sos is not None
+            for i, huffman_dct_scan_component in enumerate(segment.components):
+                huffman_dct_scan_component.dc_table = dc_huffman_tables[
+                    sos.components[i].dc_table
+                ]
+                huffman_dct_scan_component.ac_table = ac_huffman_tables[
+                    sos.components[i].ac_table
+                ]
         elif isinstance(segment, jpeg.HuffmanDCTACSuccessiveScan):
-            segment.table = ac_huffman_tables[sos.components[0].ac_table].table
+            assert sos is not None
+            segment.table = ac_huffman_tables[sos.components[0].ac_table]
         elif isinstance(segment, jpeg.HuffmanLosslessScan):
-            for i, component in enumerate(segment.components):
-                component.table = dc_huffman_tables[sos.components[i].dc_table].table
+            assert sos is not None
+            for i, huffman_lossless_scan_component in enumerate(segment.components):
+                huffman_lossless_scan_component.table = dc_huffman_tables[
+                    sos.components[i].dc_table
+                ]
 
     return segments

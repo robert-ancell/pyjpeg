@@ -1,3 +1,4 @@
+import jpeg.dri
 import jpeg.eoi
 import jpeg.io
 import jpeg.segment
@@ -6,21 +7,34 @@ from jpeg.marker import Marker
 
 
 class Stream:
-    def __init__(self, segments):
+    def __init__(self, segments: list[jpeg.segment.Segment]) -> None:
         self.segments = segments
 
-    def write(self, writer: jpeg.io.Writer):
+    def write(self, writer: jpeg.io.Writer) -> None:
         for segment in self.segments:
             segment.write(writer)
 
+    # FIXME: Use empty Huffman tables instead of None
+    # FIXME: Use list for tables instead of object
     @classmethod
-    def read(cls, reader: jpeg.io.Reader):
+    def read(cls, reader: jpeg.io.Reader) -> Stream:
         quantization_tables = [[1] * 64, [1] * 64, [1] * 64, [1] * 64]
         dc_arithmetic_conditioning_bounds = [(0, 1), (0, 1), (0, 1), (0, 1)]
         ac_arithmetic_kx = [5, 5, 5, 5]
-        dc_huffman_tables = [None, None, None, None]
-        ac_huffman_tables = [None, None, None, None]
-        segments = []
+        empty_huffman_table: list[list[int]] = [[] * 255]
+        dc_huffman_tables = [
+            empty_huffman_table,
+            empty_huffman_table,
+            empty_huffman_table,
+            empty_huffman_table,
+        ]
+        ac_huffman_tables = [
+            empty_huffman_table,
+            empty_huffman_table,
+            empty_huffman_table,
+            empty_huffman_table,
+        ]
+        segments: list[jpeg.segment.Segment] = []
         sof = None
         dri = None
         lse_coding_parameters = None
@@ -28,7 +42,7 @@ class Stream:
         sos = None
         dnl = None
 
-        def parse_scan():
+        def parse_scan() -> jpeg.segment.Segment:
             assert sof is not None
             assert sos is not None
             if sof.is_lossless():
@@ -42,7 +56,7 @@ class Stream:
                     )
                 else:
                     return _parse_huffman_lossless_scan(
-                        reader, sof, sos, dc_huffman_tables=dc_huffman_tables
+                        reader, sof, dri, sos, dc_huffman_tables
                     )
             elif sof.is_ls():
                 return _parse_ls_scan(
@@ -69,8 +83,8 @@ class Stream:
                         sof,
                         dri,
                         sos,
-                        dc_huffman_tables=dc_huffman_tables,
-                        ac_huffman_tables=ac_huffman_tables,
+                        dc_huffman_tables,
+                        ac_huffman_tables,
                     )
 
         while True:
@@ -97,11 +111,15 @@ class Stream:
             elif marker == Marker.DHT:
                 dht = jpeg.DefineHuffmanTables.read(reader)
                 segments.append(dht)
-                for table in dht.tables:
-                    if table.table_class == 0:
-                        dc_huffman_tables[table.destination] = table
+                for huffman_table in dht.tables:
+                    if huffman_table.table_class == 0:
+                        dc_huffman_tables[huffman_table.destination] = (
+                            huffman_table.table
+                        )
                     else:
-                        ac_huffman_tables[table.destination] = table
+                        ac_huffman_tables[huffman_table.destination] = (
+                            huffman_table.table
+                        )
             elif marker == Marker.DAC:
                 segments.append(jpeg.DefineArithmeticConditioning.read(reader))
             elif marker in (
@@ -124,12 +142,16 @@ class Stream:
             elif marker == Marker.DQT:
                 dqt = jpeg.DefineQuantizationTables.read(reader)
                 segments.append(dqt)
-                for table in dqt.tables:
-                    quantization_tables[table.destination] = table.values
+                for quantization_table in dqt.tables:
+                    quantization_tables[quantization_table.destination] = (
+                        quantization_table.values
+                    )
             elif marker == Marker.DNL:
+                assert sof is not None
                 dnl = jpeg.DefineNumberOfLines.read(reader, variable_length=sof.is_ls())
                 segments.append(dnl)
             elif marker == Marker.DRI:
+                assert sof is not None
                 dri = jpeg.DefineRestartInterval.read(
                     reader, variable_length=sof.is_ls()
                 )
@@ -174,7 +196,7 @@ class Stream:
 
 
 # FIXME: Take into consideration sampling factors
-def _size_in_dct_data_units(sof):
+def _size_in_dct_data_units(sof: jpeg.StartOfFrame) -> tuple[int, int]:
     assert sof.number_of_lines > 0
     width = (sof.samples_per_line + 7) // 8
     height = (sof.number_of_lines + 7) // 8
@@ -182,19 +204,19 @@ def _size_in_dct_data_units(sof):
 
 
 def _parse_huffman_dct_scan(
-    reader,
-    sof,
-    dri,
-    sos,
-    dc_huffman_tables=[None, None, None, None],
-    ac_huffman_tables=[None, None, None, None],
-):
+    reader: jpeg.io.BufferedReader,
+    sof: jpeg.StartOfFrame,
+    dri: jpeg.DefineRestartInterval | None,
+    sos: jpeg.StartOfScan,
+    dc_huffman_tables: list[list[list[int]]],
+    ac_huffman_tables: list[list[list[int]]],
+) -> jpeg.HuffmanDCTScan:
     components = []
     for component in sos.components:
         components.append(
             jpeg.HuffmanDCTScanComponent(
-                dc_table=dc_huffman_tables[component.dc_table].table,
-                ac_table=ac_huffman_tables[component.ac_table].table,
+                dc_table=dc_huffman_tables[component.dc_table],
+                ac_table=ac_huffman_tables[component.ac_table],
             )
         )
     # FIXME: Handle scaling factor
@@ -208,13 +230,18 @@ def _parse_huffman_dct_scan(
 
 
 def _parse_arithmetic_dct_scan(
-    reader,
-    sof,
-    dri,
-    sos,
-    dc_arithmetic_conditioning_bounds=[(0, 1), (0, 1), (0, 1), (0, 1)],
-    ac_arithmetic_kx=[5, 5, 5, 5],
-):
+    reader: jpeg.io.BufferedReader,
+    sof: jpeg.sof.StartOfFrame,
+    dri: jpeg.dri.DefineRestartInterval | None,
+    sos: jpeg.sos.StartOfScan,
+    dc_arithmetic_conditioning_bounds: list[tuple[int, int]] = [
+        (0, 1),
+        (0, 1),
+        (0, 1),
+        (0, 1),
+    ],
+    ac_arithmetic_kx: list[int] = [5, 5, 5, 5],
+) -> jpeg.ArithmeticDCTScan:
     components = []
     for component in sos.components:
         components.append(
@@ -236,13 +263,17 @@ def _parse_arithmetic_dct_scan(
 
 
 def _parse_huffman_lossless_scan(
-    reader, sof, sos, dc_huffman_tables=[None, None, None, None]
-):
+    reader: jpeg.io.BufferedReader,
+    sof: jpeg.sof.StartOfFrame,
+    dri: jpeg.dri.DefineRestartInterval | None,
+    sos: jpeg.sos.StartOfScan,
+    dc_huffman_tables: list[list[list[int]]],
+) -> jpeg.HuffmanLosslessScan:
     components = []
     for component in sos.components:
         components.append(
             jpeg.HuffmanLosslessScanComponent(
-                table=dc_huffman_tables[component.dc_table].table
+                table=dc_huffman_tables[component.dc_table]
             )
         )
     # FIXME: Handle scaling factor
@@ -263,8 +294,17 @@ def _parse_huffman_lossless_scan(
 
 
 def _parse_arithmetic_lossless_scan(
-    reader, sof, dri, sos, dc_arithmetic_conditioning_bounds=[None, None, None, None]
-):
+    reader: jpeg.io.BufferedReader,
+    sof: jpeg.sof.StartOfFrame,
+    dri: jpeg.dri.DefineRestartInterval | None,
+    sos: jpeg.sos.StartOfScan,
+    dc_arithmetic_conditioning_bounds: list[tuple[int, int]] = [
+        (0, 1),
+        (0, 1),
+        (0, 1),
+        (0, 1),
+    ],
+) -> jpeg.ArithmeticLosslessScan:
     components = []
     for component in sos.components:
         components.append(
@@ -292,8 +332,13 @@ def _parse_arithmetic_lossless_scan(
 
 
 def _parse_ls_scan(
-    reader, sof, lse_coding_parameters, lse_oversize_image_dimensions, dri, sos
-):
+    reader: jpeg.io.BufferedReader,
+    sof: jpeg.sof.StartOfFrame,
+    lse_coding_parameters: jpeg.lse.LSCodingParameters | None,
+    lse_oversize_image_dimensions: jpeg.lse.LSOversizeImageDimensions | None,
+    dri: jpeg.dri.DefineRestartInterval | None,
+    sos: jpeg.sos.StartOfScan,
+) -> jpeg.LSScan:
     components = []
     for component in sos.components:
         components.append(jpeg.LSScanComponent())

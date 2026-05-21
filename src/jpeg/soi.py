@@ -1,24 +1,25 @@
+import jpeg.io
 import jpeg.marker
 import jpeg.segment
 
 
 class StartOfImage(jpeg.segment.Segment):
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
-    def write(self, writer: jpeg.io.Writer):
+    def write(self, writer: jpeg.io.Writer) -> None:
         writer.write_marker(jpeg.marker.Marker.SOI)
 
     @classmethod
-    def read(cls, reader: jpeg.io.Reader):
+    def read(cls, reader: jpeg.io.Reader) -> StartOfImage:
         assert reader.read_marker() == jpeg.marker.Marker.SOI
         return cls()
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return isinstance(other, StartOfImage)
 
-    def __repr__(self):
-        return f"StartOfImage()"
+    def __repr__(self) -> str:
+        return "StartOfImage()"
 
 
 if __name__ == "__main__":

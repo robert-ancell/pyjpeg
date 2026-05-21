@@ -118,36 +118,37 @@ states = [
 
 
 class State:
-    def __init__(self):
+    def __init__(self) -> None:
         self.index = 0
         self.mps = 0
 
 
 class Writer:
-    def __init__(self, writer):
+    def __init__(self, writer: jpeg.io.Writer) -> None:
         self.writer = writer
         self.a = 0x10000
         self.c = 0
         self.ct = 11
         self.st = 0
-        self.data = None
+        self.data = 0
+        self.have_data = False
         self.zero_count = 0
 
     # Encodes [value] using [state].
-    def write_bit(self, state, value):
+    def write_bit(self, state: jpeg.arithmetic.State, value: int) -> None:
         if value == state.mps:
             self._encode_mps(state)
         else:
             self._encode_lps(state)
 
     # Encodes [value] using fixed probability (0.5).
-    def write_fixed_bit(self, value):
+    def write_fixed_bit(self, value: int) -> None:
         # Default state is 0.5
         state = State()
         self.write_bit(state, value)
 
     # Write out any remaining bits
-    def flush(self):
+    def flush(self) -> None:
         # Clear final bits
         t = (self.c + self.a - 1) & 0xFFFF0000
         if t < self.c:
@@ -162,7 +163,7 @@ class Writer:
 
         self._write_byte(self.data)
 
-    def _encode_mps(self, state):
+    def _encode_mps(self, state: jpeg.arithmetic.State) -> None:
         (qe, _, mps_next_index, _) = states[state.index]
         self.a -= qe
         if self.a >= 0x8000:
@@ -176,7 +177,7 @@ class Writer:
 
         state.index = mps_next_index
 
-    def _encode_lps(self, state):
+    def _encode_lps(self, state: jpeg.arithmetic.State) -> None:
         (qe, lps_next_index, _, switch_mps) = states[state.index]
         self.a -= qe
         if self.a >= qe:
@@ -189,7 +190,7 @@ class Writer:
             state.mps ^= 0x1
         state.index = lps_next_index
 
-    def _renormalize(self):
+    def _renormalize(self) -> None:
         while True:
             self.a <<= 1
             self.c <<= 1
@@ -202,7 +203,7 @@ class Writer:
             if self.a >= 0x8000:
                 return
 
-    def _byte_out(self):
+    def _byte_out(self) -> None:
         t = self.c >> 19
         if t > 0xFF:
             self._write_byte(self.data + 1)
@@ -216,7 +217,7 @@ class Writer:
         elif t == 0xFF:
             self.st += 1
         else:
-            if self.data is not None:
+            if self.have_data:
                 self._write_byte(self.data)
 
             # Output stacked ffs
@@ -224,10 +225,11 @@ class Writer:
                 self._write_byte(0xFF)
             self.st = 0
             self.data = t
+            self.have_data = True
 
         self.c &= 0x7FFFF
 
-    def _write_byte(self, value):
+    def _write_byte(self, value: int) -> None:
         if value == 0:
             self.zero_count += 1
         else:
@@ -240,7 +242,7 @@ class Writer:
 
 
 class Reader:
-    def __init__(self, reader):
+    def __init__(self, reader: jpeg.io.Reader) -> None:
         self.reader = reader
         self.d = 0
         self.ct = 0
@@ -253,7 +255,7 @@ class Reader:
         self.c |= self.d
         self.d = 0
 
-    def read_bit(self, state):
+    def read_bit(self, state: jpeg.arithmetic.State) -> int:
         (qe, _, _, _) = states[state.index]
         self.a = (self.a - qe) & 0xFFFF
         if self.c < self.a:
@@ -267,11 +269,11 @@ class Reader:
             self._renormalize()
         return bit
 
-    def read_fixed_bit(self):
+    def read_fixed_bit(self) -> int:
         # Default state is 0.5
         return self.read_bit(State())
 
-    def _cond_mps_exchange(self, state):
+    def _cond_mps_exchange(self, state: jpeg.arithmetic.State) -> int:
         (qe, lps_next_index, mps_next_index, switch_mps) = states[state.index]
         if self.a < qe:
             bit = state.mps ^ 0x1
@@ -283,7 +285,7 @@ class Reader:
             state.index = mps_next_index
         return bit
 
-    def _cond_lps_exchange(self, state):
+    def _cond_lps_exchange(self, state: jpeg.arithmetic.State) -> int:
         (qe, lps_next_index, mps_next_index, switch_mps) = states[state.index]
         self.c -= self.a
         if self.a < qe:
@@ -297,7 +299,7 @@ class Reader:
         self.a = qe
         return bit
 
-    def _renormalize(self):
+    def _renormalize(self) -> None:
         while True:
             if self.ct == 16:
                 self._byte_in()
@@ -311,7 +313,7 @@ class Reader:
             if self.a >= 0x8000:
                 return
 
-    def _byte_in(self):
+    def _byte_in(self) -> None:
         try:
             if self.reader.peek_u8() == 0xFF:
                 if self.reader.peek_u8(1) == 0:
@@ -375,7 +377,7 @@ if __name__ == "__main__":
         e.write_bit(state, b)
     e.flush()
 
-    def to_hex(data):
+    def to_hex(data: bytearray) -> str:
         s = ""
         for b in data:
             s += "%02X" % b
@@ -386,14 +388,14 @@ if __name__ == "__main__":
         == "655B5144F7969D517855BFFF00FC5184C7CEF93900287D46708ECBC0F6"
     )
 
-    reader = jpeg.io.BufferedReader(writer.data)
-    d = Reader(reader)
+    read_buffer = jpeg.io.BufferedReader(writer.data)
+    reader = Reader(read_buffer)
     state = State()
     decoded_data = []
     for _ in range(len(bits) // 8):
         byte = 0
         for i in range(8):
-            byte = byte << 1 | d.read_bit(state)
+            byte = byte << 1 | reader.read_bit(state)
         decoded_data.append(byte)
 
     assert decoded_data == data

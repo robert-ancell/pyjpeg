@@ -1,14 +1,14 @@
 import math
 
 
-def transform_coefficient(coefficient, point_transform):
+def transform_coefficient(coefficient: int, point_transform: int) -> int:
     if coefficient > 0:
         return coefficient >> point_transform
     else:
         return -(-coefficient >> point_transform)
 
 
-def zig_zag_coordinates():
+def zig_zag_coordinates() -> list[tuple[int, int]]:
     x = 0
     y = 0
     dx = 1
@@ -34,7 +34,7 @@ def zig_zag_coordinates():
     return coordinates
 
 
-def zig_zag(coefficients):
+def zig_zag(coefficients: list[int]) -> list[int]:
     assert len(coefficients) == 64
     coordinates = zig_zag_coordinates()
     zz = []
@@ -43,7 +43,7 @@ def zig_zag(coefficients):
     return zz
 
 
-def unzig_zag(zz):
+def unzig_zag(zz: list[int]) -> list[int]:
     assert len(zz) == 64
     coordinates = zig_zag_coordinates()
     coefficients = [0] * 64
@@ -52,7 +52,7 @@ def unzig_zag(zz):
     return coefficients
 
 
-def fdct(values):
+def fdct(values: list[int]) -> list[float]:
     C = [0.70710678118654752440, 1, 1, 1, 1, 1, 1, 1]
     coefficients = []
     for v in range(8):
@@ -70,7 +70,7 @@ def fdct(values):
     return coefficients
 
 
-def idct(coefficients):
+def idct(coefficients: list[int]) -> list[int]:
     C = [0.70710678118654752440, 1, 1, 1, 1, 1, 1, 1]
     values = []
     for y in range(8):
@@ -90,7 +90,7 @@ def idct(coefficients):
     return values
 
 
-def quantize(data_unit, quantization_table):
+def quantize(data_unit: list[float], quantization_table: list[int]) -> list[int]:
     assert len(data_unit) == len(quantization_table)
     quantized_data_unit = []
     for i in range(len(data_unit)):
@@ -98,7 +98,12 @@ def quantize(data_unit, quantization_table):
     return quantized_data_unit
 
 
-def order_mcu_dct_data_units(width, height, data_units, sampling_factor):
+def order_mcu_dct_data_units(
+    width: int,
+    height: int,
+    data_units: list[list[int]],
+    sampling_factor: tuple[int, int],
+) -> list[list[int]]:
     if sampling_factor == (1, 1):
         return data_units
     mcu_data_units = []

@@ -3,18 +3,20 @@ import jpeg.segment
 
 
 class DefineNumberOfLines(jpeg.segment.Segment):
-    def __init__(self, number_of_lines: int, number_of_bytes: int = 2):
+    def __init__(self, number_of_lines: int, number_of_bytes: int = 2) -> None:
         assert number_of_lines > 0 and number_of_lines <= 65535
         self.number_of_lines = number_of_lines
         self.number_of_bytes = number_of_bytes
 
-    def write(self, writer: jpeg.io.Writer):
+    def write(self, writer: jpeg.io.Writer) -> None:
         writer.write_marker(jpeg.marker.Marker.DNL)
         writer.write_u16(2 + self.number_of_bytes)
         writer.write_unsigned(self.number_of_lines, self.number_of_bytes)
 
     @classmethod
-    def read(cls, reader: jpeg.io.Reader, variable_length: bool = False):
+    def read(
+        cls, reader: jpeg.io.Reader, variable_length: bool = False
+    ) -> DefineNumberOfLines:
         marker = reader.read_marker()
         assert marker == jpeg.marker.Marker.DNL
         length = reader.read_u16()
@@ -28,14 +30,14 @@ class DefineNumberOfLines(jpeg.segment.Segment):
         assert number_of_lines > 0
         return cls(number_of_lines, number_of_bytes=number_of_bytes)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, DefineNumberOfLines)
             and other.number_of_lines == self.number_of_lines
             and other.number_of_bytes == self.number_of_bytes
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"DefineNumberOfLines({self.number_of_lines}, number_of_bytes={self.number_of_bytes})"
 
 

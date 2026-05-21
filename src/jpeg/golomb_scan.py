@@ -2,13 +2,13 @@ import jpeg.io
 
 
 class Writer:
-    def __init__(self, writer: jpeg.io.Writer, qbpp: int = 8):
+    def __init__(self, writer: jpeg.io.Writer, qbpp: int = 8) -> None:
         self.writer = writer
         self.qbpp = qbpp
         self.data = 0
         self.bit_count = 0
 
-    def write_bit(self, bit: int):
+    def write_bit(self, bit: int) -> None:
         self.data |= bit << (7 - self.bit_count)
         self.bit_count += 1
         if self.bit_count == 8:
@@ -20,7 +20,7 @@ class Writer:
                 self.data = 0
                 self.bit_count = 0
 
-    def write_value(self, value: int, length: int, limit: int):
+    def write_value(self, value: int, length: int, limit: int) -> None:
         # FIXME: Replace x with better name
         x = value >> length
 
@@ -44,13 +44,13 @@ class Writer:
         for i in reversed(range(length)):
             self.write_bit((value >> i) & 1)
 
-    def flush(self):
+    def flush(self) -> None:
         while self.bit_count != 0:
             self.write_bit(0)
 
 
 class Reader:
-    def __init__(self, reader: jpeg.io.Reader, qbpp: int = 8):
+    def __init__(self, reader: jpeg.io.Reader, qbpp: int = 8) -> None:
         self.reader = reader
         self.qbpp = qbpp
         self.data = 0
@@ -87,31 +87,31 @@ class Reader:
 
 
 if __name__ == "__main__":
-    buffer = jpeg.io.BufferedWriter()
-    writer = Writer(buffer)
+    write_buffer = jpeg.io.BufferedWriter()
+    writer = Writer(write_buffer)
     writer.write_value(19, 2, 12)
     writer.flush()
-    assert buffer.data == b"\x0e"
-    buffer = jpeg.io.BufferedReader(b"\x0e")
-    reader = Reader(buffer)
+    assert write_buffer.data == b"\x0e"
+    read_buffer = jpeg.io.BufferedReader(b"\x0e")
+    reader = Reader(read_buffer)
     assert reader.read_value(2, 12) == 19
 
-    buffer = jpeg.io.BufferedWriter()
-    writer = Writer(buffer)
+    write_buffer = jpeg.io.BufferedWriter()
+    writer = Writer(write_buffer)
     writer.write_value(179, 2, 12)
     writer.flush()
-    buffer = jpeg.io.BufferedReader(buffer.data)
-    reader = Reader(buffer)
+    read_buffer = jpeg.io.BufferedReader(write_buffer.data)
+    reader = Reader(read_buffer)
     assert reader.read_value(2, 12) == 179
 
     # Check bit stuffing
-    buffer = jpeg.io.BufferedWriter()
-    writer = Writer(buffer)
+    write_buffer = jpeg.io.BufferedWriter()
+    writer = Writer(write_buffer)
     for _ in range(15):
         writer.write_bit(1)
     writer.flush()
-    assert buffer.data == b"\xff\x7f"
-    buffer = jpeg.io.BufferedReader(buffer.data)
-    reader = Reader(buffer)
+    assert write_buffer.data == b"\xff\x7f"
+    read_buffer = jpeg.io.BufferedReader(write_buffer.data)
+    reader = Reader(read_buffer)
     for _ in range(14):
         assert reader.read_bit() == 1

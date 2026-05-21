@@ -7,23 +7,25 @@ import jpeg.segment
 class HuffmanDCTACSuccessiveScan(jpeg.segment.Segment):
     def __init__(
         self,
-        data_units,
-        table,
-        spectral_selection=(1, 63),
-        point_transform=0,
-    ):
+        data_units: list[list[int]],
+        table: list[list[int]],
+        spectral_selection: tuple[int, int] = (1, 63),
+        point_transform: int = 0,
+    ) -> None:
         self.data_units = data_units
         self.table = table
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
 
-    def write(self, writer: jpeg.io.Writer, symbol_frequencies=None):
+    def write(
+        self, writer: jpeg.io.Writer, symbol_frequencies: list[int] | None = None
+    ) -> None:
         scan_writer = jpeg.huffman_scan.Writer(writer)
 
         encoder = jpeg.huffman.Encoder(self.table)
-        correction_bits = [[]]
+        correction_bits: list[list[int]] = [[]]
         eob_count = 0
-        eob_correction_bits = []
+        eob_correction_bits: list[int] = []
         for data_unit in self.data_units:
             run_length = 0
             for k in range(self.spectral_selection[0], self.spectral_selection[1] + 1):
@@ -99,11 +101,11 @@ class HuffmanDCTACSuccessiveScan(jpeg.segment.Segment):
     def read(
         cls,
         reader: jpeg.io.Reader,
-        data_units,
-        table,
-        spectral_selection=(1, 63),
-        point_transform=0,
-    ):
+        data_units: list[list[int]],
+        table: list[list[int]],
+        spectral_selection: tuple[int, int] = (1, 63),
+        point_transform: int = 0,
+    ) -> HuffmanDCTACSuccessiveScan:
         scan_reader = jpeg.huffman_scan.Reader(reader)
 
         updated_data_units = []
@@ -176,7 +178,7 @@ if __name__ == "__main__":
     )
     scan.write(writer)
 
-    def mask_coefficients(data_units, mask):
+    def mask_coefficients(data_units: list[list[int]], mask: int) -> list[list[int]]:
         masked_data_units = []
         for data_unit in data_units:
             masked_data_unit = [0] * 64

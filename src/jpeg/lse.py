@@ -10,11 +10,11 @@ class LSExtensionId:
 
 
 class LSExtension(jpeg.segment.Segment):
-    def __init__(self, id):
+    def __init__(self, id: int) -> None:
         self.id = id
 
     @classmethod
-    def read(cls, reader: jpeg.io.Reader):
+    def read(cls, reader: jpeg.io.Reader) -> LSExtension:
         marker = reader.read_marker()
         assert marker == jpeg.marker.Marker.LSE
         length = reader.read_u16()
@@ -54,13 +54,18 @@ class LSExtension(jpeg.segment.Segment):
 
 
 class LSCodingParameters(LSExtension):
-    def __init__(self, maxval=0, gradient_thresholds=(0, 0, 0), reset=0):
+    def __init__(
+        self,
+        maxval: int = 0,
+        gradient_thresholds: tuple[int, int, int] = (0, 0, 0),
+        reset: int = 0,
+    ) -> None:
         super().__init__(LSExtensionId.CODING_PARAMETERS)
         self.maxval = maxval
         self.gradient_thresholds = gradient_thresholds
         self.reset = reset
 
-    def write(self, writer: jpeg.io.Writer):
+    def write(self, writer: jpeg.io.Writer) -> None:
         writer.write_marker(jpeg.marker.Marker.LSE)
         writer.write_u16(13)
         writer.write_u8(LSExtensionId.CODING_PARAMETERS)
@@ -70,7 +75,7 @@ class LSCodingParameters(LSExtension):
         writer.write_u16(self.gradient_thresholds[2])
         writer.write_u16(self.reset)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, LSCodingParameters)
             and other.maxval == self.maxval
@@ -78,35 +83,41 @@ class LSCodingParameters(LSExtension):
             and other.reset == self.reset
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"LSCodingParameters({self.maxval}, {self.gradient_thresholds}, {self.reset})"
 
 
 class LSMappingTable(LSExtension):
-    def __init__(self, table_id, table):
+    def __init__(
+        self,
+        table_id: int,
+        table: list[int],
+    ) -> None:
         super().__init__(LSExtensionId.MAPPING_TABLE)
         self.table_id = table_id
         self.table = table
 
-    def write(self, writer: jpeg.io.Writer):
+    def write(self, writer: jpeg.io.Writer) -> None:
         writer.write_marker(jpeg.marker.Marker.LSE)
         writer.write_u16(13)  # FIXME
         writer.write_u8(LSExtensionId.MAPPING_TABLE)
         # FIXME
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, LSMappingTable)
             and other.table_id == self.table_id
             and other.table == self.table
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"LSMappingTable({self.table_id}, {self.table})"
 
 
 class LSOversizeImageDimensions(LSExtension):
-    def __init__(self, number_of_lines, samples_per_line, number_of_bytes=2):
+    def __init__(
+        self, number_of_lines: int, samples_per_line: int, number_of_bytes: int = 2
+    ) -> None:
         super().__init__(LSExtensionId.OVERSIZE_IMAGE_DIMENSION)
         assert number_of_bytes >= 2 and number_of_bytes <= 4
         assert number_of_lines < 1 << (8 * number_of_bytes)
@@ -115,7 +126,7 @@ class LSOversizeImageDimensions(LSExtension):
         self.samples_per_line = samples_per_line
         self.number_of_bytes = number_of_bytes
 
-    def write(self, writer: jpeg.io.Writer):
+    def write(self, writer: jpeg.io.Writer) -> None:
         writer.write_marker(jpeg.marker.Marker.LSE)
         writer.write_u16(4 + 2 * self.number_of_bytes)
         writer.write_u8(LSExtensionId.OVERSIZE_IMAGE_DIMENSION)
@@ -123,7 +134,7 @@ class LSOversizeImageDimensions(LSExtension):
         writer.write_unsigned(self.number_of_lines, self.number_of_bytes)
         writer.write_unsigned(self.samples_per_line, self.number_of_bytes)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, LSOversizeImageDimensions)
             and other.number_of_lines == self.number_of_lines
@@ -131,7 +142,7 @@ class LSOversizeImageDimensions(LSExtension):
             and other.number_of_bytes == self.number_of_bytes
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"LSOversizeImageDimensions({self.number_of_lines}, {self.samples_per_line}, number_of_bytes={self.number_of_bytes})"
 
 
@@ -145,7 +156,8 @@ if __name__ == "__main__":
     )
 
     reader = jpeg.io.BufferedReader(writer.data)
-    lse = LSCodingParameters.read(reader)
+    lse = LSExtension.read(reader)
+    assert isinstance(lse, LSCodingParameters)
     assert lse.maxval == 255
     assert lse.gradient_thresholds == (3, 7, 21)
     assert lse.reset == 64

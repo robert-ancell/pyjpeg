@@ -5,12 +5,17 @@ import jpeg.segment
 
 
 class ArithmeticDCTScanComponent:
-    def __init__(self, sampling_factor=(1, 1), conditioning_bounds=(0, 1), kx=5):
+    def __init__(
+        self,
+        sampling_factor: tuple[int, int] = (1, 1),
+        conditioning_bounds: tuple[int, int] = (0, 1),
+        kx: int = 5,
+    ):
         self.sampling_factor = sampling_factor
         self.conditioning_bounds = conditioning_bounds
         self.kx = kx
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, ArithmeticDCTScanComponent)
             and other.sampling_factor == self.sampling_factor
@@ -18,24 +23,24 @@ class ArithmeticDCTScanComponent:
             and other.kx == self.kx
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"ArithmeticDCTScanComponent(sampling_factor={self.sampling_factor}, conditioning_bounds={self.conditioning_bounds}, kx={self.kx})"
 
 
 class ArithmeticDCTScan(jpeg.segment.Segment):
     def __init__(
         self,
-        data_units,
-        components,
-        spectral_selection=(0, 63),
-        point_transform=0,
-    ):
+        data_units: list[list[int]],
+        components: list[ArithmeticDCTScanComponent],
+        spectral_selection: tuple[int, int] = (0, 63),
+        point_transform: int = 0,
+    ) -> None:
         self.data_units = data_units
         self.components = components
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
 
-    def write(self, writer: jpeg.io.Writer):
+    def write(self, writer: jpeg.io.Writer) -> None:
         scan_writer = Writer(
             writer,
             spectral_selection=self.spectral_selection,
@@ -72,11 +77,11 @@ class ArithmeticDCTScan(jpeg.segment.Segment):
     def read(
         cls,
         reader: jpeg.io.Reader,
-        number_of_data_units,
-        components,
-        spectral_selection=(0, 63),
-        point_transform=0,
-    ):
+        number_of_data_units: int,
+        components: list[ArithmeticDCTScanComponent],
+        spectral_selection: tuple[int, int] = (0, 63),
+        point_transform: int = 0,
+    ) -> ArithmeticDCTScan:
         scan_reader = Reader(
             reader,
             spectral_selection=spectral_selection,
@@ -110,7 +115,7 @@ class ArithmeticDCTScan(jpeg.segment.Segment):
             point_transform=point_transform,
         )
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, ArithmeticDCTScan)
             and other.data_units == self.data_units
@@ -119,22 +124,22 @@ class ArithmeticDCTScan(jpeg.segment.Segment):
             and other.point_transform == self.point_transform
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"ArithmeticDCTScan({self.data_units}, {self.components}, spectral_selection={self.spectral_selection}, point_transform={self.point_transform})"
 
 
 class Writer:
     def __init__(
         self,
-        writer,
-        spectral_selection=(0, 63),
-        point_transform=0,
-    ):
+        writer: jpeg.io.Writer,
+        spectral_selection: tuple[int, int] = (0, 63),
+        point_transform: int = 0,
+    ) -> None:
         self.writer = jpeg.arithmetic_scan.Writer(writer)
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
 
-        def make_states(count):
+        def make_states(count: int) -> list[jpeg.arithmetic.State]:
             return [jpeg.arithmetic.State() for _ in range(count)]
 
         self.dc_non_zero = make_states(5)
@@ -153,12 +158,12 @@ class Writer:
 
     def write_data_unit(
         self,
-        data_unit,
-        prev_dc=0,
-        prev_dc_diff=0,
-        conditioning_bounds=(0, 1),
-        kx=5,
-    ):
+        data_unit: list[int],
+        prev_dc: int = 0,
+        prev_dc_diff: int = 0,
+        conditioning_bounds: tuple[int, int] = (0, 1),
+        kx: int = 5,
+    ) -> None:
         k = self.spectral_selection[0]
 
         # Write DC coefficient
@@ -209,22 +214,22 @@ class Writer:
             )
             k += 1
 
-    def flush(self):
+    def flush(self) -> None:
         self.writer.flush()
 
 
 class Reader:
     def __init__(
         self,
-        reader,
-        spectral_selection=(0, 63),
-        point_transform=0,
-    ):
+        reader: jpeg.io.Reader,
+        spectral_selection: tuple[int, int] = (0, 63),
+        point_transform: int = 0,
+    ) -> None:
         self.reader = jpeg.arithmetic_scan.Reader(reader)
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
 
-        def make_states(count):
+        def make_states(count: int) -> list[jpeg.arithmetic.State]:
             return [jpeg.arithmetic.State() for _ in range(count)]
 
         self.dc_non_zero = make_states(5)
@@ -243,11 +248,11 @@ class Reader:
 
     def read_data_unit(
         self,
-        prev_dc=0,
-        prev_dc_diff=0,
-        conditioning_bounds=(0, 1),
-        kx=5,
-    ):
+        prev_dc: int = 0,
+        prev_dc_diff: int = 0,
+        conditioning_bounds: tuple[int, int] = (0, 1),
+        kx: int = 5,
+    ) -> list[int]:
         data_unit = [0] * 64
         k = self.spectral_selection[0]
 

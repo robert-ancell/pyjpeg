@@ -17,16 +17,16 @@ class LSInterleaveMode:
 
 
 class LSScanComponent:
-    def __init__(self, sampling_factor=(1, 1)):
+    def __init__(self, sampling_factor: tuple[int, int] = (1, 1)) -> None:
         self.sampling_factor = sampling_factor
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, LSScanComponent)
             and other.sampling_factor == self.sampling_factor
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"LSScanComponent(sampling_factor={self.sampling_factor})"
 
 
@@ -34,14 +34,14 @@ class LSScan(jpeg.segment.Segment):
     def __init__(
         self,
         width: int,
-        samples,
-        components,
+        samples: list[int],
+        components: list[LSScanComponent],
         interleave_mode: int = LSInterleaveMode.NONE,
         difference_bound: int = 0,
         maxval: int = 255,
-        gradient_thresholds=(0, 0, 0),
+        gradient_thresholds: tuple[int, int, int] = (0, 0, 0),
         reset: int = 0,
-    ):
+    ) -> None:
         assert len(components) > 0
         self.width = width
         self.samples = samples
@@ -52,7 +52,7 @@ class LSScan(jpeg.segment.Segment):
         self.gradient_thresholds = gradient_thresholds
         self.reset = reset
 
-    def write(self, writer: jpeg.io.Writer):
+    def write(self, writer: jpeg.io.Writer) -> None:
         scan_writer = Writer(
             writer,
             self.width,
@@ -74,13 +74,13 @@ class LSScan(jpeg.segment.Segment):
         reader: jpeg.io.Reader,
         width: int,
         number_of_samples: int,
-        components,
+        components: list[LSScanComponent],
         interleave_mode: int = LSInterleaveMode.NONE,
         difference_bound: int = 0,
         maxval: int = 255,
-        gradient_thresholds=(0, 0, 0),
+        gradient_thresholds: tuple[int, int, int] = (0, 0, 0),
         reset: int = 0,
-    ):
+    ) -> LSScan:
         assert len(components) > 0
         scan_reader = Reader(
             reader,
@@ -107,7 +107,7 @@ class LSScan(jpeg.segment.Segment):
             reset=reset,
         )
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, LSScan)
             and other.width == self.width
@@ -120,11 +120,13 @@ class LSScan(jpeg.segment.Segment):
             and other.reset == self.reset
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"LSScan({self.width}, {self.samples}, {self.components}, difference_bound={self.difference_bound}, maxval={self.maxval}, gradient_thresholds={self.gradient_thresholds})"
 
 
-def _get_neighbours(width, samples, n_components, index):
+def _get_neighbours(
+    width: int, samples: list[int], n_components: int, index: int
+) -> tuple[int, int, int, int]:
     line_size = width * n_components
 
     # Top row
@@ -158,19 +160,19 @@ def _get_neighbours(width, samples, n_components, index):
 class Codec:
     def __init__(
         self,
-        width,
-        samples,
-        components,
+        width: int,
+        samples: list[int],
+        components: list[LSScanComponent],
         interleave_mode: int,
         parameters: CodingParameters,
-    ):
+    ) -> None:
         self.width = width
         self.samples = samples
         self.components = components
         self.interleave_mode = interleave_mode
         self.parameters = parameters
 
-        def get_range(maxval, difference_bound):
+        def get_range(maxval: int, difference_bound: int) -> int:
             return ((maxval + 2 * difference_bound) // (2 * difference_bound + 1)) + 1
 
         # Note the spec says 365 contexts, but this can't map all possible 5*9*9 combinations.
@@ -183,7 +185,9 @@ class Codec:
         self.run_interrupt_context = RunInterruptContext(a, False)
         self.near_run_interrupt_context = RunInterruptContext(a, True)
 
-    def is_run_mode(self, sample_index, n_components):
+    def is_run_mode(
+        self, sample_index: int, n_components: int
+    ) -> tuple[bool, list[int]]:
         run_sample = [0] * n_components
         for component_index in range(n_components):
             (a, b, c, d) = _get_neighbours(
@@ -200,11 +204,11 @@ class Codec:
                 or abs(d2) > self.parameters.difference_bound
                 or abs(d3) > self.parameters.difference_bound
             ):
-                return False, None
+                return False, []
             run_sample[component_index] = a
         return True, run_sample
 
-    def get_interrupt_context(self, sample_index):
+    def get_interrupt_context(self, sample_index: int) -> RunInterruptContext:
         (a, b, _, _) = _get_neighbours(
             self.width,
             self.samples,
@@ -216,7 +220,9 @@ class Codec:
         else:
             return self.run_interrupt_context
 
-    def get_regular_context(self, a, b, c, d):
+    def get_regular_context(
+        self, a: int, b: int, c: int, d: int
+    ) -> tuple[int, RegularContext]:
         q1 = self.parameters.classify(d - b)
         q2 = self.parameters.classify(b - c)
         q3 = self.parameters.classify(c - a)
@@ -238,15 +244,15 @@ class Writer(Codec):
         self,
         writer: jpeg.io.Writer,
         width: int,
-        samples,
-        components,
+        samples: list[int],
+        components: list[LSScanComponent],
         interleave_mode: int,
         parameters: CodingParameters,
-    ):
+    ) -> None:
         super().__init__(width, samples, components, interleave_mode, parameters)
         self.writer = jpeg.golomb_scan.Writer(writer, qbpp=self.parameters.qbpp)
 
-    def write(self):
+    def write(self) -> None:
         if self.interleave_mode == LSInterleaveMode.NONE:
             assert len(self.components) == 1
             self.write_non_interleaved()
@@ -260,13 +266,13 @@ class Writer(Codec):
             assert False
         self.writer.flush()
 
-    def write_non_interleaved(self):
+    def write_non_interleaved(self) -> None:
         run_index = 0
         sample_index = 0
         while sample_index < len(self.samples):
             sample_index, run_index = self.write_sample(sample_index, 1, run_index)
 
-    def write_line_interleaved(self):
+    def write_line_interleaved(self) -> None:
         run_indexes = [0] * len(self.components)
         line_size = self.width * len(self.components)
         for line_start_index in range(0, len(self.samples), line_size):
@@ -280,7 +286,7 @@ class Writer(Codec):
                     )
                 run_indexes[component_index] = run_index
 
-    def write_sample_interleaved(self):
+    def write_sample_interleaved(self) -> None:
         sample_index = 0
         run_index = 0
         while sample_index < len(self.samples):
@@ -288,7 +294,9 @@ class Writer(Codec):
                 sample_index, len(self.components), run_index
             )
 
-    def write_sample(self, sample_index, n_components, run_index):
+    def write_sample(
+        self, sample_index: int, n_components: int, run_index: int
+    ) -> tuple[int, int]:
         in_run, run_sample = self.is_run_mode(sample_index, n_components)
         if in_run:
             sample_index, run_index = self.write_run(
@@ -299,7 +307,9 @@ class Writer(Codec):
 
         return sample_index, run_index
 
-    def write_run(self, sample_index, run_sample, run_index):
+    def write_run(
+        self, sample_index: int, run_sample: list[int], run_index: int
+    ) -> tuple[int, int]:
         run_counter = 0
         while self.in_run(sample_index, run_sample):
             sample_index += len(self.components)
@@ -348,7 +358,7 @@ class Writer(Codec):
 
         return sample_index, run_index
 
-    def in_run(self, sample_index, run_sample):
+    def in_run(self, sample_index: int, run_sample: list[int]) -> bool:
         for component_index, sample in enumerate(run_sample):
             if (
                 abs(
@@ -360,7 +370,7 @@ class Writer(Codec):
                 return False
         return True
 
-    def write_regular(self, sample_index, n_components):
+    def write_regular(self, sample_index: int, n_components: int) -> int:
         for component_index in range(n_components):
             (a, b, c, d) = _get_neighbours(
                 self.width,
@@ -387,16 +397,16 @@ class Reader(Codec):
         reader: jpeg.io.Reader,
         width: int,
         number_of_samples: int,
-        components,
+        components: list[LSScanComponent],
         interleave_mode: int,
         parameters: CodingParameters,
-    ):
+    ) -> None:
         super().__init__(
             width, [0] * number_of_samples, components, interleave_mode, parameters
         )
         self.reader = jpeg.golomb_scan.Reader(reader, qbpp=self.parameters.qbpp)
 
-    def read(self):
+    def read(self) -> list[int]:
         if self.interleave_mode == LSInterleaveMode.NONE:
             assert len(self.components) == 1
             self.read_non_interleaved()
@@ -410,13 +420,13 @@ class Reader(Codec):
             assert False
         return self.samples
 
-    def read_non_interleaved(self):
+    def read_non_interleaved(self) -> None:
         sample_index = 0
         run_index = 0
         while sample_index < len(self.samples):
             sample_index, run_index = self.read_sample(sample_index, 1, run_index)
 
-    def read_line_interleaved(self):
+    def read_line_interleaved(self) -> None:
         run_indexes = [0] * len(self.components)
         line_size = self.width * len(self.components)
         for line_start_index in range(0, len(self.samples), line_size):
@@ -430,7 +440,7 @@ class Reader(Codec):
                     )
                 run_indexes[component_index] = run_index
 
-    def read_sample_interleaved(self):
+    def read_sample_interleaved(self) -> None:
         sample_index = 0
         run_index = 0
         while sample_index < len(self.samples):
@@ -438,7 +448,9 @@ class Reader(Codec):
                 sample_index, len(self.components), run_index
             )
 
-    def read_sample(self, sample_index, n_components, run_index):
+    def read_sample(
+        self, sample_index: int, n_components: int, run_index: int
+    ) -> tuple[int, int]:
         in_run, run_sample = self.is_run_mode(sample_index, n_components)
         if in_run:
             sample_index, run_index = self.read_run(sample_index, run_sample, run_index)
@@ -447,7 +459,9 @@ class Reader(Codec):
 
         return sample_index, run_index
 
-    def read_run(self, sample_index, run_sample, run_index):
+    def read_run(
+        self, sample_index: int, run_sample: list[int], run_index: int
+    ) -> tuple[int, int]:
         while self.reader.read_bit() == 1:
             run_width = 1 << run_widths[run_index]
             line_size = self.width * len(self.components)
@@ -498,7 +512,7 @@ class Reader(Codec):
 
         return sample_index, run_index
 
-    def read_regular(self, sample_index, n_components):
+    def read_regular(self, sample_index: int, n_components: int) -> int:
         for component_index in range(n_components):
             (a, b, c, d) = _get_neighbours(
                 self.width,
@@ -513,9 +527,9 @@ class Reader(Codec):
 
 
 def _generate_gradient_thresholds(
-    difference_bound: int, maxval: int, gradient_thresholds
-):
-    def clamp(i, j):
+    difference_bound: int, maxval: int, gradient_thresholds: tuple[int, int, int]
+) -> tuple[int, int, int]:
+    def clamp(i: int, j: int) -> int:
         if i > maxval or i < j:
             return j
         else:
@@ -553,9 +567,9 @@ class CodingParameters:
         self,
         difference_bound: int = 0,
         maxval: int = 255,
-        gradient_thresholds=(0, 0, 0),
+        gradient_thresholds: tuple[int, int, int] = (0, 0, 0),
         reset: int = 0,
-    ):
+    ) -> None:
         self.difference_bound = difference_bound
         self.maxval = maxval
         self.gradient_thresholds = _generate_gradient_thresholds(
@@ -615,8 +629,10 @@ def _reconstruct(
 
 
 class RegularContext:
-    def __init__(self, a):
-        self.accumulated_prediction_error_magnitude = a
+    def __init__(self, accumulated_prediction_error_magnitude: int) -> None:
+        self.accumulated_prediction_error_magnitude = (
+            accumulated_prediction_error_magnitude
+        )
         self.bias = 0
         self.prediction_correction = 0
         self.frequency_of_occurence = 1
@@ -630,7 +646,7 @@ class RegularContext:
         a: int,
         b: int,
         c: int,
-    ):
+    ) -> None:
         predicted_sample = self._predict(parameters, sign, a, b, c)
         errval = sign * (sample - predicted_sample)
         if errval > 0:
@@ -657,7 +673,7 @@ class RegularContext:
     def read_sample(
         self,
         reader: jpeg.golomb_scan.Reader,
-        parameters,
+        parameters: CodingParameters,
         sign: int,
         a: int,
         b: int,
@@ -672,7 +688,9 @@ class RegularContext:
 
         return sample
 
-    def _predict(self, parameters, sign: int, a: int, b: int, c: int) -> int:
+    def _predict(
+        self, parameters: CodingParameters, sign: int, a: int, b: int, c: int
+    ) -> int:
         # Predict next value
         if c >= max(a, b):
             px = min(a, b)
@@ -696,10 +714,10 @@ class RegularContext:
             k += 1
         return k
 
-    def _get_limit(self, parameters) -> int:
+    def _get_limit(self, parameters: CodingParameters) -> int:
         return parameters.limit - parameters.qbpp - 1
 
-    def _get_error_mapping_offset(self, parameters, k):
+    def _get_error_mapping_offset(self, parameters: CodingParameters, k: int) -> int:
         if (
             parameters.difference_bound == 0
             and k == 0
@@ -709,14 +727,16 @@ class RegularContext:
         else:
             return 0
 
-    def _map_error(self, parameters, errval, k):
+    def _map_error(self, parameters: CodingParameters, errval: int, k: int) -> int:
         offset = self._get_error_mapping_offset(parameters, k)
         if errval < 0:
             return ((-errval) * 2) - 1 - offset
         else:
             return (errval * 2) + offset
 
-    def _unmap_error(self, parameters, mapped_errval, k):
+    def _unmap_error(
+        self, parameters: CodingParameters, mapped_errval: int, k: int
+    ) -> int:
         if mapped_errval % 2 == 1:
             errval = -((mapped_errval + 1) // 2)
         else:
@@ -728,7 +748,7 @@ class RegularContext:
         else:
             return errval
 
-    def _update_bias(self, parameters, errval):
+    def _update_bias(self, parameters: CodingParameters, errval: int) -> None:
         self.bias += errval * (2 * parameters.difference_bound + 1)
         self.accumulated_prediction_error_magnitude += abs(errval)
 
@@ -758,7 +778,7 @@ class RegularContext:
 
 
 class RunInterruptContext:
-    def __init__(self, a: int, near: bool):
+    def __init__(self, a: int, near: bool) -> None:
         self.accumulated_prediction_error_magnitude = a
         self.near = near
         self.frequency_of_occurence = 1
@@ -772,7 +792,7 @@ class RunInterruptContext:
         sample: int,
         a: int,
         b: int,
-    ):
+    ) -> None:
         if self.near:
             errval = sample - a
         else:
@@ -828,7 +848,7 @@ class RunInterruptContext:
     def _get_limit(self, parameters: CodingParameters, run_index: int) -> int:
         return parameters.limit - parameters.qbpp - 1 - run_widths[run_index] - 1
 
-    def _get_error_mapping_offset(self, nonzero, k):
+    def _get_error_mapping_offset(self, nonzero: bool, k: int) -> int:
         if (
             nonzero
             and k == 0
@@ -865,7 +885,9 @@ class RunInterruptContext:
         else:
             return errval
 
-    def _update_accumulated_prediction_error(self, parameters, errval):
+    def _update_accumulated_prediction_error(
+        self, parameters: CodingParameters, errval: int
+    ) -> None:
         if errval < 0:
             self.negative_prediction_error += 1
             self.accumulated_prediction_error_magnitude += -errval

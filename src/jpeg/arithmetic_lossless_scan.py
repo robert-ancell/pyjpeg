@@ -5,16 +5,16 @@ import jpeg.segment
 
 
 class ArithmeticLosslessScanComponent:
-    def __init__(self, conditioning_bounds=(0, 1)):
+    def __init__(self, conditioning_bounds: tuple[int, int] = (0, 1)) -> None:
         self.conditioning_bounds = conditioning_bounds
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, ArithmeticLosslessScanComponent)
             and other.conditioning_bounds == self.conditioning_bounds
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"ArithmeticLosslessScanComponent(conditioning_bounds={self.conditioning_bounds})"
 
 
@@ -22,19 +22,19 @@ class ArithmeticLosslessScan(jpeg.segment.Segment):
     def __init__(
         self,
         samples_per_line: int,
-        samples,
-        components,
+        samples: list[int],
+        components: list[ArithmeticLosslessScanComponent],
         precision: int = 8,
         predictor: int = 1,
-    ):
+    ) -> None:
         self.samples_per_line = samples_per_line
         self.samples = samples
         self.components = components
         self.precision = precision
         self.predictor = predictor
 
-    def write(self, writer: jpeg.io.Writer):
-        writer = Writer(writer)
+    def write(self, writer: jpeg.io.Writer) -> None:
+        scan_writer = Writer(writer)
 
         previous_line = [0] * self.samples_per_line * len(self.components)
         current_line = [0] * self.samples_per_line * len(self.components)
@@ -68,7 +68,7 @@ class ArithmeticLosslessScan(jpeg.segment.Segment):
                 predictor=self.predictor,
             )
             current_line[x * len(self.components) + component_index] = diff
-            writer.write_data_unit(
+            scan_writer.write_data_unit(
                 diff,
                 left_data_unit=left_data_unit,
                 above_data_unit=above_data_unit,
@@ -77,7 +77,7 @@ class ArithmeticLosslessScan(jpeg.segment.Segment):
                 ].conditioning_bounds,
             )
 
-        writer.flush()
+        scan_writer.flush()
 
     @classmethod
     def read(
@@ -85,12 +85,12 @@ class ArithmeticLosslessScan(jpeg.segment.Segment):
         reader: jpeg.io.Reader,
         samples_per_line: int,
         number_of_samples: int,
-        components,
+        components: list[ArithmeticLosslessScanComponent],
         precision: int = 8,
         predictor: int = 1,
-    ):
+    ) -> ArithmeticLosslessScan:
         samples = []
-        reader = Reader(reader)
+        scan_reader = Reader(reader)
         samples = [0] * number_of_samples
         previous_line = [0] * samples_per_line * len(components)
         current_line = [0] * samples_per_line * len(components)
@@ -113,7 +113,7 @@ class ArithmeticLosslessScan(jpeg.segment.Segment):
             )
             above_data_unit = previous_line[x * len(components) + component_index]
 
-            diff = reader.read_data_unit(
+            diff = scan_reader.read_data_unit(
                 left_data_unit=left_data_unit,
                 above_data_unit=above_data_unit,
                 conditioning_bounds=components[component_index].conditioning_bounds,
@@ -139,7 +139,7 @@ class ArithmeticLosslessScan(jpeg.segment.Segment):
             predictor=predictor,
         )
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, ArithmeticLosslessScan)
             and other.samples_per_line == self.samples_per_line
@@ -149,15 +149,15 @@ class ArithmeticLosslessScan(jpeg.segment.Segment):
             and other.predictor == self.predictor
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"ArithmeticLosslessScan({self.samples_per_line}, {self.samples}, {self.components}, precision={self.precision}, predictor={self.predictor})"
 
 
 class Writer:
-    def __init__(self, writer):
+    def __init__(self, writer: jpeg.io.Writer) -> None:
         self.writer = jpeg.arithmetic_scan.Writer(writer)
 
-        def make_states(count):
+        def make_states(count: int) -> list[jpeg.arithmetic.State]:
             return [jpeg.arithmetic.State() for _ in range(count)]
 
         self.non_zero = make_states(25)
@@ -174,8 +174,8 @@ class Writer:
         data_unit: int,
         left_data_unit: int = 0,
         above_data_unit: int = 0,
-        conditioning_bounds=(0, 1),
-    ):
+        conditioning_bounds: tuple[int, int] = (0, 1),
+    ) -> None:
         ca = jpeg.arithmetic_scan.classify_dc(conditioning_bounds, left_data_unit)
         cb = jpeg.arithmetic_scan.classify_dc(conditioning_bounds, above_data_unit)
         c = ca * 5 + cb
@@ -198,15 +198,15 @@ class Writer:
             mstates,
         )
 
-    def flush(self):
+    def flush(self) -> None:
         self.writer.flush()
 
 
 class Reader:
-    def __init__(self, reader):
+    def __init__(self, reader: jpeg.io.Reader):
         self.reader = jpeg.arithmetic_scan.Reader(reader)
 
-        def make_states(count):
+        def make_states(count: int) -> list[jpeg.arithmetic.State]:
             return [jpeg.arithmetic.State() for _ in range(count)]
 
         self.non_zero = make_states(25)
@@ -222,7 +222,7 @@ class Reader:
         self,
         left_data_unit: int = 0,
         above_data_unit: int = 0,
-        conditioning_bounds=(0, 1),
+        conditioning_bounds: tuple[int, int] = (0, 1),
     ) -> int:
         ca = jpeg.arithmetic_scan.classify_dc(conditioning_bounds, left_data_unit)
         cb = jpeg.arithmetic_scan.classify_dc(conditioning_bounds, above_data_unit)

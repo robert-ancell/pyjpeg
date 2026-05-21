@@ -3,11 +3,11 @@ import jpeg.scan
 
 
 class HuffmanDCTDCSuccessiveScan(jpeg.segment.Segment):
-    def __init__(self, data_units, point_transform=0):
+    def __init__(self, data_units: list[list[int]], point_transform: int = 0) -> None:
         self.data_units = data_units
         self.point_transform = point_transform
 
-    def write(self, writer):
+    def write(self, writer: jpeg.io.Writer) -> None:
         scan_writer = jpeg.scan.Writer(writer)
 
         for data_unit in self.data_units:
@@ -17,7 +17,12 @@ class HuffmanDCTDCSuccessiveScan(jpeg.segment.Segment):
         scan_writer.flush(pad_bit=1)
 
     @classmethod
-    def read(cls, reader: jpeg.io.Reader, data_units, point_transform=0):
+    def read(
+        cls,
+        reader: jpeg.io.Reader,
+        data_units: list[list[int]],
+        point_transform: int = 0,
+    ) -> HuffmanDCTDCSuccessiveScan:
         scan_reader = jpeg.scan.Reader(reader)
         updated_data_units = []
         for data_unit in data_units:
@@ -41,7 +46,7 @@ if __name__ == "__main__":
     scan = HuffmanDCTDCSuccessiveScan(data_units, point_transform=3)
     scan.write(writer)
 
-    def mask_coefficients(data_units, mask):
+    def mask_coefficients(data_units: list[list[int]], mask: int) -> list[list[int]]:
         masked_data_units = []
         for data_unit in data_units:
             masked_data_unit = [0] * 64

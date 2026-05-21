@@ -3,27 +3,27 @@ import jpeg.segment
 
 
 class Comment(jpeg.segment.Segment):
-    def __init__(self, data: bytes):
+    def __init__(self, data: bytes) -> None:
         self.data = data
 
-    def write(self, writer: jpeg.io.Writer):
+    def write(self, writer: jpeg.io.Writer) -> None:
         writer.write_marker(jpeg.marker.Marker.COM)
         writer.write_u16(2 + len(self.data))
         writer.write(self.data)
 
     @classmethod
-    def read(cls, reader: jpeg.io.Reader):
+    def read(cls, reader: jpeg.io.Reader) -> Comment:
         marker = reader.read_marker()
         assert marker == jpeg.marker.Marker.COM
         length = reader.read_u16()
         data = reader.read(length - 2)
         return cls(data)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return isinstance(other, Comment) and other.data == self.data
 
-    def __repr__(self):
-        return f"Comment({self.data})"
+    def __repr__(self) -> str:
+        return f"Comment({self.data!r})"
 
 
 if __name__ == "__main__":

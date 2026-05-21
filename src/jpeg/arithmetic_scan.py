@@ -1,6 +1,7 @@
 from pdb import run
 
 import jpeg.arithmetic
+import jpeg.io
 
 
 class Classification:
@@ -11,7 +12,7 @@ class Classification:
     LARGE_NEGATIVE = 4
 
 
-def classify_dc(conditioning_bounds, value):
+def classify_dc(conditioning_bounds: tuple[int, int], value: int) -> int:
     lower, upper = conditioning_bounds
     if lower > 0:
         lower = 1 << (lower - 1)
@@ -33,10 +34,19 @@ def classify_dc(conditioning_bounds, value):
 
 
 class Writer:
-    def __init__(self, writer):
+    def __init__(self, writer: jpeg.io.Writer) -> None:
         self.writer = jpeg.arithmetic.Writer(writer)
 
-    def write_dc(self, dc_diff, non_zero, sign, sp, sn, xstates, mstates):
+    def write_dc(
+        self,
+        dc_diff: int,
+        non_zero: jpeg.arithmetic.State,
+        sign: jpeg.arithmetic.State,
+        sp: jpeg.arithmetic.State,
+        sn: jpeg.arithmetic.State,
+        xstates: list[jpeg.arithmetic.State],
+        mstates: list[jpeg.arithmetic.State],
+    ) -> None:
         if dc_diff == 0:
             self.writer.write_bit(non_zero, 0)
             return
@@ -71,7 +81,13 @@ class Writer:
             bit = (v >> i) & 0x1
             self.writer.write_bit(mstates[width - 3], bit)
 
-    def write_ac(self, ac, sn_sp_x1, xstates, mstates):
+    def write_ac(
+        self,
+        ac: int,
+        sn_sp_x1: jpeg.arithmetic.State,
+        xstates: list[jpeg.arithmetic.State],
+        mstates: list[jpeg.arithmetic.State],
+    ) -> None:
         assert ac != 0
 
         if ac > 0:
@@ -107,31 +123,41 @@ class Writer:
             bit = (v >> i) & 0x1
             self.writer.write_bit(mstates[width - 3], bit)
 
-    def write_eob(self, is_eob, state):
+    def write_eob(self, is_eob: bool, state: jpeg.arithmetic.State) -> None:
         if is_eob:
             bit = 1
         else:
             bit = 0
         self.writer.write_bit(state, bit)
 
-    def write_zeros(self, count, non_zero_states):
+    def write_zeros(
+        self, count: int, non_zero_states: list[jpeg.arithmetic.State]
+    ) -> None:
         for i in range(count):
             self.writer.write_bit(non_zero_states[i], 0)
         self.writer.write_bit(non_zero_states[count], 1)
 
-    def flush(self):
+    def flush(self) -> None:
         self.writer.flush()
 
 
 class Reader:
-    def __init__(self, reader):
+    def __init__(self, reader: jpeg.io.Reader) -> None:
         self.reader = jpeg.arithmetic.Reader(reader)
 
-    def read_dc(self, non_zero, sign, sp, sn, xstates, mstates):
-        if self.reader.read_bit(non_zero) == 0:
+    def read_dc(
+        self,
+        non_zero_state: jpeg.arithmetic.State,
+        sign_state: jpeg.arithmetic.State,
+        sp: jpeg.arithmetic.State,
+        sn: jpeg.arithmetic.State,
+        xstates: list[jpeg.arithmetic.State],
+        mstates: list[jpeg.arithmetic.State],
+    ) -> int:
+        if self.reader.read_bit(non_zero_state) == 0:
             return 0
 
-        if self.reader.read_bit(sign) == 0:
+        if self.reader.read_bit(sign_state) == 0:
             sign = 1
             if self.reader.read_bit(sp) == 0:
                 return sign
@@ -151,7 +177,12 @@ class Reader:
 
         return sign * (magnitude + 1)
 
-    def read_ac(self, sn_sp_x1, xstates, mstates):
+    def read_ac(
+        self,
+        sn_sp_x1: jpeg.arithmetic.State,
+        xstates: list[jpeg.arithmetic.State],
+        mstates: list[jpeg.arithmetic.State],
+    ) -> int:
         if self.reader.read_fixed_bit() == 0:
             sign = 1
         else:
@@ -175,10 +206,10 @@ class Reader:
 
         return sign * (magnitude + 1)
 
-    def read_eob(self, state):
+    def read_eob(self, state: jpeg.arithmetic.State) -> bool:
         return self.reader.read_bit(state) == 1
 
-    def read_zeros(self, non_zero_states):
+    def read_zeros(self, non_zero_states: list[jpeg.arithmetic.State]) -> int:
         run_length = 0
         while self.reader.read_bit(non_zero_states[run_length]) == 0:
             run_length += 1

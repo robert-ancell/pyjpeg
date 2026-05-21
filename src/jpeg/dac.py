@@ -1,20 +1,23 @@
+import jpeg.io
 import jpeg.marker
 import jpeg.segment
 
 
 class ArithmeticConditioning:
-    def __init__(self, table_class: int, destination: int, value: int):
+    def __init__(self, table_class: int, destination: int, value: int) -> None:
         self.table_class = table_class
         self.destination = destination
         self.value = value
 
-    def dc(destination: int, bounds: tuple):
-        return ArithmeticConditioning(0, destination, bounds[1] << 4 | bounds[0])
+    @classmethod
+    def dc(cls, destination: int, bounds: tuple[int, int]) -> ArithmeticConditioning:
+        return cls(0, destination, bounds[1] << 4 | bounds[0])
 
-    def ac(destination, kx: int):
-        return ArithmeticConditioning(1, destination, kx)
+    @classmethod
+    def ac(cls, destination: int, kx: int) -> ArithmeticConditioning:
+        return cls(1, destination, kx)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, ArithmeticConditioning)
             and other.table_class == self.table_class
@@ -22,7 +25,7 @@ class ArithmeticConditioning:
             and other.value == self.value
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         if self.table_class == 0:
             return f"ArithmeticConditioning.dc({self.destination}, {self.value})"
         else:
@@ -30,10 +33,10 @@ class ArithmeticConditioning:
 
 
 class DefineArithmeticConditioning(jpeg.segment.Segment):
-    def __init__(self, tables):
+    def __init__(self, tables: list[ArithmeticConditioning]) -> None:
         self.tables = tables
 
-    def write(self, writer: jpeg.io.Writer):
+    def write(self, writer: jpeg.io.Writer) -> None:
         writer.write_marker(jpeg.marker.Marker.DAC)
         writer.write_u16(2 + len(self.tables) * 2)
         for table in self.tables:
@@ -41,7 +44,7 @@ class DefineArithmeticConditioning(jpeg.segment.Segment):
             writer.write_u8(table.value)
 
     @classmethod
-    def read(cls, reader: jpeg.io.Reader):
+    def read(cls, reader: jpeg.io.Reader) -> DefineArithmeticConditioning:
         marker = reader.read_marker()
         assert marker == jpeg.marker.Marker.DAC
         length = reader.read_u16()
@@ -56,13 +59,13 @@ class DefineArithmeticConditioning(jpeg.segment.Segment):
             tables.append(ArithmeticConditioning(table_class, destination, value))
         return cls(tables)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, DefineArithmeticConditioning)
             and other.tables == self.tables
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"DefineArithmeticConditioning({self.tables})"
 
 

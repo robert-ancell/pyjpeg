@@ -9,24 +9,26 @@ class LSInterleaveMode:
 
 
 class ScanComponent:
-    def __init__(self, component_selector, dc_table, ac_table):
+    def __init__(self, component_selector: int, dc_table: int, ac_table: int):
         self.component_selector = component_selector
         self.dc_table = dc_table
         self.ac_table = ac_table
 
     @classmethod
-    def dct(cls, component_selector, dc_table, ac_table):
+    def dct(
+        cls, component_selector: int, dc_table: int, ac_table: int
+    ) -> ScanComponent:
         return cls(component_selector, dc_table, ac_table)
 
     @classmethod
-    def lossless(cls, component_selector, table):
+    def lossless(cls, component_selector: int, table: int) -> ScanComponent:
         return cls(component_selector, table, 0)
 
     @classmethod
-    def ls(cls, component_selector, mapping_table: int = 0):
+    def ls(cls, component_selector: int, mapping_table: int = 0) -> ScanComponent:
         return cls(component_selector, mapping_table >> 4, mapping_table & 0xF)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, ScanComponent)
             and other.component_selector == self.component_selector
@@ -34,12 +36,18 @@ class ScanComponent:
             and other.ac_table == self.ac_table
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"ScanComponent({self.component_selector}, {self.dc_table}, {self.ac_table})"
 
 
 class StartOfScan(jpeg.segment.Segment):
-    def __init__(self, components, spectral_selection, ah, al):
+    def __init__(
+        self,
+        components: list[ScanComponent],
+        spectral_selection: tuple[int, int],
+        ah: int,
+        al: int,
+    ) -> None:
         assert spectral_selection[0] >= 0 and spectral_selection[0] <= 255
         assert spectral_selection[1] >= 0 and spectral_selection[1] <= 255
         assert ah >= 0 and ah <= 15
@@ -53,11 +61,11 @@ class StartOfScan(jpeg.segment.Segment):
     @classmethod
     def dct(
         cls,
-        components,
-        spectral_selection=(0, 63),
+        components: list[ScanComponent],
+        spectral_selection: tuple[int, int] = (0, 63),
         point_transform: int = 0,
         previous_point_transform: int = 0,
-    ):
+    ) -> StartOfScan:
         return cls(
             components,
             spectral_selection,
@@ -66,20 +74,25 @@ class StartOfScan(jpeg.segment.Segment):
         )
 
     @classmethod
-    def lossless(cls, components, predictor: int = 1, point_transform: int = 0):
+    def lossless(
+        cls,
+        components: list[ScanComponent],
+        predictor: int = 1,
+        point_transform: int = 0,
+    ) -> StartOfScan:
         return cls(components, (predictor, 0), 0, point_transform)
 
     @classmethod
     def ls(
         cls,
-        components,
+        components: list[ScanComponent],
         difference_bound: int = 0,
         interleave_mode: int = 0,
         point_transform: int = 0,
-    ):
+    ) -> StartOfScan:
         return cls(components, (difference_bound, interleave_mode), 0, point_transform)
 
-    def write(self, writer: jpeg.io.Writer):
+    def write(self, writer: jpeg.io.Writer) -> None:
         writer.write_marker(jpeg.marker.Marker.SOS)
         writer.write_u16(6 + len(self.components) * 2)
         writer.write_u8(len(self.components))
@@ -91,7 +104,7 @@ class StartOfScan(jpeg.segment.Segment):
         writer.write_u8(self.ah << 4 | self.al)
 
     @classmethod
-    def read(cls, reader: jpeg.io.Reader):
+    def read(cls, reader: jpeg.io.Reader) -> StartOfScan:
         marker = reader.read_marker()
         assert marker == jpeg.marker.Marker.SOS
         length = reader.read_u16()
@@ -113,7 +126,7 @@ class StartOfScan(jpeg.segment.Segment):
         al = a & 0x0F
         return cls(components, spectral_selection, ah, al)
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, StartOfScan)
             and other.components == self.components
@@ -122,7 +135,7 @@ class StartOfScan(jpeg.segment.Segment):
             and other.al == self.al
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"StartOfScan({self.components}, {self.spectral_selection}, {self.ah}, {self.al})"
 
 

@@ -6,12 +6,17 @@ import jpeg.segment
 
 class HuffmanDCTScanComponent:
     # FIXME: Default to zero for tables
-    def __init__(self, dc_table, ac_table, sampling_factor=(1, 1)):
+    def __init__(
+        self,
+        dc_table: list[list[int]],
+        ac_table: list[list[int]],
+        sampling_factor: tuple[int, int] = (1, 1),
+    ):
         self.dc_table = dc_table
         self.ac_table = ac_table
         self.sampling_factor = sampling_factor
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, HuffmanDCTScanComponent)
             and other.dc_table == self.dc_table
@@ -19,18 +24,18 @@ class HuffmanDCTScanComponent:
             and other.sampling_factor == self.sampling_factor
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"HuffmanDCTScanComponent({self.dc_table}, {self.ac_table}, sampling_factor={self.sampling_factor})"
 
 
 class HuffmanDCTScan(jpeg.segment.Segment):
     def __init__(
         self,
-        data_units,
-        components,
-        spectral_selection=(0, 63),
-        point_transform=0,
-    ):
+        data_units: list[list[int]],
+        components: list[HuffmanDCTScanComponent],
+        spectral_selection: tuple[int, int] = (0, 63),
+        point_transform: int = 0,
+    ) -> None:
         assert len(components) > 0
 
         self.data_units = data_units
@@ -41,9 +46,9 @@ class HuffmanDCTScan(jpeg.segment.Segment):
     def write(
         self,
         writer: jpeg.io.Writer,
-        dc_symbol_frequencies=None,
-        ac_symbol_frequencies=None,
-    ):
+        dc_symbol_frequencies: list[list[int]] | None = None,
+        ac_symbol_frequencies: list[list[int]] | None = None,
+    ) -> None:
         scan_writer = Writer(
             writer,
             spectral_selection=self.spectral_selection,
@@ -51,8 +56,8 @@ class HuffmanDCTScan(jpeg.segment.Segment):
         )
 
         i = 0
-        dc_encoders = []
-        ac_encoders = []
+        dc_encoders: list[jpeg.huffman.Encoder] = []
+        ac_encoders: list[jpeg.huffman.Encoder] = []
         prev_dc = [0] * len(self.components)
         for component in self.components:
             dc_encoders.append(jpeg.huffman.Encoder(component.dc_table))
@@ -74,7 +79,6 @@ class HuffmanDCTScan(jpeg.segment.Segment):
                         ac_frequencies = None
                     data_unit = self.data_units[i]
                     scan_writer.write_data_unit(
-                        component_index,
                         data_unit,
                         dc_encoders[component_index],
                         ac_encoders[component_index],
@@ -90,11 +94,11 @@ class HuffmanDCTScan(jpeg.segment.Segment):
     def read(
         cls,
         reader: jpeg.io.Reader,
-        number_of_data_units,
-        components,
-        spectral_selection=(0, 63),
-        point_transform=0,
-    ):
+        number_of_data_units: int,
+        components: list[HuffmanDCTScanComponent],
+        spectral_selection: tuple[int, int] = (0, 63),
+        point_transform: int = 0,
+    ) -> HuffmanDCTScan:
         assert len(components) > 0
 
         scan_reader = Reader(
@@ -129,7 +133,7 @@ class HuffmanDCTScan(jpeg.segment.Segment):
             point_transform=point_transform,
         )
 
-    def __eq__(self, other):
+    def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, HuffmanDCTScan)
             and other.data_units == self.data_units
@@ -138,31 +142,30 @@ class HuffmanDCTScan(jpeg.segment.Segment):
             and other.point_transform == self.point_transform
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"HuffmanDCTScan({self.data_units}, {self.components}, spectral_selection={self.spectral_selection}, point_transform={self.point_transform})"
 
 
 class Writer:
     def __init__(
         self,
-        writer,
-        spectral_selection=(0, 63),
-        point_transform=0,
-    ):
+        writer: jpeg.io.Writer,
+        spectral_selection: tuple[int, int] = (0, 63),
+        point_transform: int = 0,
+    ) -> None:
         self.writer = jpeg.huffman_scan.Writer(writer)
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
 
     def write_data_unit(
         self,
-        component_index,
-        data_unit,
-        dc_encoder,
-        ac_encoder,
-        prev_dc=0,
-        dc_symbol_frequencies=None,
-        ac_symbol_frequencies=None,
-    ):
+        data_unit: list[int],
+        dc_encoder: jpeg.huffman.Encoder,
+        ac_encoder: jpeg.huffman.Encoder,
+        prev_dc: int = 0,
+        dc_symbol_frequencies: list[int] | None = None,
+        ac_symbol_frequencies: list[int] | None = None,
+    ) -> None:
         k = self.spectral_selection[0]
 
         # Write DC coefficient
@@ -205,22 +208,27 @@ class Writer:
                 )
                 k += 1
 
-    def flush(self):
+    def flush(self) -> None:
         self.writer.flush()
 
 
 class Reader:
     def __init__(
         self,
-        reader,
-        spectral_selection=(0, 63),
-        point_transform=0,
-    ):
+        reader: jpeg.io.Reader,
+        spectral_selection: tuple[int, int] = (0, 63),
+        point_transform: int = 0,
+    ) -> None:
         self.reader = jpeg.huffman_scan.Reader(reader)
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
 
-    def read_data_unit(self, dc_decoder, ac_decoder, prev_dc=0):
+    def read_data_unit(
+        self,
+        dc_decoder: jpeg.huffman.Decoder,
+        ac_decoder: jpeg.huffman.Decoder,
+        prev_dc: int = 0,
+    ) -> list[int]:
         data_unit = [0] * 64
 
         k = self.spectral_selection[0]

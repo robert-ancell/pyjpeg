@@ -1,13 +1,13 @@
 def get_diff(
-    samples_per_line,
-    samples,
-    x,
-    y,
-    component=0,
-    number_of_components=1,
-    precision=8,
-    predictor=1,
-):
+    samples_per_line: int,
+    samples: list[int],
+    x: int,
+    y: int,
+    component: int = 0,
+    number_of_components: int = 1,
+    precision: int = 8,
+    predictor: int = 1,
+) -> int:
     predicted_sample = _predict_sample(
         samples_per_line,
         samples,
@@ -30,16 +30,16 @@ def get_diff(
 
 
 def get_sample(
-    samples_per_line,
-    samples,
-    x,
-    y,
-    diff,
-    component=0,
-    number_of_components=1,
-    precision=8,
-    predictor=1,
-):
+    samples_per_line: int,
+    samples: list[int],
+    x: int,
+    y: int,
+    diff: int,
+    component: int = 0,
+    number_of_components: int = 1,
+    precision: int = 8,
+    predictor: int = 1,
+) -> int:
     predicted_sample = _predict_sample(
         samples_per_line,
         samples,
@@ -60,15 +60,15 @@ def get_sample(
 
 
 def _predict_sample(
-    samples_per_line,
-    samples,
-    x,
-    y,
-    component=0,
-    number_of_components=1,
-    precision=8,
-    predictor=1,
-):
+    samples_per_line: int,
+    samples: list[int],
+    x: int,
+    y: int,
+    component: int = 0,
+    number_of_components: int = 1,
+    precision: int = 8,
+    predictor: int = 1,
+) -> int:
     line_size = samples_per_line * number_of_components
     a = (
         samples[y * line_size + (x - 1) * number_of_components + component]
@@ -97,7 +97,7 @@ def _predict_sample(
             return _predict(predictor, a, b, c)
 
 
-def _predict(predictor, a, b, c):
+def _predict(predictor: int, a: int, b: int, c: int) -> int:
     if predictor == 1:
         return a
     elif predictor == 2:

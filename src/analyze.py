@@ -6,7 +6,7 @@ import sys
 import jpeg
 
 
-def print_data_unit(data_unit):
+def print_data_unit(data_unit: list[int]) -> None:
     cols = []
     for x in range(8):
         col = []
@@ -85,18 +85,21 @@ for segment in stream.segments:
         print(" Data: %s" % repr(segment.data))
     elif isinstance(segment, jpeg.DefineQuantizationTables):
         print("DQT Define Quantization Tables")
-        for table in segment.tables:
-            print(" Table %d:" % table.destination)
-            print("  Precision: %d bits" % table.precision)
-            print_data_unit(table.values)
+        for quantization_table in segment.tables:
+            print(" Table %d:" % quantization_table.destination)
+            print("  Precision: %d bits" % quantization_table.precision)
+            print_data_unit(quantization_table.values)
     elif isinstance(segment, jpeg.DefineHuffmanTables):
         print("DHT Define Huffman Tables")
-        for table in segment.tables:
+        for huffman_table in segment.tables:
             print(
                 " %s Table %d:"
-                % ({0: "DC", 1: "AC"}[table.table_class], table.destination)
+                % (
+                    {0: "DC", 1: "AC"}[huffman_table.table_class],
+                    huffman_table.destination,
+                )
             )
-            for i, symbols in enumerate(table.table):
+            for i, symbols in enumerate(huffman_table.table):
                 if len(symbols) > 0:
                     s = "  Symbols of length %d:" % (i + 1)
                     for symbol in symbols:
@@ -156,23 +159,29 @@ for segment in stream.segments:
             " Number of lines: %d" % segment.number_of_lines
         )  # FIXME: Note if zero defined later
         print(" Number of samples per line: %d" % segment.samples_per_line)
-        for component in segment.components:
+        for frame_component in segment.components:
             print(" Component:")
-            print("  Id: %d" % component.id)
+            print("  Id: %d" % frame_component.id)
             print(
                 "  Sampling Factor: %dx%d"
-                % (component.sampling_factor[0], component.sampling_factor[1])
+                % (
+                    frame_component.sampling_factor[0],
+                    frame_component.sampling_factor[1],
+                )
             )
             if not is_lossless:
-                print("  Quantization Table: %d" % component.quantization_table_index)
+                print(
+                    "  Quantization Table: %d"
+                    % frame_component.quantization_table_index
+                )
     elif isinstance(segment, jpeg.StartOfScan):
         print("SOS Start of Scan")
-        for component in segment.components:
+        for scan_component in segment.components:
             print(" Component:")
-            print("  Id: %d" % component.component_selector)
-            print("  DC Table: %d" % component.dc_table)
+            print("  Id: %d" % scan_component.component_selector)
+            print("  DC Table: %d" % scan_component.dc_table)
             if not is_lossless:
-                print("  AC Table: %d" % component.ac_table)
+                print("  AC Table: %d" % scan_component.ac_table)
         if is_lossless:
             print(" Predictor: %d" % segment.spectral_selection[0])
         elif is_ls:

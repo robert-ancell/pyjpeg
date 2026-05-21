@@ -1,11 +1,11 @@
-def read_pgm(path):
+def read_pgm(path: str) -> tuple[int, int, int, list[int]]:
     data = open(path, "rb").read()
     header_line = 0
     channels = 0
     while len(data) > 0:
         i = data.find(b"\n")
         if i < 0:
-            return
+            raise Exception("Invalid PGM file")
         line = data[:i]
         data = data[i + 1 :]
 
@@ -20,37 +20,31 @@ def read_pgm(path):
             else:
                 raise Exception("Unknown format")
         elif header_line == 1:
-            (width, height) = str(line, "utf-8").split()
-            width = int(width)
-            height = int(height)
+            (w, h) = str(line, "utf-8").split()
+            width = int(w)
+            height = int(h)
         elif header_line == 2:
             max_value = int(str(line, "utf-8"))
-            values = []
+            values: list[int] = []
             if max_value > 0xFF:
                 if channels == 1:
                     for i in range(0, len(data), 2):
                         values.append(data[i] << 8 | data[i + 1])
                 elif channels == 3:
                     for i in range(0, len(data), 6):
-                        values.append(
-                            (
-                                data[i] << 8 | data[i + 1],
-                                data[i + 2] << 8 | data[i + 3],
-                                data[i + 4] << 8 | data[i + 5],
-                            )
-                        )
+                        values.append(data[i] << 8 | data[i + 1])
+                        values.append(data[i + 2] << 8 | data[i + 3])
+                        values.append(data[i + 4] << 8 | data[i + 5])
             else:
                 if channels == 1:
                     for i in range(0, len(data)):
                         values.append(data[i])
                 elif channels == 3:
                     for i in range(0, len(data), 3):
-                        values.append(
-                            (
-                                data[i],
-                                data[i + 1],
-                                data[i + 2],
-                            )
-                        )
+                        values.append(data[i])
+                        values.append(data[i + 1])
+                        values.append(data[i + 2])
             return (width, height, max_value, values)
         header_line += 1
+
+    raise Exception("Invalid PGM file")

@@ -1,28 +1,28 @@
 class Writer:
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
-    def write_u8(self, value: int):
+    def write_u8(self, value: int) -> None:
         raise NotImplementedError
 
-    def write_marker(self, marker: int):
+    def write_marker(self, marker: int) -> None:
         self.write_u8(0xFF)
         self.write_u8(marker)
 
-    def write_unsigned(self, value: int, number_of_bytes: int):
+    def write_unsigned(self, value: int, number_of_bytes: int) -> None:
         for i in reversed(range(number_of_bytes)):
             self.write_u8((value >> (8 * i)) & 0xFF)
 
-    def write_u16(self, value: int):
+    def write_u16(self, value: int) -> None:
         self.write_unsigned(value, 2)
 
-    def write(self, data: bytes):
+    def write(self, data: bytes) -> None:
         for byte in data:
             self.write_u8(byte)
 
 
 class Reader:
-    def __init__(self):
+    def __init__(self) -> None:
         pass
 
     def read_u8(self) -> int:
@@ -50,7 +50,7 @@ class Reader:
     def read_u16(self) -> int:
         return self.read_unsigned(2)
 
-    def read(self, length) -> bytes:
+    def read(self, length: int) -> bytes:
         data = []
         for _ in range(length):
             data.append(self.read_u8())
@@ -58,15 +58,15 @@ class Reader:
 
 
 class BufferedWriter(Writer):
-    def __init__(self):
+    def __init__(self) -> None:
         self.data = bytearray()
 
-    def write_u8(self, data: bytes):
-        self.data.append(data)
+    def write_u8(self, value: int) -> None:
+        self.data.append(value)
 
 
 class BufferedReader(Reader):
-    def __init__(self, data):
+    def __init__(self, data: bytes | bytearray) -> None:
         self.data = data
         self.offset = 0
 
