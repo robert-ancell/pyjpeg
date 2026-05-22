@@ -608,24 +608,21 @@ class CodingParameters:
         else:
             return 4
 
+    def reconstruct(self, predicted_sample: int, errval: int) -> int:
+        delta = 2 * self.difference_bound + 1
+        sample = predicted_sample + errval * delta
 
-def _reconstruct(
-    parameters: CodingParameters, predicted_sample: int, errval: int
-) -> int:
-    delta = 2 * parameters.difference_bound + 1
-    sample = predicted_sample + errval * delta
+        if sample < -self.difference_bound:
+            sample += self.range * delta
+        if sample > self.maxval + self.difference_bound:
+            sample -= self.range * delta
 
-    if sample < -parameters.difference_bound:
-        sample += parameters.range * delta
-    if sample > parameters.maxval + parameters.difference_bound:
-        sample -= parameters.range * delta
+        if sample > self.maxval:
+            sample = self.maxval
+        if sample < 0:
+            sample = 0
 
-    if sample > parameters.maxval:
-        sample = parameters.maxval
-    if sample < 0:
-        sample = 0
-
-    return sample
+        return sample
 
 
 class RegularContext:
@@ -684,7 +681,7 @@ class RegularContext:
         mapped_errval = reader.read_value(k, self._get_limit(parameters))
         errval = self._unmap_error(parameters, mapped_errval, k)
         self._update_bias(parameters, errval)
-        sample = _reconstruct(parameters, predicted_sample, sign * errval)
+        sample = parameters.reconstruct(predicted_sample, sign * errval)
 
         return sample
 
@@ -834,7 +831,7 @@ class RunInterruptContext:
             predicted_sample = b
             if a > b:
                 errval = -errval
-        return _reconstruct(parameters, predicted_sample, errval)
+        return parameters.reconstruct(predicted_sample, errval)
 
     def _get_golomb_size(self) -> int:
         max_size = self.accumulated_prediction_error_magnitude
