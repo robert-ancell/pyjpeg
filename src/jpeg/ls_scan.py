@@ -608,6 +608,23 @@ class CodingParameters:
         else:
             return 4
 
+    def quantize_error(self, errval: int) -> int:
+        if self.difference_bound > 0:
+            delta = 2 * self.difference_bound + 1
+            if errval > 0:
+                errval = (errval + self.difference_bound) // delta
+            else:
+                errval = -(self.difference_bound - errval) // delta
+
+        max_error = (self.range + 1) // 2
+        min_error = max_error - self.range
+        if errval < min_error:
+            errval += self.range
+        if errval >= max_error:
+            errval -= self.range
+
+        return errval
+
     def reconstruct(self, predicted_sample: int, errval: int) -> int:
         delta = 2 * self.difference_bound + 1
         sample = predicted_sample + errval * delta
@@ -646,20 +663,7 @@ class RegularContext:
     ) -> None:
         predicted_sample = self._predict(parameters, sign, a, b, c)
         errval = sign * (sample - predicted_sample)
-        if errval > 0:
-            errval = (errval + parameters.difference_bound) // (
-                2 * parameters.difference_bound + 1
-            )
-        else:
-            errval = -(parameters.difference_bound - errval) // (
-                2 * parameters.difference_bound + 1
-            )
-
-        if errval < 0:
-            errval += parameters.range
-        if errval >= (parameters.range + 1) // 2:
-            errval -= parameters.range
-
+        errval = parameters.quantize_error(errval)
         k = self._get_golomb_size()
         mapped_errval = self._map_error(parameters, errval, k)
         writer.write_value(
@@ -796,18 +800,7 @@ class RunInterruptContext:
             errval = sample - b
             if a > b:
                 errval = -errval
-
-        # FIXME Quantize
-        if parameters.difference_bound > 0:
-            # errval = quantize(errval)
-            # rx = computerx()
-            pass
-
-        if errval < 0:
-            errval += parameters.range
-        if errval >= (parameters.range + 1) // 2:
-            errval -= parameters.range
-
+        errval = parameters.quantize_error(errval)
         k = self._get_golomb_size()
         mapped_errval = self._map_error(errval, k)
         writer.write_value(mapped_errval, k, self._get_limit(parameters, run_index))
