@@ -1,4 +1,5 @@
 import math
+from typing import TypeVar
 
 
 def transform_coefficient(coefficient: int, point_transform: int) -> int:
@@ -34,7 +35,10 @@ def zig_zag_coordinates() -> list[tuple[int, int]]:
     return coordinates
 
 
-def zig_zag(coefficients: list[int]) -> list[int]:
+T = TypeVar("T")
+
+
+def zig_zag(coefficients: list[T]) -> list[T]:
     assert len(coefficients) == 64
     coordinates = zig_zag_coordinates()
     zz = []
