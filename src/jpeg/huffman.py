@@ -83,20 +83,33 @@ class Encoder:
         writer.write_bits(code)
 
 
+class SymbolTreeNode:
+    def __init__(
+        self,
+        symbol: int | None = None,
+    ) -> None:
+        self.symbol = symbol
+        self.children: list[SymbolTreeNode | None] = [None, None]
+
+
 class Decoder:
     def __init__(self, table: list[list[int]]) -> None:
-        self.symbol_tree = [None, None]
+        self.symbol_tree = SymbolTreeNode()
         self.symbol_frequencies = [0] * 256
 
-        def add_code(code, length, symbol):
+        def add_code(code: int, length: int, symbol: int) -> None:
             # Store in a symbol tree for decoding
             bits = _code_to_bits(code, length)
-            symbol_tree = self.symbol_tree
+            node = self.symbol_tree
             for bit in bits[:-1]:
-                if symbol_tree[bit] is None:
-                    symbol_tree[bit] = [None, None]
-                symbol_tree = symbol_tree[bit]
-            symbol_tree[bits[-1]] = symbol
+                next_node = node.children[bit]
+                if next_node is None:
+                    next_node = SymbolTreeNode()
+                    node.children[bit] = next_node
+                node = next_node
+                assert node.symbol is None
+            assert node.children[bits[-1]] is None
+            node.children[bits[-1]] = SymbolTreeNode(symbol=symbol)
 
         code = 0
         for i, symbols_by_length in enumerate(table):
@@ -108,16 +121,16 @@ class Decoder:
             code <<= 1
 
     def read_symbol(self, reader: jpeg.scan.Reader) -> int:
-        symbol_tree = self.symbol_tree
+        node = self.symbol_tree
         while True:
             bit = reader.read_bit()
-            symbol = symbol_tree[bit]
-            if symbol is None:
+            next_node = node.children[bit]
+            if next_node is None:
                 raise Exception("Unknown Huffman Code")
-            elif isinstance(symbol, int):
-                return symbol
+            elif next_node.symbol is not None:
+                return next_node.symbol
             else:
-                symbol_tree = symbol
+                node = next_node
 
 
 if __name__ == "__main__":
