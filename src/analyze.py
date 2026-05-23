@@ -37,14 +37,14 @@ is_ls = False
 for segment in stream.segments:
     if isinstance(segment, jpeg.StartOfImage):
         print("SOI Start of Image")
-    elif isinstance(segment, jpeg.JFIFData):
+    elif isinstance(segment, jpeg.JfifHeader):
         print("APP%d JFIF" % segment.n)
         print(" Version: %d.%d" % (segment.version[0], segment.version[1]))
-        if segment.density.unit == jpeg.DensityUnit.ASPECT_RATIO:
+        if segment.density.unit == jpeg.JfifDensityUnit.ASPECT_RATIO:
             print(" Aspect Ratio: %dx%d" % (segment.density.x, segment.density.y))
-        elif segment.density.unit == jpeg.DensityUnit.DPI:
+        elif segment.density.unit == jpeg.JfifDensityUnit.DPI:
             print(" Density: %dx%ddpi" % (segment.density.x, segment.density.y))
-        elif segment.density.unit == jpeg.DensityUnit.DPCM:
+        elif segment.density.unit == jpeg.JfifDensityUnit.DPCM:
             print(" Density: %dx%ddpcm" % (segment.density.x, segment.density.y))
         if len(segment.thumbnail_data) > 0:
             # FIXME: Support RGB thumbnails
@@ -61,7 +61,36 @@ for segment in stream.segments:
                     segment.thumbnail_data[i + 2],
                 )
             print(s)
-    elif isinstance(segment, jpeg.AdobeData):
+    elif isinstance(segment, jpeg.JfifJpegThumbnail):
+        print("APP%d JPEG Thumbnail" % segment.n)
+        print(" Data: %s" % repr(segment.data))
+    elif isinstance(segment, jpeg.JfifPalletizedThumbnail):
+        print("APP%d Palletized Thumbnail" % segment.n)
+        print(" Width: %d" % segment.width)
+        print(" Height: %d" % segment.height)
+        print(" Data: %s" % segment.data)
+    elif isinstance(segment, jpeg.JfifRgbThumbnail):
+        print("APP%d RGB Thumbnail" % segment.n)
+        print(" Width: %d" % segment.width)
+        print(" Height: %d" % segment.height)
+        print(" Data: %s" % segment.data)
+    elif isinstance(segment, jpeg.SpiffHeader):
+        print("APP%d SPIFF" % segment.n)
+        print(" Version: %d.%d" % (segment.version[0], segment.version[1]))
+        print(" Profile: %d" % segment.profile)
+        print(" Number of Components: %d" % segment.number_of_components)
+        print(" Height: %d" % segment.height)
+        print(" Width: %d" % segment.width)
+        print(" Color Space: %d" % segment.color_space)
+        print(" Bits per Sample: %d" % segment.bits_per_sample)
+        print(" Compression Type: %d" % segment.compression_type)
+        print(" Resolution Units: %d" % segment.resolution_units)
+        print(" Vertical Resolution: %d" % segment.vertical_resoution)
+        print(" Horizontal Resolution: %d" % segment.horizontal_resolution)
+    elif isinstance(segment, jpeg.ExifHeader):
+        print("APP%d EXIF" % segment.n)
+        print(" Data: %r" % segment.data)
+    elif isinstance(segment, jpeg.AdobeHeader):
         print("APP%d Adobe" % segment.n)
         print(" Version: %d" % segment.version)
         print(" Flags 0: %04x" % segment.flags0)

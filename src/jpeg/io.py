@@ -16,6 +16,9 @@ class Writer:
     def write_u16(self, value: int) -> None:
         self.write_unsigned(value, 2)
 
+    def write_u32(self, value: int) -> None:
+        self.write_unsigned(value, 4)
+
     def write(self, data: bytes) -> None:
         for byte in data:
             self.write_u8(byte)
@@ -49,6 +52,9 @@ class Reader:
 
     def read_u16(self) -> int:
         return self.read_unsigned(2)
+
+    def read_u32(self) -> int:
+        return self.read_unsigned(4)
 
     def read(self, length: int) -> bytes:
         data = []
