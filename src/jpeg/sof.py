@@ -18,7 +18,6 @@ class FrameType:
     DIFFERENTIAL_LOSSLESS_ARITHMETIC = 15
     DEFINE_HIERARCHICAL_PROGRESSION = 30
     LS = 55
-    LS_EXTENSION = 57
 
 
 class FrameComponent:

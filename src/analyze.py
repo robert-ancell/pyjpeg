@@ -270,16 +270,20 @@ for segment in stream.segments:
         print("LSE Mapping Table")
         print(" Table ID: %d" % segment.table_id)
         print(" Weight: %d" % segment.weight)
-        print(" Table Data: %s" % segment.table)
+        print(" Table Data: %s" % segment.table.hex())
     elif isinstance(segment, jpeg.LSMappingTableContinuation):
         print("LSE Mapping Table Continuation")
         print(" Table ID: %d" % segment.table_id)
         print(" Weight: %d" % segment.weight)
-        print(" Table Data: %s" % segment.table)
+        print(" Table Data: %s" % segment.table.hex())
     elif isinstance(segment, jpeg.LSOversizeImageDimensions):
         print("LSE Oversize Image Dimensions")
         print(" Number of lines: %d" % segment.number_of_lines)
         print(" Number of samples per line: %d" % segment.samples_per_line)
+    elif isinstance(segment, jpeg.LSUnknownPresetParameters):
+        print("LSE Preset Parameters")
+        print(" ID: %d" % segment.id)
+        print(" Data: %s" % segment.data.hex())
     elif isinstance(segment, jpeg.EndOfImage):
         print("EOI End of Image")
     else:

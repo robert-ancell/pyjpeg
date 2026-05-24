@@ -45,10 +45,11 @@ from jpeg.io import BufferedReader, BufferedWriter, Reader, Writer
 from jpeg.ls_scan import LSInterleaveMode, LSScan, LSScanComponent
 from jpeg.lse import (
     LSCodingParameters,
-    LSExtension,
     LSMappingTable,
     LSMappingTableContinuation,
     LSOversizeImageDimensions,
+    LSPresetParameters,
+    LSUnknownPresetParameters,
 )
 from jpeg.quantization_tables import (
     standard_chrominance_quantization_table,
@@ -99,13 +100,14 @@ __all__ = [
     "JfifPalletizedThumbnail",
     "JfifRgbThumbnail",
     "LSCodingParameters",
-    "LSExtension",
     "LSInterleaveMode",
     "LSMappingTable",
     "LSMappingTableContinuation",
     "LSOversizeImageDimensions",
+    "LSPresetParameters",
     "LSScan",
     "LSScanComponent",
+    "LSUnknownPresetParameters",
     "QuantizationTable",
     "Reader",
     "Restart",

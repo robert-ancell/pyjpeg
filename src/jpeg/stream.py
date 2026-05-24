@@ -183,7 +183,7 @@ class Stream:
             ):
                 segments.append(jpeg.ApplicationSpecificData.read(reader))
             elif marker == Marker.LSE:
-                lse = jpeg.LSExtension.read(reader)
+                lse = jpeg.LSPresetParameters.read(reader)
                 if isinstance(lse, jpeg.LSCodingParameters):
                     lse_coding_parameters = lse
                 elif isinstance(lse, jpeg.LSOversizeImageDimensions):
