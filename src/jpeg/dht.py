@@ -138,8 +138,8 @@ if __name__ == "__main__":
     writer = jpeg.io.BufferedWriter()
     DefineHuffmanTables(tables).write(writer)
     assert (
-        writer.data
-        == b"\xff\xc4\x00\x3e\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x01\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f\x13\x00\x00\x03\x00\x00\x03\x00\x00\x01\x01\x01\x01\x00\x00\x00\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a"
+        writer.data.hex()
+        == "ffc4003e0101010101010101010101010101010101000102030405060708090a0b0c0d0e0f13000003000003000001010101000000000102030405060708090a"
     )
 
     reader = jpeg.io.BufferedReader(writer.data)

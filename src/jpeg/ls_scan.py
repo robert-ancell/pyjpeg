@@ -903,8 +903,10 @@ if __name__ == "__main__":
     writer = jpeg.io.BufferedWriter()
     scan = LSScan(width, samples, [LSScanComponent()])
     scan.write(writer)
-    expected = b"\xc0\x00\x00\x6c\x80\x20\x8e\x01\xc0\x00\x00\x57\x40\x00\x00\x6e\xe6\x00\x00\x01\xbc\x18\x00\x00\x05\xd8\x00\x00\x91\x60"
-    assert writer.data == expected
+    assert (
+        writer.data.hex()
+        == "c000006c80208e01c00000574000006ee6000001bc18000005d800009160"
+    )
 
     reader = jpeg.io.BufferedReader(writer.data)
     scan = LSScan.read(reader, width, len(samples), [LSScanComponent()])
