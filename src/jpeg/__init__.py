@@ -47,6 +47,7 @@ from jpeg.lse import (
     LSCodingParameters,
     LSExtension,
     LSMappingTable,
+    LSMappingTableContinuation,
     LSOversizeImageDimensions,
 )
 from jpeg.quantization_tables import (
@@ -101,6 +102,7 @@ __all__ = [
     "LSExtension",
     "LSInterleaveMode",
     "LSMappingTable",
+    "LSMappingTableContinuation",
     "LSOversizeImageDimensions",
     "LSScan",
     "LSScanComponent",

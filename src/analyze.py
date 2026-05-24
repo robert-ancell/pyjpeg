@@ -198,7 +198,7 @@ for segment in stream.segments:
                     frame_component.sampling_factor[1],
                 )
             )
-            if not is_lossless:
+            if not is_lossless and not is_ls:
                 print(
                     "  Quantization Table: %d"
                     % frame_component.quantization_table_index
@@ -208,9 +208,12 @@ for segment in stream.segments:
         for scan_component in segment.components:
             print(" Component:")
             print("  Id: %d" % scan_component.component_selector)
-            print("  DC Table: %d" % scan_component.dc_table)
-            if not is_lossless:
-                print("  AC Table: %d" % scan_component.ac_table)
+            if is_ls:
+                print("  Mapping table: %d" % scan_component.get_mapping_table())
+            else:
+                print("  DC Table: %d" % scan_component.dc_table)
+                if not is_lossless:
+                    print("  AC Table: %d" % scan_component.ac_table)
         if is_lossless:
             print(" Predictor: %d" % segment.spectral_selection[0])
         elif is_ls:
@@ -265,7 +268,14 @@ for segment in stream.segments:
         print(" Reset: %d" % segment.reset)
     elif isinstance(segment, jpeg.LSMappingTable):
         print("LSE Mapping Table")
-        # FIXME
+        print(" Table ID: %d" % segment.table_id)
+        print(" Weight: %d" % segment.weight)
+        print(" Table Data: %s" % segment.table)
+    elif isinstance(segment, jpeg.LSMappingTableContinuation):
+        print("LSE Mapping Table Continuation")
+        print(" Table ID: %d" % segment.table_id)
+        print(" Weight: %d" % segment.weight)
+        print(" Table Data: %s" % segment.table)
     elif isinstance(segment, jpeg.LSOversizeImageDimensions):
         print("LSE Oversize Image Dimensions")
         print(" Number of lines: %d" % segment.number_of_lines)

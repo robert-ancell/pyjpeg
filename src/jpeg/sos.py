@@ -28,6 +28,9 @@ class ScanComponent:
     def ls(cls, component_selector: int, mapping_table: int = 0) -> ScanComponent:
         return cls(component_selector, mapping_table >> 4, mapping_table & 0xF)
 
+    def get_mapping_table(self) -> int:
+        return self.dc_table << 4 | self.ac_table
+
     def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, ScanComponent)

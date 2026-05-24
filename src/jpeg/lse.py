@@ -35,10 +35,15 @@ class LSExtension(jpeg.segment.Segment):
             table_id = reader.read_u8()
             weight = reader.read_u8()
             table_length = length - 5
-            assert table_length % weight == 0
-            for _ in range(table_length // weight):
-                reader.read(weight)
-            return LSMappingTable(table_id, [])
+            table = reader.read(table_length)
+            return LSMappingTable(table_id, table, weight=weight)
+        elif id == LSExtensionId.MAPPING_TABLE_CONTINUATION:
+            assert length >= 5
+            table_id = reader.read_u8()
+            weight = reader.read_u8()
+            table_length = length - 5
+            table = reader.read(table_length)
+            return LSMappingTableContinuation(table_id, table, weight=weight)
         elif id == LSExtensionId.OVERSIZE_IMAGE_DIMENSION:
             assert length >= 4
             number_of_bytes = reader.read_u8()
@@ -91,17 +96,55 @@ class LSMappingTable(LSExtension):
     def __init__(
         self,
         table_id: int,
-        table: list[int],
+        table: bytes,
+        weight: int = 1,
     ) -> None:
         super().__init__(LSExtensionId.MAPPING_TABLE)
         self.table_id = table_id
         self.table = table
+        self.weight = weight
 
     def write(self, writer: jpeg.io.Writer) -> None:
         writer.write_marker(jpeg.marker.Marker.LSE)
-        writer.write_u16(13)  # FIXME
+        writer.write_u16(5 + len(self.table))
         writer.write_u8(LSExtensionId.MAPPING_TABLE)
-        # FIXME
+        writer.write_u8(self.table_id)
+        writer.write_u8(self.weight)
+        for e in self.table:
+            writer.write_u8(e)
+
+    def __eq__(self, other: object) -> bool:
+        return (
+            isinstance(other, LSMappingTable)
+            and other.table_id == self.table_id
+            and other.table == self.table
+            and other.weight == self.weight
+        )
+
+    def __repr__(self) -> str:
+        return f"LSMappingTable({self.table_id}, {self.table!r}, weight={self.weight})"
+
+
+class LSMappingTableContinuation(LSExtension):
+    def __init__(
+        self,
+        table_id: int,
+        table: bytes,
+        weight: int = 1,
+    ) -> None:
+        super().__init__(LSExtensionId.MAPPING_TABLE_CONTINUATION)
+        self.table_id = table_id
+        self.table = table
+        self.weight = weight
+
+    def write(self, writer: jpeg.io.Writer) -> None:
+        writer.write_marker(jpeg.marker.Marker.LSE)
+        writer.write_u16(5 + len(self.table))
+        writer.write_u8(LSExtensionId.MAPPING_TABLE)
+        writer.write_u8(self.table_id)
+        writer.write_u8(self.weight)
+        for e in self.table:
+            writer.write_u8(e)
 
     def __eq__(self, other: object) -> bool:
         return (
@@ -111,7 +154,7 @@ class LSMappingTable(LSExtension):
         )
 
     def __repr__(self) -> str:
-        return f"LSMappingTable({self.table_id}, {self.table})"
+        return f"LSMappingTableContinuation({self.table_id}, {self.table!r}, weight={self.weight})"
 
 
 class LSOversizeImageDimensions(LSExtension):
