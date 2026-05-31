@@ -227,7 +227,7 @@ def _parse_huffman_dct_scan(
                 sampling_factor=sampling_factor,
             )
         )
-    # FIXME: Handle scaling factor
+    # FIXME: Handle sampling factor
     (width, height) = _size_in_dct_data_units(sof)
     if dri is None:
         length = width * height
@@ -260,7 +260,7 @@ def _parse_arithmetic_dct_scan(
                 kx=ac_arithmetic_kx[component.ac_table],
             )
         )
-    # FIXME: Handle scaling factor
+    # FIXME: Handle sampling factor
     (width, height) = _size_in_dct_data_units(sof)
     if dri is None:
         length = width * height
@@ -284,7 +284,7 @@ def _parse_huffman_lossless_scan(
                 table=dc_huffman_tables[component.dc_table]
             )
         )
-    # FIXME: Handle scaling factor
+    # FIXME: Handle sampling factor
     assert sof.number_of_lines > 0
     if dri is None:
         length = sof.number_of_lines * sof.samples_per_line
@@ -322,7 +322,7 @@ def _parse_arithmetic_lossless_scan(
                 ]
             )
         )
-    # FIXME: Handle scaling factor
+    # FIXME: Handle sampling factor
     assert sof.number_of_lines > 0
     if dri is None:
         length = sof.number_of_lines * sof.samples_per_line
@@ -350,7 +350,7 @@ def _parse_ls_scan(
     components = []
     for component in sos.components:
         components.append(jpeg.LSScanComponent())
-    # FIXME: Handle scaling factor
+    # FIXME: Handle sampling factor
     if lse_oversize_image_dimensions is not None:
         number_of_lines = lse_oversize_image_dimensions.number_of_lines
         samples_per_line = lse_oversize_image_dimensions.samples_per_line

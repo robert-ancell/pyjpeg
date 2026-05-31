@@ -39,7 +39,7 @@ class ArithmeticLosslessScan(jpeg.segment.Segment):
         previous_line = [0] * self.samples_per_line * len(self.components)
         current_line = [0] * self.samples_per_line * len(self.components)
         for i, sample in enumerate(self.samples):
-            # FIXME: Handle scaling factor
+            # FIXME: Handle sampling factor
             component_index = i % len(self.components)
             sample_index = i // len(self.components)
             x = sample_index % self.samples_per_line
@@ -95,7 +95,7 @@ class ArithmeticLosslessScan(jpeg.segment.Segment):
         previous_line = [0] * samples_per_line * len(components)
         current_line = [0] * samples_per_line * len(components)
         for i in range(number_of_samples):
-            # FIXME: Handle scaling factor
+            # FIXME: Handle sampling factor
             component_index = i % len(components)
             data_unit_index = i // len(components)
             x = data_unit_index % samples_per_line

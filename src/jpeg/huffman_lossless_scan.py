@@ -48,7 +48,7 @@ class HuffmanLosslessScan(jpeg.segment.Segment):
                 else None
             )
         for i, sample in enumerate(self.samples):
-            # FIXME: Handle scaling factor
+            # FIXME: Handle sampling factor
             component_index = i % len(self.components)
             data_unit_index = i // len(self.components)
             x = data_unit_index % self.samples_per_line
@@ -88,7 +88,7 @@ class HuffmanLosslessScan(jpeg.segment.Segment):
             dc_decoders.append(jpeg.huffman.Decoder(scan_component.table))
         samples = [0] * number_of_samples
         for i in range(number_of_samples):
-            # FIXME: Handle scaling factor
+            # FIXME: Handle sampling factor
             component_index = i % len(components)
             data_unit_index = i // len(components)
             x = data_unit_index % samples_per_line
