@@ -1,4 +1,4 @@
-def read_pnm(path: str) -> tuple[int, int, int, list[int]]:
+def read_pnm(path: str) -> tuple[int, int, int, int, list[int]]:
     data = open(path, "rb").read()
 
     def get_header(data: bytes, skip_comments: bool = True) -> tuple[str, bytes]:
@@ -46,4 +46,56 @@ def read_pnm(path: str) -> tuple[int, int, int, list[int]]:
                 values.append(data[i])
                 values.append(data[i + 1])
                 values.append(data[i + 2])
-    return (width, height, max_value, values)
+    return (width, height, max_value, channels, values)
+
+
+def write_pnm(
+    path: str,
+    width: int,
+    height: int,
+    values: list[int],
+    max_value: int = 255,
+    channels: int = 1,
+) -> None:
+    f = open(path, "wb")
+
+    if channels == 1:
+        f.write(b"P5\n")
+    elif channels == 3:
+        f.write(b"P6\n")
+    else:
+        raise Exception("Unsupported number of channels")
+    f.write(b"{width} {height}\n{max_value}\n")
+    if max_value > 0xFF:
+        if channels == 1:
+            for i in range(0, len(values)):
+                f.write(bytes([values[i] >> 8, values[i]]))
+        elif channels == 3:
+            for i in range(0, len(values), 3):
+                f.write(
+                    bytes(
+                        [
+                            values[i] >> 8,
+                            values[i],
+                            values[i + 1] >> 8,
+                            values[i + 1],
+                            values[i + 2] >> 8,
+                            values[i + 2],
+                        ]
+                    )
+                )
+    else:
+        if channels == 1:
+            for i in range(0, len(values)):
+                f.write(bytes([values[i]]))
+        elif channels == 3:
+            for i in range(0, len(values), 3):
+                f.write(
+                    bytes(
+                        [
+                            values[i],
+                            values[i + 1],
+                            values[i + 2],
+                        ]
+                    )
+                )
