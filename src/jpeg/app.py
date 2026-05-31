@@ -13,82 +13,82 @@ class ApplicationSpecificData(jpeg.segment.Segment):
         assert marker >= jpeg.marker.Marker.APP0 and marker <= jpeg.marker.Marker.APP15
         length = reader.read_u16()
         assert length > 2
-        if marker == jpeg.marker.Marker.APP0:
-            assert length >= 7
-            # FIXME: Also support JFXX
-            signature = reader.read(5)
-            if signature == b"JFIF\x00":
-                assert length >= 16
-                version_major = reader.read_u8()
-                version_minor = reader.read_u8()
-                density_unit = reader.read_u8()
-                density_x = reader.read_u16()
-                density_y = reader.read_u16()
+
+        def check_extension(extension_marker: int, signature: bytes) -> bool:
+            if marker != extension_marker:
+                return False
+            for i, byte in enumerate(signature):
+                if reader.peek_u8(i) != byte:
+                    return False
+            reader.read(len(signature))
+            return True
+
+        if check_extension(jpeg.marker.Marker.APP0, b"JFIF\x00"):
+            assert length >= 16
+            version_major = reader.read_u8()
+            version_minor = reader.read_u8()
+            density_unit = reader.read_u8()
+            density_x = reader.read_u16()
+            density_y = reader.read_u16()
+            thumbnail_width = reader.read_u8()
+            thumbnail_height = reader.read_u8()
+            thumbnail_length = thumbnail_width * thumbnail_height * 3
+            assert length == 16 + thumbnail_length
+            thumbnail_data = []
+            for _ in range(thumbnail_length):
+                thumbnail_data.append(reader.read_u8())
+            return JfifHeader(
+                version=(version_major, version_minor),
+                density=JfifDensity(density_unit, density_x, density_y),
+                thumbnail_size=(thumbnail_width, thumbnail_height),
+                thumbnail_data=thumbnail_data,
+            )
+        elif check_extension(jpeg.marker.Marker.APP0, b"JFXX\x00"):
+            assert length >= 8
+            thumbnail_format = reader.read_u8()
+            if thumbnail_format == 0x10:
+                jpeg_thumbnail_data = reader.read(length - 8)
+                return JfifJpegThumbnail(
+                    jpeg_thumbnail_data,
+                )
+            elif thumbnail_format == 0x11:
+                assert length >= 778
                 thumbnail_width = reader.read_u8()
                 thumbnail_height = reader.read_u8()
-                thumbnail_length = thumbnail_width * thumbnail_height * 3
-                assert length == 16 + thumbnail_length
+                palette = []
+                for _ in range(768):
+                    palette.append(reader.read_u8())
+                thumbnail_length = thumbnail_width * thumbnail_height
+                assert length == 778 + thumbnail_length
                 thumbnail_data = []
                 for _ in range(thumbnail_length):
                     thumbnail_data.append(reader.read_u8())
-                return JfifHeader(
-                    version=(version_major, version_minor),
-                    density=JfifDensity(density_unit, density_x, density_y),
-                    thumbnail_size=(thumbnail_width, thumbnail_height),
-                    thumbnail_data=thumbnail_data,
+                return JfifPalletizedThumbnail(
+                    thumbnail_width,
+                    thumbnail_height,
+                    palette,
+                    thumbnail_data,
                 )
-            elif signature == b"JFXX\x00":
-                assert length >= 9
-                thumbnail_format = reader.read_u8()
-                if thumbnail_format == 0x10:
-                    jpeg_thumbnail_data = reader.read(length - 9)
-                    return JfifJpegThumbnail(
-                        jpeg_thumbnail_data,
-                    )
-                elif thumbnail_format == 0x11:
-                    assert length >= 779
-                    thumbnail_width = reader.read_u8()
-                    thumbnail_height = reader.read_u8()
-                    palette = []
-                    for _ in range(768):
-                        palette.append(reader.read_u8())
-                    thumbnail_length = thumbnail_width * thumbnail_height
-                    assert length == 779 + thumbnail_length
-                    thumbnail_data = []
-                    for _ in range(thumbnail_length):
-                        thumbnail_data.append(reader.read_u8())
-                    return JfifPalletizedThumbnail(
-                        thumbnail_width,
-                        thumbnail_height,
-                        palette,
-                        thumbnail_data,
-                    )
-                elif thumbnail_format == 0x12:
-                    assert length >= 11
-                    thumbnail_width = reader.read_u8()
-                    thumbnail_height = reader.read_u8()
-                    thumbnail_length = thumbnail_width * thumbnail_height * 3
-                    assert length == 11 + thumbnail_length
-                    thumbnail_data = []
-                    for _ in range(thumbnail_length):
-                        thumbnail_data.append(reader.read_u8())
-                    return JfifRgbThumbnail(
-                        thumbnail_width,
-                        thumbnail_height,
-                        thumbnail_data,
-                    )
-                else:
-                    assert False
+            elif thumbnail_format == 0x12:
+                assert length >= 10
+                thumbnail_width = reader.read_u8()
+                thumbnail_height = reader.read_u8()
+                thumbnail_length = thumbnail_width * thumbnail_height * 3
+                assert length == 10 + thumbnail_length
+                thumbnail_data = []
+                for _ in range(thumbnail_length):
+                    thumbnail_data.append(reader.read_u8())
+                return JfifRgbThumbnail(
+                    thumbnail_width,
+                    thumbnail_height,
+                    thumbnail_data,
+                )
             else:
                 assert False
-        elif marker == jpeg.marker.Marker.APP1:
-            assert length >= 8
-            signature = reader.read(6)
-            assert signature == b"Exif\x00\x00"
+        elif check_extension(jpeg.marker.Marker.APP1, b"Exif\x00\x00"):
             return ExifHeader(reader.read(length - 8))
-        elif marker == jpeg.marker.Marker.APP8:
+        elif check_extension(jpeg.marker.Marker.APP8, b"SPIFF\x00"):
             assert length == 32
-            assert reader.read(6) == b"SPIFF\x00"
             version = reader.read_u16()
             version_major = version >> 8
             version_minor = version & 0xFF
@@ -116,9 +116,8 @@ class ApplicationSpecificData(jpeg.segment.Segment):
                 horizontal_resolution=horizontal_resolution,
                 vertical_resoution=vertical_resoution,
             )
-        elif marker == jpeg.marker.Marker.APP14:
+        elif check_extension(jpeg.marker.Marker.APP14, b"Adobe"):
             assert length == 14
-            assert reader.read(5) == b"Adobe"
             version = reader.read_u16()
             assert version in (100, 101)
             flags0 = reader.read_u16()
@@ -193,13 +192,13 @@ class JfifHeader(ApplicationSpecificData):
 
 class JfifJpegThumbnail(ApplicationSpecificData):
     def __init__(self, data: bytes) -> None:
-        super().__init__(2)
+        super().__init__(0)
         self.data = data
 
     def write(self, writer: jpeg.io.Writer) -> None:
-        writer.write_marker(jpeg.marker.Marker.APP2)
-        writer.write_u16(len(self.data) + 9)
-        writer.write(b"JFXX\x00\x00")
+        writer.write_marker(jpeg.marker.Marker.APP0)
+        writer.write_u16(8 + len(self.data))
+        writer.write(b"JFXX\x00")
         writer.write_u8(0x10)
         writer.write(self.data)
 
@@ -211,16 +210,16 @@ class JfifPalletizedThumbnail(ApplicationSpecificData):
     def __init__(
         self, width: int, height: int, palette: list[int], data: list[int]
     ) -> None:
-        super().__init__(2)
+        super().__init__(0)
         self.width = width
         self.height = height
         self.palette = palette
         self.data = data
 
     def write(self, writer: jpeg.io.Writer) -> None:
-        writer.write_marker(jpeg.marker.Marker.APP2)
-        writer.write_u16(len(self.data) + 11 + len(self.palette) + len(self.data))
-        writer.write(b"JFXX\x00\x00")
+        writer.write_marker(jpeg.marker.Marker.APP0)
+        writer.write_u16(10 + len(self.palette) + len(self.data))
+        writer.write(b"JFXX\x00")
         writer.write_u8(0x11)
         writer.write_u8(self.width)
         writer.write_u8(self.height)
@@ -235,15 +234,15 @@ class JfifPalletizedThumbnail(ApplicationSpecificData):
 
 class JfifRgbThumbnail(ApplicationSpecificData):
     def __init__(self, width: int, height: int, data: list[int]) -> None:
-        super().__init__(2)
+        super().__init__(0)
         self.width = width
         self.height = height
         self.data = data
 
     def write(self, writer: jpeg.io.Writer) -> None:
-        writer.write_marker(jpeg.marker.Marker.APP2)
-        writer.write_u16(len(self.data) + 11)
-        writer.write(b"JFXX\x00\x00")
+        writer.write_marker(jpeg.marker.Marker.APP0)
+        writer.write_u16(10 + len(self.data))
+        writer.write(b"JFXX\x00")
         writer.write_u8(0x12)
         writer.write_u8(self.width)
         writer.write_u8(self.height)
