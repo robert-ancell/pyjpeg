@@ -156,6 +156,12 @@ class StartOfFrame(jpeg.segment.Segment):
     def is_ls(self) -> bool:
         return self.n == FrameType.LS
 
+    def get_component(self, component_id: int) -> FrameComponent:
+        for component in self.components:
+            if component.id == component_id:
+                return component
+        raise KeyError(f"Component {component_id} not found")
+
     def write(self, writer: jpeg.io.Writer) -> None:
         writer.write_marker(jpeg.marker.Marker.SOF0 + self.n)
         writer.write_u16(8 + len(self.components) * 3)

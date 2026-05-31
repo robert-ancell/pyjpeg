@@ -213,8 +213,10 @@ def _parse_huffman_dct_scan(
 ) -> jpeg.HuffmanDCTScan:
     components = []
     for component in sos.components:
+        frame_component = sof.get_component(component.component_selector)
+
         if len(sos.components) > 1:
-            sampling_factor = component.sampling_factor
+            sampling_factor = frame_component.sampling_factor
         else:
             sampling_factor = (1, 1)
 
