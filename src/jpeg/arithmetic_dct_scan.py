@@ -90,23 +90,26 @@ class ArithmeticDCTScan(jpeg.segment.Segment):
         data_units = []
         prev_dc = [0] * len(components)
         prev_dc_diff = [0] * len(components)
-        for i in range(number_of_data_units):
-            # FIXME: Handle scaling factor
-            component_index = i % len(components)
-            component = components[component_index]
+        i = 0
+        while i < number_of_data_units:
+            for component_index, component in enumerate(components):
+                for _ in range(
+                    component.sampling_factor[0] * component.sampling_factor[1]
+                ):
+                    assert i < number_of_data_units
+                    data_unit = scan_reader.read_data_unit(
+                        prev_dc=prev_dc[component_index],
+                        prev_dc_diff=prev_dc_diff[component_index],
+                        conditioning_bounds=component.conditioning_bounds,
+                        kx=component.kx,
+                    )
+                    data_units.append(data_unit)
 
-            data_unit = scan_reader.read_data_unit(
-                prev_dc=prev_dc[component_index],
-                prev_dc_diff=prev_dc_diff[component_index],
-                conditioning_bounds=component.conditioning_bounds,
-                kx=component.kx,
-            )
-            data_units.append(data_unit)
-
-            # FIXME: point transform
-            dc = data_unit[0]
-            prev_dc_diff[component_index] = dc - prev_dc[component_index]
-            prev_dc[component_index] = dc
+                    # FIXME: point transform
+                    dc = data_unit[0]
+                    prev_dc_diff[component_index] = dc - prev_dc[component_index]
+                    prev_dc[component_index] = dc
+                    i += 1
 
         return cls(
             data_units,

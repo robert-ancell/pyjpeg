@@ -213,10 +213,16 @@ def _parse_huffman_dct_scan(
 ) -> jpeg.HuffmanDCTScan:
     components = []
     for component in sos.components:
+        if len(sos.components) > 1:
+            sampling_factor = component.sampling_factor
+        else:
+            sampling_factor = (1, 1)
+
         components.append(
             jpeg.HuffmanDCTScanComponent(
                 dc_table=dc_huffman_tables[component.dc_table],
                 ac_table=ac_huffman_tables[component.ac_table],
+                sampling_factor=sampling_factor,
             )
         )
     # FIXME: Handle scaling factor
