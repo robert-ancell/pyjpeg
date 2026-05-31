@@ -27,6 +27,10 @@ def print_data_unit(data_unit: list[int]) -> None:
         print("  %s" % " ".join(row))
 
 
+if len(sys.argv) != 2:
+    print("Usage: analyze.py <filename.jpg>")
+    sys.exit(1)
+
 data = open(sys.argv[1], "rb").read()
 reader = jpeg.BufferedReader(data)
 stream = jpeg.Stream.read(reader)
