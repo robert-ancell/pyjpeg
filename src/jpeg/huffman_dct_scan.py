@@ -107,24 +107,28 @@ class HuffmanDCTScan(jpeg.segment.Segment):
             point_transform=point_transform,
         )
         data_units = []
+        i = 0
         dc_decoders = []
         ac_decoders = []
         prev_dc = [0] * len(components)
         for component in components:
             dc_decoders.append(jpeg.huffman.Decoder(component.dc_table))
             ac_decoders.append(jpeg.huffman.Decoder(component.ac_table))
-        for i in range(number_of_data_units):
-            # FIXME: Handle scaling factor
-            component_index = i % len(components)
-            component = components[component_index]
-
-            data_unit = scan_reader.read_data_unit(
-                dc_decoder=dc_decoders[component_index],
-                ac_decoder=ac_decoders[component_index],
-                prev_dc=prev_dc[component_index],
-            )
-            data_units.append(data_unit)
-            prev_dc[component_index] = data_unit[0]
+        while i < number_of_data_units:
+            for component_index, scan_component in enumerate(components):
+                for _ in range(
+                    scan_component.sampling_factor[0]
+                    * scan_component.sampling_factor[1]
+                ):
+                    assert i < number_of_data_units
+                    data_unit = scan_reader.read_data_unit(
+                        dc_decoder=dc_decoders[component_index],
+                        ac_decoder=ac_decoders[component_index],
+                        prev_dc=prev_dc[component_index],
+                    )
+                    data_units.append(data_unit)
+                    prev_dc[component_index] = data_unit[0]
+                    i += 1
 
         return cls(
             data_units,
