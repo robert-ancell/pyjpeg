@@ -253,7 +253,7 @@ class Reader:
                     # EOBn
                     # FIXME
                     assert False
-                    return data_unit
+            assert k + run_length <= self.spectral_selection[1]
             k += run_length
             data_unit[k] = ac
             k += 1
