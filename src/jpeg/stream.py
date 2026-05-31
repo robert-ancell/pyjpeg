@@ -195,11 +195,21 @@ class Stream:
                 raise Exception("Unknown marker %02x" % marker)
 
 
-# FIXME: Take into consideration sampling factors
-def _size_in_dct_data_units(sof: jpeg.StartOfFrame) -> tuple[int, int]:
+def _size_in_dct_minimum_coded_units(sof: jpeg.StartOfFrame) -> tuple[int, int]:
     assert sof.number_of_lines > 0
-    width = (sof.samples_per_line + 7) // 8
-    height = (sof.number_of_lines + 7) // 8
+
+    mcu_width = 8
+    mcu_height = 8
+    sf = []
+    for component in sof.components:
+        mcu_width = max(mcu_width, component.sampling_factor[0] * 8)
+        mcu_height = max(mcu_height, component.sampling_factor[1] * 8)
+        sf.append(component.sampling_factor)
+
+    # Increase size to fit complete minmum coded units
+    width = (sof.samples_per_line + mcu_width - 1) // mcu_width
+    height = (sof.number_of_lines + mcu_height - 1) // mcu_height
+
     return (width, height)
 
 
@@ -212,8 +222,12 @@ def _parse_huffman_dct_scan(
     ac_huffman_tables: list[list[list[int]]],
 ) -> jpeg.HuffmanDCTScan:
     components = []
+    mcu_size = 0
     for component in sos.components:
         frame_component = sof.get_component(component.component_selector)
+        mcu_size += (
+            frame_component.sampling_factor[0] * frame_component.sampling_factor[1]
+        )
 
         if len(sos.components) > 1:
             sampling_factor = frame_component.sampling_factor
@@ -227,13 +241,11 @@ def _parse_huffman_dct_scan(
                 sampling_factor=sampling_factor,
             )
         )
-    # FIXME: Handle sampling factor
-    (width, height) = _size_in_dct_data_units(sof)
     if dri is None:
-        length = width * height
+        (width, height) = _size_in_dct_minimum_coded_units(sof)
+        number_of_data_units = width * height * mcu_size
     else:
-        length = dri.restart_interval
-    number_of_data_units = length * len(components)
+        number_of_data_units = dri.restart_interval * mcu_size
     return jpeg.HuffmanDCTScan.read(reader, number_of_data_units, components)
 
 
@@ -251,22 +263,32 @@ def _parse_arithmetic_dct_scan(
     ac_arithmetic_kx: list[int] = [5, 5, 5, 5],
 ) -> jpeg.ArithmeticDCTScan:
     components = []
+    mcu_size = 0
     for component in sos.components:
+        frame_component = sof.get_component(component.component_selector)
+        mcu_size += (
+            frame_component.sampling_factor[0] * frame_component.sampling_factor[1]
+        )
+
+        if len(sos.components) > 1:
+            sampling_factor = frame_component.sampling_factor
+        else:
+            sampling_factor = (1, 1)
+
         components.append(
             jpeg.ArithmeticDCTScanComponent(
                 conditioning_bounds=dc_arithmetic_conditioning_bounds[
                     component.dc_table
                 ],
                 kx=ac_arithmetic_kx[component.ac_table],
+                sampling_factor=sampling_factor,
             )
         )
-    # FIXME: Handle sampling factor
-    (width, height) = _size_in_dct_data_units(sof)
     if dri is None:
-        length = width * height
+        (width, height) = _size_in_dct_minimum_coded_units(sof)
+        number_of_data_units = width * height * mcu_size
     else:
-        length = dri.restart_interval
-    number_of_data_units = length * len(components)
+        number_of_data_units = dri.restart_interval * mcu_size
     return jpeg.ArithmeticDCTScan.read(reader, number_of_data_units, components)
 
 
