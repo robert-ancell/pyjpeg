@@ -42,6 +42,7 @@ from jpeg.huffman_tables import (
     standard_luminance_ac_huffman_table,
     standard_luminance_dc_huffman_table,
 )
+from jpeg.image import Component, Image
 from jpeg.io import BufferedReader, BufferedWriter, Reader, Writer
 from jpeg.ls_scan import LSInterleaveMode, LSScan, LSScanComponent
 from jpeg.lse import (
