@@ -48,18 +48,14 @@ class StartOfScan(jpeg.segment.Segment):
         self,
         components: list[ScanComponent],
         spectral_selection: tuple[int, int],
-        ah: int,
-        al: int,
+        point_transform: int,
     ) -> None:
         assert spectral_selection[0] >= 0 and spectral_selection[0] <= 255
         assert spectral_selection[1] >= 0 and spectral_selection[1] <= 255
-        assert ah >= 0 and ah <= 15
-        assert al >= 0 and al <= 15
+        assert point_transform >= 0 and point_transform <= 255
         self.components = components
         self.spectral_selection = spectral_selection
-        # FIXME: Replace with better names
-        self.ah = ah
-        self.al = al
+        self.point_transform = point_transform
 
     @classmethod
     def dct(
@@ -69,11 +65,12 @@ class StartOfScan(jpeg.segment.Segment):
         point_transform: int = 0,
         previous_point_transform: int = 0,
     ) -> StartOfScan:
+        assert point_transform >= 0 and point_transform <= 15
+        assert previous_point_transform >= 0 and previous_point_transform <= 15
         return cls(
             components,
             spectral_selection,
-            previous_point_transform,
-            point_transform,
+            previous_point_transform << 4 | point_transform,
         )
 
     @classmethod
@@ -83,7 +80,8 @@ class StartOfScan(jpeg.segment.Segment):
         predictor: int = 1,
         point_transform: int = 0,
     ) -> StartOfScan:
-        return cls(components, (predictor, 0), 0, point_transform)
+        assert point_transform >= 0 and point_transform <= 15
+        return cls(components, (predictor, 0), point_transform)
 
     @classmethod
     def ls(
@@ -93,7 +91,8 @@ class StartOfScan(jpeg.segment.Segment):
         interleave_mode: int = 0,
         point_transform: int = 0,
     ) -> StartOfScan:
-        return cls(components, (difference_bound, interleave_mode), 0, point_transform)
+        assert point_transform >= 0 and point_transform <= 15
+        return cls(components, (difference_bound, interleave_mode), point_transform)
 
     def write(self, writer: jpeg.io.Writer) -> None:
         writer.write_marker(jpeg.marker.Marker.SOS)
@@ -104,7 +103,7 @@ class StartOfScan(jpeg.segment.Segment):
             writer.write_u8(component.dc_table << 4 | component.ac_table)
         writer.write_u8(self.spectral_selection[0])
         writer.write_u8(self.spectral_selection[1])
-        writer.write_u8(self.ah << 4 | self.al)
+        writer.write_u8(self.point_transform)
 
     @classmethod
     def read(cls, reader: jpeg.io.Reader) -> StartOfScan:
@@ -124,34 +123,30 @@ class StartOfScan(jpeg.segment.Segment):
         ss = reader.read_u8()
         se = reader.read_u8()
         spectral_selection = (ss, se)
-        a = reader.read_u8()
-        ah = a >> 4
-        al = a & 0x0F
-        return cls(components, spectral_selection, ah, al)
+        point_transform = reader.read_u8()
+        return cls(components, spectral_selection, point_transform)
 
     def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, StartOfScan)
             and other.components == self.components
             and other.spectral_selection == self.spectral_selection
-            and other.ah == self.ah
-            and other.al == self.al
+            and other.point_transform == self.point_transform
         )
 
     def __repr__(self) -> str:
-        return f"StartOfScan({self.components}, {self.spectral_selection}, {self.ah}, {self.al})"
+        return f"StartOfScan({self.components}, {self.spectral_selection}, {self.point_transform})"
 
 
 if __name__ == "__main__":
     writer = jpeg.io.BufferedWriter()
-    StartOfScan(
-        [ScanComponent(42, 0, 1), ScanComponent(43, 2, 3)], (1, 62), 2, 15
-    ).write(writer)
+    StartOfScan([ScanComponent(42, 0, 1), ScanComponent(43, 2, 3)], (1, 62), 47).write(
+        writer
+    )
     assert writer.data == b"\xff\xda\x00\x0a\x02\x2a\x01\x2b\x23\x01\x3e\x2f"
 
     reader = jpeg.io.BufferedReader(writer.data)
     sos = StartOfScan.read(reader)
     assert sos.components == [ScanComponent(42, 0, 1), ScanComponent(43, 2, 3)]
     assert sos.spectral_selection == (1, 62)
-    assert sos.ah == 2
-    assert sos.al == 15
+    assert sos.point_transform == 47
