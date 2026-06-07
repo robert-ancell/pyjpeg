@@ -52,13 +52,13 @@ for segment in stream.segments:
                 # FIXME: offset is 1 << (precision - 1)
                 samples[i] = min(255, max(0, samples[i] + 128))
             x_max = 8
-            if du_x + x_max >= width:
-                x_max = width - du_x - 1
+            if du_x + x_max > width:
+                x_max = max(width - du_x, 0)
             y_max = 8
-            if du_y + y_max >= height:
-                y_max = height - du_y - 1
-            for y in range(8):
-                for x in range(8):
+            if du_y + y_max > height:
+                y_max = max(height - du_y, 0)
+            for y in range(x_max):
+                for x in range(y_max):
                     data[(du_y + y) * width + du_x + x] = samples[y * 8 + x]
 
             du_x += 8
