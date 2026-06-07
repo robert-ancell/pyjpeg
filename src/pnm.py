@@ -65,7 +65,7 @@ def write_pnm(
         f.write(b"P6\n")
     else:
         raise Exception("Unsupported number of channels")
-    f.write(b"{width} {height}\n{max_value}\n")
+    f.write(bytes(f"{width} {height}\n{max_value}\n", "ascii"))
     if max_value > 0xFF:
         if channels == 1:
             for i in range(0, len(values)):
