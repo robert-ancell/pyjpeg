@@ -6,11 +6,13 @@ import jpeg
 
 
 def print_data_unit(data_unit: list[int]) -> None:
+    values = jpeg.dct.unzig_zag(data_unit)
+
     cols = []
     for x in range(8):
         col = []
         for y in range(8):
-            col.append("%d" % data_unit[y * 8 + x])
+            col.append("%d" % values[y * 8 + x])
         cols.append(col)
 
     col_widths = []
