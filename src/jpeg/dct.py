@@ -124,6 +124,8 @@ def unzig_zag(zz: list[T]) -> list[T]:
     return coefficients
 
 
+# Perform the JPEG forward DCT on the given values.
+# The returned coefficients are in zig-zag order.
 def fdct(values: list[int]) -> list[float]:
     C = [0.70710678118654752440, 1, 1, 1, 1, 1, 1, 1]
     coefficients = [0.0] * 64
@@ -139,10 +141,14 @@ def fdct(values: list[int]) -> list[float]:
                     )
             coefficients[v * 8 + u] = 0.25 * C[u] * C[v] * s
 
-    return coefficients
+    return zig_zag(coefficients)
 
 
+# Perform the JPEG inverse DCT on the given coefficients.
+# The coefficients are in zig-zag order.
 def idct(coefficients: list[int]) -> list[int]:
+    coefficients = unzig_zag(coefficients)
+
     C = [0.70710678118654752440, 1, 1, 1, 1, 1, 1, 1]
     values = [0] * 64
     for y in range(8):

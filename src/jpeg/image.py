@@ -108,7 +108,7 @@ class Image:
                     samples = [0] * 64
                     data_units.append(
                         jpeg.dct.quantize(
-                            jpeg.dct.zig_zag(jpeg.dct.fdct(samples)),
+                            jpeg.dct.fdct(samples),
                             quantization_table,
                         )
                     )

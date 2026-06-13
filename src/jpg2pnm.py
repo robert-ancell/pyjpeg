@@ -40,11 +40,9 @@ for segment in stream.segments:
         du_y = 0
         for i, data_unit in enumerate(segment.data_units):
             samples = jpeg.idct(
-                jpeg.unzig_zag(
-                    jpeg.dequantize(
-                        data_unit,
-                        [1] * 64,
-                    )
+                jpeg.dequantize(
+                    data_unit,
+                    [1] * 64,
                 )
             )
             for i in range(len(samples)):
