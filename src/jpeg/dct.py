@@ -145,25 +145,23 @@ def fdct(values: list[int], quantization_table: list[int]) -> list[int]:
 # Perform the JPEG inverse DCT on the given quantized coefficients.
 # The quantization table and coefficients are in zig-zag order.
 def idct(coefficients: list[int], quantization_table: list[int]) -> list[int]:
-    for i in range(64):
-        coefficients[i] = round(coefficients[i] * quantization_table[i])
-
-    coefficients = unzig_zag(coefficients)
-
     C = [0.70710678118654752440, 1, 1, 1, 1, 1, 1, 1]
     values = [0] * 64
     for y in range(8):
         for x in range(8):
             s = 0.0
-            for v in range(8):
-                for u in range(8):
-                    s += (
-                        C[u]
-                        * C[v]
-                        * coefficients[v * 8 + u]
-                        * math.cos((2 * x + 1) * u * math.pi / 16)
-                        * math.cos((2 * y + 1) * v * math.pi / 16)
-                    )
+            for i, coefficient in enumerate(coefficients):
+                index = precalculated_zig_zag_indexes[i]
+                u = index % 8
+                v = index // 8
+                s += (
+                    C[u]
+                    * C[v]
+                    * coefficient
+                    * quantization_table[i]
+                    * math.cos((2 * x + 1) * u * math.pi / 16)
+                    * math.cos((2 * y + 1) * v * math.pi / 16)
+                )
             values[y * 8 + x] = round(0.25 * s)
 
     return values
