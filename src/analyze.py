@@ -235,6 +235,7 @@ for segment in stream.segments:
             print(
                 " Spectral Selection: %d-%d"
                 % (segment.spectral_selection[0], segment.spectral_selection[1])
+            )
 
         if (segment.point_transform & 0xF0) != 0:
             print(" Previous Point Transform: %d" % (segment.point_transform >> 4))
