@@ -160,7 +160,7 @@ if __name__ == "__main__":
     data_units = []
     for _ in range(4):
         samples = [random.randint(0, 255) for _ in range(64)]
-        data_units.append(jpeg.dct.quantize(jpeg.dct.fdct(samples), [1] * 64))
+        data_units.append(jpeg.dct.fdct(samples, [1] * 64))
 
     writer = jpeg.io.BufferedWriter()
     scan = ArithmeticDCTACSuccessiveScan(data_units, point_transform=3)

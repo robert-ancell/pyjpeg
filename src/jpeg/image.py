@@ -106,12 +106,7 @@ class Image:
                 for x in range(width_in_data_units):
                     # FIXME
                     samples = [0] * 64
-                    data_units.append(
-                        jpeg.dct.quantize(
-                            jpeg.dct.fdct(samples),
-                            quantization_table,
-                        )
-                    )
+                    data_units.append(jpeg.dct.fdct(samples, quantization_table))
             segments.append(
                 jpeg.huffman_dct_scan.HuffmanDCTScan(data_units, scan_components)
             )

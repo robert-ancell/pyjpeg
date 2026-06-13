@@ -1,5 +1,4 @@
 import math
-from typing import TypeVar
 
 
 def transform_coefficient(coefficient: int, point_transform: int) -> int:
@@ -103,10 +102,7 @@ precalculated_zig_zag_indexes = [
 ]
 
 
-T = TypeVar("T")
-
-
-def zig_zag(coefficients: list[T]) -> list[T]:
+def zig_zag(coefficients: list[int]) -> list[int]:
     assert len(coefficients) == 64
     zz = []
     for index in precalculated_zig_zag_indexes:
@@ -114,7 +110,7 @@ def zig_zag(coefficients: list[T]) -> list[T]:
     return zz
 
 
-def unzig_zag(zz: list[T]) -> list[T]:
+def unzig_zag(zz: list[int]) -> list[int]:
     assert len(zz) == 64
     coefficients = [0] * 64
     for i, index in enumerate(precalculated_zig_zag_indexes):
@@ -122,9 +118,9 @@ def unzig_zag(zz: list[T]) -> list[T]:
     return coefficients
 
 
-# Perform the JPEG forward DCT on the given values.
-# The returned coefficients are in zig-zag order.
-def fdct(values: list[int]) -> list[float]:
+# Perform the JPEG forward DCT on the given values and quantize the values with the given table.
+# The quantization table and returned coefficients are in zig-zag order.
+def fdct(values: list[int], quantization_table: list[int]) -> list[int]:
     C = [0.70710678118654752440, 1, 1, 1, 1, 1, 1, 1]
     coefficients = [0.0] * 64
     for v in range(8):
@@ -139,7 +135,11 @@ def fdct(values: list[int]) -> list[float]:
                     )
             coefficients[v * 8 + u] = 0.25 * C[u] * C[v] * s
 
-    return zig_zag(coefficients)
+    coefficients = zig_zag(coefficients)
+    for i in range(64):
+        coefficients[i] = round(coefficients[i] / quantization_table[i])
+
+    return coefficients
 
 
 # Perform the JPEG inverse DCT on the given coefficients.
@@ -164,14 +164,6 @@ def idct(coefficients: list[int]) -> list[int]:
             values[y * 8 + x] = round(0.25 * s)
 
     return values
-
-
-def quantize(data_unit: list[float], quantization_table: list[int]) -> list[int]:
-    assert len(data_unit) == len(quantization_table)
-    quantized_data_unit = [0] * 64
-    for i in range(len(data_unit)):
-        quantized_data_unit[i] = round(data_unit[i] / quantization_table[i])
-    return quantized_data_unit
 
 
 def dequantize(
@@ -216,7 +208,7 @@ if __name__ == "__main__":
         return True
 
     samples = [random.randint(0, 255) - 128 for _ in range(64)]
-    coefficients = quantize(fdct(samples), [1] * 64)
+    coefficients = fdct(samples, [1] * 64)
     reconstructed_samples = idct(coefficients)
     assert is_near(reconstructed_samples, samples, tolerance=1)
 
