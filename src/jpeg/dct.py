@@ -123,21 +123,20 @@ def unzig_zag(zz: list[int]) -> list[int]:
 def fdct(values: list[int], quantization_table: list[int]) -> list[int]:
     C = [0.70710678118654752440, 1, 1, 1, 1, 1, 1, 1]
     coefficients = [0.0] * 64
-    for v in range(8):
-        for u in range(8):
-            s = 0.0
-            for y in range(8):
-                for x in range(8):
-                    s += (
-                        values[y * 8 + x]
-                        * math.cos((2 * x + 1) * u * math.pi / 16)
-                        * math.cos((2 * y + 1) * v * math.pi / 16)
-                    )
-            coefficients[v * 8 + u] = 0.25 * C[u] * C[v] * s
-
-    coefficients = zig_zag(coefficients)
-    for i in range(64):
-        coefficients[i] = round(coefficients[i] / quantization_table[i])
+    for coefficient_index, sample_index in enumerate(precalculated_zig_zag_indexes):
+        u = sample_index % 8
+        v = sample_index // 8
+        s = 0.0
+        for y in range(8):
+            for x in range(8):
+                s += (
+                    values[y * 8 + x]
+                    * math.cos((2 * x + 1) * u * math.pi / 16)
+                    * math.cos((2 * y + 1) * v * math.pi / 16)
+                )
+        coefficients[coefficient_index] = round(
+            (0.25 * C[u] * C[v] * s) / quantization_table[coefficient_index]
+        )
 
     return coefficients
 
@@ -150,15 +149,15 @@ def idct(coefficients: list[int], quantization_table: list[int]) -> list[int]:
     for y in range(8):
         for x in range(8):
             s = 0.0
-            for i, coefficient in enumerate(coefficients):
-                index = precalculated_zig_zag_indexes[i]
+            for coefficient_index, coefficient in enumerate(coefficients):
+                index = precalculated_zig_zag_indexes[coefficient_index]
                 u = index % 8
                 v = index // 8
                 s += (
                     C[u]
                     * C[v]
                     * coefficient
-                    * quantization_table[i]
+                    * quantization_table[coefficient_index]
                     * math.cos((2 * x + 1) * u * math.pi / 16)
                     * math.cos((2 * y + 1) * v * math.pi / 16)
                 )
@@ -203,6 +202,5 @@ if __name__ == "__main__":
     reconstructed_samples = idct(coefficients, [1] * 64)
     assert is_near(reconstructed_samples, samples, tolerance=1)
 
-    zz_coefficients = zig_zag(coefficients)
-    reconstructed_coefficients = unzig_zag(zz_coefficients)
-    assert reconstructed_coefficients == coefficients
+    reconstructed_coefficients = unzig_zag(coefficients)
+    assert zig_zag(reconstructed_coefficients) == coefficients
