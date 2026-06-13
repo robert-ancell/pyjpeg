@@ -142,9 +142,12 @@ def fdct(values: list[int], quantization_table: list[int]) -> list[int]:
     return coefficients
 
 
-# Perform the JPEG inverse DCT on the given coefficients.
-# The coefficients are in zig-zag order.
-def idct(coefficients: list[int]) -> list[int]:
+# Perform the JPEG inverse DCT on the given quantized coefficients.
+# The quantization table and coefficients are in zig-zag order.
+def idct(coefficients: list[int], quantization_table: list[int]) -> list[int]:
+    for i in range(64):
+        coefficients[i] = round(coefficients[i] * quantization_table[i])
+
     coefficients = unzig_zag(coefficients)
 
     C = [0.70710678118654752440, 1, 1, 1, 1, 1, 1, 1]
@@ -164,16 +167,6 @@ def idct(coefficients: list[int]) -> list[int]:
             values[y * 8 + x] = round(0.25 * s)
 
     return values
-
-
-def dequantize(
-    quantized_data_unit: list[int], quantization_table: list[int]
-) -> list[int]:
-    assert len(quantized_data_unit) == len(quantization_table)
-    data_unit = [0] * 64
-    for i in range(len(quantized_data_unit)):
-        data_unit[i] = quantized_data_unit[i] * quantization_table[i]
-    return data_unit
 
 
 def order_mcu_dct_data_units(
@@ -209,7 +202,7 @@ if __name__ == "__main__":
 
     samples = [random.randint(0, 255) - 128 for _ in range(64)]
     coefficients = fdct(samples, [1] * 64)
-    reconstructed_samples = idct(coefficients)
+    reconstructed_samples = idct(coefficients, [1] * 64)
     assert is_near(reconstructed_samples, samples, tolerance=1)
 
     zz_coefficients = zig_zag(coefficients)

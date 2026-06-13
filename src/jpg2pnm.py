@@ -39,12 +39,7 @@ for segment in stream.segments:
         du_x = 0
         du_y = 0
         for i, data_unit in enumerate(segment.data_units):
-            samples = jpeg.idct(
-                jpeg.dequantize(
-                    data_unit,
-                    [1] * 64,
-                )
-            )
+            samples = jpeg.idct(data_unit, [1] * 64)
             for i in range(len(samples)):
                 # FIXME: Need the clamp?
                 # FIXME: offset is 1 << (precision - 1)

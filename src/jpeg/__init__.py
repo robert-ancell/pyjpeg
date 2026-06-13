@@ -24,7 +24,7 @@ from jpeg.arithmetic_lossless_scan import (
 )
 from jpeg.com import Comment
 from jpeg.dac import ArithmeticConditioning, DefineArithmeticConditioning
-from jpeg.dct import dequantize, fdct, idct, unzig_zag, zig_zag
+from jpeg.dct import fdct, idct, unzig_zag, zig_zag
 from jpeg.dht import DefineHuffmanTables, HuffmanTable
 from jpeg.dnl import DefineNumberOfLines
 from jpeg.dqt import DefineQuantizationTables, QuantizationTable
@@ -125,7 +125,6 @@ __all__ = [
     "Stream",
     "UnknownApplicationSpecificData",
     "Writer",
-    "dequantize",
     "fdct",
     "huffman_optimize",
     "idct",
