@@ -9,14 +9,14 @@ def transform_coefficient(coefficient: int, point_transform: int) -> int:
         return -(-coefficient >> point_transform)
 
 
-def zig_zag_coordinates() -> list[tuple[int, int]]:
+def zig_zag_indexes() -> list[tuple[int, int]]:
     x = 0
     y = 0
     dx = 1
     dy = -1
-    coordinates = []
+    indexes = []
     for _ in range(64):
-        coordinates.append((x, y))
+        indexes.append(y * 8 + x)
         if x + dx >= 8:
             y += 1
             dx, dy = -1, 1
@@ -32,7 +32,75 @@ def zig_zag_coordinates() -> list[tuple[int, int]]:
         else:
             x += dx
             y += dy
-    return coordinates
+    return indexes
+
+
+precalculated_zig_zag_indexes = [
+    0,
+    1,
+    8,
+    16,
+    9,
+    2,
+    3,
+    10,
+    17,
+    24,
+    32,
+    25,
+    18,
+    11,
+    4,
+    5,
+    12,
+    19,
+    26,
+    33,
+    40,
+    48,
+    41,
+    34,
+    27,
+    20,
+    13,
+    6,
+    7,
+    14,
+    21,
+    28,
+    35,
+    42,
+    49,
+    56,
+    57,
+    50,
+    43,
+    36,
+    29,
+    22,
+    15,
+    23,
+    30,
+    37,
+    44,
+    51,
+    58,
+    59,
+    52,
+    45,
+    38,
+    31,
+    39,
+    46,
+    53,
+    60,
+    61,
+    54,
+    47,
+    55,
+    62,
+    63,
+]
 
 
 T = TypeVar("T")
@@ -40,19 +108,19 @@ T = TypeVar("T")
 
 def zig_zag(coefficients: list[T]) -> list[T]:
     assert len(coefficients) == 64
-    coordinates = zig_zag_coordinates()
+    indexes = zig_zag_indexes()
     zz = []
-    for x, y in coordinates:
-        zz.append(coefficients[y * 8 + x])
+    for index in indexes:
+        zz.append(coefficients[index])
     return zz
 
 
 def unzig_zag(zz: list[T]) -> list[T]:
     assert len(zz) == 64
-    coordinates = zig_zag_coordinates()
+    indexes = zig_zag_indexes()
     coefficients = [0] * 64
-    for i, (x, y) in enumerate(coordinates):
-        coefficients[y * 8 + x] = zz[i]
+    for i, index in enumerate(indexes):
+        coefficients[index] = zz[i]
     return coefficients
 
 
@@ -132,6 +200,8 @@ def order_mcu_dct_data_units(
 
 if __name__ == "__main__":
     import random
+
+    assert precalculated_zig_zag_indexes == zig_zag_indexes()
 
     def is_near(a: list[int], b: list[int], tolerance: int = 0) -> bool:
         if len(a) != len(b):
