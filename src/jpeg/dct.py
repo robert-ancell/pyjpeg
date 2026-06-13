@@ -108,18 +108,16 @@ T = TypeVar("T")
 
 def zig_zag(coefficients: list[T]) -> list[T]:
     assert len(coefficients) == 64
-    indexes = zig_zag_indexes()
     zz = []
-    for index in indexes:
+    for index in precalculated_zig_zag_indexes:
         zz.append(coefficients[index])
     return zz
 
 
 def unzig_zag(zz: list[T]) -> list[T]:
     assert len(zz) == 64
-    indexes = zig_zag_indexes()
     coefficients = [0] * 64
-    for i, index in enumerate(indexes):
+    for i, index in enumerate(precalculated_zig_zag_indexes):
         coefficients[index] = zz[i]
     return coefficients
 
