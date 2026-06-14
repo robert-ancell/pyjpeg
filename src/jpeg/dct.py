@@ -68,21 +68,38 @@ def coefficient_constants() -> list[float]:
 precalculated_coefficient_constants = coefficient_constants()
 
 
+def dct_coefficient_weights(u: int, v: int) -> list[float]:
+    weights = []
+    for y in range(8):
+        for x in range(8):
+            weights.append(
+                math.cos((2 * x + 1) * u * math.pi / 16)
+                * math.cos((2 * y + 1) * v * math.pi / 16)
+            )
+    return weights
+
+
+def dct_weights() -> list[list[float]]:
+    weights = []
+    for coefficient_index, sample_index in enumerate(precalculated_zig_zag_indexes):
+        u = sample_index % 8
+        v = sample_index // 8
+        weights.append(dct_coefficient_weights(u, v))
+    return weights
+
+
+precalculated_dct_weights = dct_weights()
+
+
 # Perform the JPEG forward DCT on the given values and quantize the values with the given table.
 # The quantization table and returned coefficients are in zig-zag order.
 def fdct(values: list[int], quantization_table: list[int]) -> list[int]:
     coefficients = [0] * 64
     for coefficient_index, sample_index in enumerate(precalculated_zig_zag_indexes):
-        u = sample_index % 8
-        v = sample_index // 8
+        coefficient_weights = precalculated_dct_weights[coefficient_index]
         s = 0.0
-        for y in range(8):
-            for x in range(8):
-                s += (
-                    values[y * 8 + x]
-                    * math.cos((2 * x + 1) * u * math.pi / 16)
-                    * math.cos((2 * y + 1) * v * math.pi / 16)
-                )
+        for value_index, value in enumerate(values):
+            s += coefficient_weights[value_index] * value
         coefficients[coefficient_index] = round(
             (precalculated_coefficient_constants[coefficient_index] * s)
             / quantization_table[coefficient_index]
@@ -99,15 +116,12 @@ def idct(coefficients: list[int], quantization_table: list[int]) -> list[int]:
         for x in range(8):
             s = 0.0
             for coefficient_index, coefficient in enumerate(coefficients):
-                index = precalculated_zig_zag_indexes[coefficient_index]
-                u = index % 8
-                v = index // 8
+                coefficient_weights = precalculated_dct_weights[coefficient_index]
                 s += (
                     precalculated_coefficient_constants[coefficient_index]
                     * coefficient
                     * quantization_table[coefficient_index]
-                    * math.cos((2 * x + 1) * u * math.pi / 16)
-                    * math.cos((2 * y + 1) * v * math.pi / 16)
+                    * coefficient_weights[y * 8 + x]
                 )
             values[y * 8 + x] = round(s)
 
