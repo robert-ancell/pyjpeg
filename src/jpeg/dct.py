@@ -95,7 +95,7 @@ precalculated_dct_weights = dct_weights()
 # The quantization table and returned coefficients are in zig-zag order.
 def fdct(values: list[int], quantization_table: list[int]) -> list[int]:
     coefficients = [0] * 64
-    for coefficient_index, sample_index in enumerate(precalculated_zig_zag_indexes):
+    for coefficient_index in range(64):
         coefficient_weights = precalculated_dct_weights[coefficient_index]
         s = 0.0
         for value_index, value in enumerate(values):
@@ -112,18 +112,17 @@ def fdct(values: list[int], quantization_table: list[int]) -> list[int]:
 # The quantization table and coefficients are in zig-zag order.
 def idct(coefficients: list[int], quantization_table: list[int]) -> list[int]:
     values = [0] * 64
-    for y in range(8):
-        for x in range(8):
-            s = 0.0
-            for coefficient_index, coefficient in enumerate(coefficients):
-                coefficient_weights = precalculated_dct_weights[coefficient_index]
-                s += (
-                    precalculated_coefficient_constants[coefficient_index]
-                    * coefficient
-                    * quantization_table[coefficient_index]
-                    * coefficient_weights[y * 8 + x]
-                )
-            values[y * 8 + x] = round(s)
+    for sample_index in range(64):
+        s = 0.0
+        for coefficient_index, coefficient in enumerate(coefficients):
+            coefficient_weights = precalculated_dct_weights[coefficient_index]
+            s += (
+                precalculated_coefficient_constants[coefficient_index]
+                * coefficient
+                * quantization_table[coefficient_index]
+                * coefficient_weights[sample_index]
+            )
+        values[sample_index] = round(s)
 
     return values
 
