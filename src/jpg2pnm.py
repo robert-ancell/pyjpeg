@@ -15,6 +15,7 @@ stream = jpeg.Stream.read(reader)
 
 width = 0
 height = 0
+precision = 8
 data = []
 convert_ycbcr = False
 sos = None
@@ -28,7 +29,7 @@ for segment in stream.segments:
         width = segment.samples_per_line
         height = segment.number_of_lines
         channels = len(segment.components)
-        # FIXME: precision
+        precision = segment.precision
         data = [0] * width * height * channels
     elif isinstance(segment, jpeg.StartOfScan):
         sos = segment
@@ -39,11 +40,7 @@ for segment in stream.segments:
         du_x = 0
         du_y = 0
         for i, data_unit in enumerate(segment.data_units):
-            samples = jpeg.idct(data_unit, [1] * 64)
-            for i in range(len(samples)):
-                # FIXME: Need the clamp?
-                # FIXME: offset is 1 << (precision - 1)
-                samples[i] = min(255, max(0, samples[i] + 128))
+            samples = jpeg.idct(data_unit, [1] * 64, precision)
             x_max = 8
             if du_x + x_max > width:
                 x_max = max(width - du_x, 0)

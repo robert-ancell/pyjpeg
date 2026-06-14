@@ -93,13 +93,14 @@ precalculated_dct_weights = dct_weights()
 
 # Perform the JPEG forward DCT on the given values and quantize the values with the given table.
 # The quantization table and returned coefficients are in zig-zag order.
-def fdct(values: list[int], quantization_table: list[int]) -> list[int]:
+def fdct(values: list[int], precision: int, quantization_table: list[int]) -> list[int]:
     coefficients = [0] * 64
+    offset = 1 << (precision - 1)
     for coefficient_index in range(64):
         coefficient_weights = precalculated_dct_weights[coefficient_index]
         s = 0.0
         for value_index, value in enumerate(values):
-            s += coefficient_weights[value_index] * value
+            s += coefficient_weights[value_index] * (value - offset)
         coefficients[coefficient_index] = round(
             (precalculated_coefficient_constants[coefficient_index] * s)
             / quantization_table[coefficient_index]
@@ -110,8 +111,12 @@ def fdct(values: list[int], quantization_table: list[int]) -> list[int]:
 
 # Perform the JPEG inverse DCT on the given quantized coefficients.
 # The quantization table and coefficients are in zig-zag order.
-def idct(coefficients: list[int], quantization_table: list[int]) -> list[int]:
-    values = [0] * 64
+def idct(
+    coefficients: list[int], quantization_table: list[int], precision: int
+) -> list[int]:
+    samples = [0] * 64
+    offset = 1 << (precision - 1)
+    max_sample = (1 << precision) - 1
     for sample_index in range(64):
         s = 0.0
         for coefficient_index, coefficient in enumerate(coefficients):
@@ -122,9 +127,14 @@ def idct(coefficients: list[int], quantization_table: list[int]) -> list[int]:
                 * quantization_table[coefficient_index]
                 * coefficient_weights[sample_index]
             )
-        values[sample_index] = round(s)
+        sample = round(s) + offset
+        if sample < 0:
+            sample = 0
+        elif sample > max_sample:
+            sample = max_sample
+        samples[sample_index] = sample
 
-    return values
+    return samples
 
 
 def order_mcu_dct_data_units(
@@ -157,8 +167,8 @@ if __name__ == "__main__":
         return True
 
     samples = [random.randint(0, 255) - 128 for _ in range(64)]
-    coefficients = fdct(samples, [1] * 64)
-    reconstructed_samples = idct(coefficients, [1] * 64)
+    coefficients = fdct(samples, 8, [1] * 64)
+    reconstructed_samples = idct(coefficients, [1] * 64, 8)
     assert is_near(reconstructed_samples, samples, tolerance=1)
 
     reconstructed_coefficients = unzig_zag(coefficients)
