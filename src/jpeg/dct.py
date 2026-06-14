@@ -58,9 +58,10 @@ def unzig_zag(zz: list[int]) -> list[int]:
 def coefficient_constants() -> list[float]:
     C = [0.70710678118654752440, 1, 1, 1, 1, 1, 1, 1]
     constants = []
-    for u in range(8):
-        for v in range(8):
-            constants.append(0.25 * C[u] * C[v])
+    for index in precalculated_zig_zag_indexes:
+        u = index % 8
+        v = index // 8
+        constants.append(0.25 * C[u] * C[v])
     return constants
 
 
@@ -84,7 +85,7 @@ def fdct(values: list[int], quantization_table: list[int]) -> list[int]:
                     * math.cos((2 * y + 1) * v * math.pi / 16)
                 )
         coefficients[coefficient_index] = round(
-            (precalculated_coefficient_constants[sample_index] * s)
+            (precalculated_coefficient_constants[coefficient_index] * s)
             / quantization_table[coefficient_index]
         )
 
@@ -103,7 +104,7 @@ def idct(coefficients: list[int], quantization_table: list[int]) -> list[int]:
                 u = index % 8
                 v = index // 8
                 s += (
-                    precalculated_coefficient_constants[index]
+                    precalculated_coefficient_constants[coefficient_index]
                     * coefficient
                     * quantization_table[coefficient_index]
                     * math.cos((2 * x + 1) * u * math.pi / 16)
