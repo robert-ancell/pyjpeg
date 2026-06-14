@@ -55,6 +55,18 @@ def unzig_zag(zz: list[int]) -> list[int]:
     return coefficients
 
 
+def coefficient_constants() -> list[float]:
+    C = [0.70710678118654752440, 1, 1, 1, 1, 1, 1, 1]
+    constants = []
+    for u in range(8):
+        for v in range(8):
+            constants.append(0.25 * C[u] * C[v])
+    return constants
+
+
+precalculated_coefficient_constants = coefficient_constants()
+
+
 # Perform the JPEG forward DCT on the given values and quantize the values with the given table.
 # The quantization table and returned coefficients are in zig-zag order.
 def fdct(values: list[int], quantization_table: list[int]) -> list[int]:
@@ -72,7 +84,8 @@ def fdct(values: list[int], quantization_table: list[int]) -> list[int]:
                     * math.cos((2 * y + 1) * v * math.pi / 16)
                 )
         coefficients[coefficient_index] = round(
-            (0.25 * C[u] * C[v] * s) / quantization_table[coefficient_index]
+            (precalculated_coefficient_constants[sample_index] * s)
+            / quantization_table[coefficient_index]
         )
 
     return coefficients
@@ -81,7 +94,6 @@ def fdct(values: list[int], quantization_table: list[int]) -> list[int]:
 # Perform the JPEG inverse DCT on the given quantized coefficients.
 # The quantization table and coefficients are in zig-zag order.
 def idct(coefficients: list[int], quantization_table: list[int]) -> list[int]:
-    C = [0.70710678118654752440, 1, 1, 1, 1, 1, 1, 1]
     values = [0] * 64
     for y in range(8):
         for x in range(8):
@@ -91,14 +103,13 @@ def idct(coefficients: list[int], quantization_table: list[int]) -> list[int]:
                 u = index % 8
                 v = index // 8
                 s += (
-                    C[u]
-                    * C[v]
+                    precalculated_coefficient_constants[index]
                     * coefficient
                     * quantization_table[coefficient_index]
                     * math.cos((2 * x + 1) * u * math.pi / 16)
                     * math.cos((2 * y + 1) * v * math.pi / 16)
                 )
-            values[y * 8 + x] = round(0.25 * s)
+            values[y * 8 + x] = round(s)
 
     return values
 
