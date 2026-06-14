@@ -59,7 +59,7 @@ def unzig_zag(zz: list[int]) -> list[int]:
 # The quantization table and returned coefficients are in zig-zag order.
 def fdct(values: list[int], quantization_table: list[int]) -> list[int]:
     C = [0.70710678118654752440, 1, 1, 1, 1, 1, 1, 1]
-    coefficients = [0.0] * 64
+    coefficients = [0] * 64
     for coefficient_index, sample_index in enumerate(precalculated_zig_zag_indexes):
         u = sample_index % 8
         v = sample_index // 8
