@@ -166,9 +166,10 @@ if __name__ == "__main__":
                 return False
         return True
 
-    samples = [random.randint(0, 255) - 128 for _ in range(64)]
-    coefficients = fdct(samples, 8, [1] * 64)
-    reconstructed_samples = idct(coefficients, [1] * 64, 8)
+    samples = [random.randint(0, 255) for _ in range(64)]
+    quantization_table = [1] * 64
+    coefficients = fdct(samples, 8, quantization_table)
+    reconstructed_samples = idct(coefficients, quantization_table, 8)
     assert is_near(reconstructed_samples, samples, tolerance=1)
 
     reconstructed_coefficients = unzig_zag(coefficients)
