@@ -13,12 +13,16 @@ data = open(sys.argv[1], "rb").read()
 reader = jpeg.BufferedReader(data)
 stream = jpeg.Stream.read(reader)
 
-width = 0
-height = 0
-precision = 8
 data = []
 convert_ycbcr = False
+sof = None
 sos = None
+quantization_tables = [
+    [1] * 64,
+    [1] * 64,
+    [1] * 64,
+    [1] * 64,
+]
 for segment in stream.segments:
     if isinstance(segment, jpeg.JfifHeader):
         convert_ycbcr = True
@@ -26,11 +30,16 @@ for segment in stream.segments:
         if segment.color_space == jpeg.AdobeColorSpace.Y_CB_CR:
             convert_ycbcr = True
     elif isinstance(segment, jpeg.StartOfFrame):
-        width = segment.samples_per_line
-        height = segment.number_of_lines
-        channels = len(segment.components)
-        precision = segment.precision
-        data = [0] * width * height * channels
+        sof = segment
+        data = (
+            [0]
+            * segment.samples_per_line
+            * segment.number_of_lines
+            * len(segment.components)
+        )
+    elif isinstance(segment, jpeg.DefineQuantizationTables):
+        for table in segment.tables:
+            quantization_tables[table.destination] = table.values
     elif isinstance(segment, jpeg.StartOfScan):
         sos = segment
     elif isinstance(segment, jpeg.HuffmanDCTScan) or isinstance(
@@ -39,20 +48,27 @@ for segment in stream.segments:
         # FIXME: Channels, sampling factor
         du_x = 0
         du_y = 0
+        component = sof.get_component(sof.components[0].id)
         for i, data_unit in enumerate(segment.data_units):
-            samples = jpeg.idct(data_unit, [1] * 64, precision)
+            samples = jpeg.idct(
+                data_unit,
+                quantization_tables[component.quantization_table_index],
+                sof.precision,
+            )
             x_max = 8
-            if du_x + x_max > width:
-                x_max = max(width - du_x, 0)
+            if du_x + x_max > sof.samples_per_line:
+                x_max = max(sof.samples_per_line - du_x, 0)
             y_max = 8
-            if du_y + y_max > height:
-                y_max = max(height - du_y, 0)
+            if du_y + y_max > sof.number_of_lines:
+                y_max = max(sof.number_of_lines - du_y, 0)
             for y in range(x_max):
                 for x in range(y_max):
-                    data[(du_y + y) * width + du_x + x] = samples[y * 8 + x]
+                    data[(du_y + y) * sof.samples_per_line + du_x + x] = samples[
+                        y * 8 + x
+                    ]
 
             du_x += 8
-            if du_x >= width:
+            if du_x >= sof.samples_per_line:
                 du_x = 0
                 du_y += 8
     elif isinstance(segment, jpeg.HuffmanLosslessScan) or isinstance(
@@ -63,4 +79,10 @@ for segment in stream.segments:
             data[i] = sample
 
 
-write_pnm(sys.argv[2], width, height, data, channels=channels)
+write_pnm(
+    sys.argv[2],
+    sof.samples_per_line,
+    sof.number_of_lines,
+    data,
+    channels=len(sof.components),
+)
