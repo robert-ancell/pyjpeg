@@ -12,6 +12,7 @@ description = "Pure Python JPEG image encoder/decoder"
 readme = "README.md"
 requires-python = ">=3.9"
 classifiers = [
+    "Development Status :: 3 - Alpha",
     "Topic :: Multimedia :: Graphics",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Programming Language :: Python :: 3",
