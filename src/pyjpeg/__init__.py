@@ -34,7 +34,10 @@ from pyjpeg.exp import ExpandReferenceComponents
 from pyjpeg.huffman_dct_ac_successive_scan import HuffmanDCTACSuccessiveScan
 from pyjpeg.huffman_dct_dc_successive_scan import HuffmanDCTDCSuccessiveScan
 from pyjpeg.huffman_dct_scan import HuffmanDCTScan, HuffmanDCTScanComponent
-from pyjpeg.huffman_lossless_scan import HuffmanLosslessScan, HuffmanLosslessScanComponent
+from pyjpeg.huffman_lossless_scan import (
+    HuffmanLosslessScan,
+    HuffmanLosslessScanComponent,
+)
 from pyjpeg.huffman_optimize import optimize as huffman_optimize
 from pyjpeg.huffman_tables import (
     standard_chrominance_ac_huffman_table,
@@ -78,6 +81,7 @@ __all__ = [
     "BufferedReader",
     "BufferedWriter",
     "Comment",
+    "Component",
     "DefineArithmeticConditioning",
     "DefineHuffmanTables",
     "DefineNumberOfLines",
@@ -95,6 +99,7 @@ __all__ = [
     "HuffmanLosslessScan",
     "HuffmanLosslessScanComponent",
     "HuffmanTable",
+    "Image",
     "JfifDensity",
     "JfifDensityUnit",
     "JfifHeader",
