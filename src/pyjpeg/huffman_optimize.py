@@ -1,9 +1,10 @@
 import pyjpeg.huffman
+import pyjpeg.io
 import pyjpeg.segment
 
 
 class NullWriter(pyjpeg.io.Writer):
-    def write_u8(self, data: int) -> None:
+    def write_u8(self, value: int) -> None:
         pass
 
 

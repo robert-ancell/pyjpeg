@@ -1,3 +1,4 @@
+import pyjpeg.io
 import pyjpeg.scan
 
 

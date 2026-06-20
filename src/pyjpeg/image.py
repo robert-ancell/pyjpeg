@@ -6,6 +6,7 @@ import pyjpeg.huffman_dct_scan
 import pyjpeg.huffman_tables
 import pyjpeg.io
 import pyjpeg.quantization_tables
+import pyjpeg.segment
 import pyjpeg.sof
 import pyjpeg.soi
 import pyjpeg.sos

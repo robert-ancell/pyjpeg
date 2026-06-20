@@ -1,5 +1,6 @@
 import pyjpeg.arithmetic
 import pyjpeg.io
+import pyjpeg.segment
 
 
 class ArithmeticDCTDCSuccessiveScan(pyjpeg.segment.Segment):

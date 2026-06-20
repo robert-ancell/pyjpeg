@@ -1,8 +1,10 @@
+import pyjpeg.dct
 import pyjpeg.dri
-import pyjpeg.eoi
 import pyjpeg.io
+import pyjpeg.lse
 import pyjpeg.segment
-import pyjpeg.soi
+import pyjpeg.sof
+import pyjpeg.sos
 from pyjpeg.marker import Marker
 
 
@@ -214,7 +216,7 @@ def _size_in_dct_minimum_coded_units(sof: pyjpeg.StartOfFrame) -> tuple[int, int
 
 
 def _parse_huffman_dct_scan(
-    reader: pyjpeg.io.BufferedReader,
+    reader: pyjpeg.io.Reader,
     sof: pyjpeg.StartOfFrame,
     dri: pyjpeg.DefineRestartInterval | None,
     sos: pyjpeg.StartOfScan,
@@ -250,7 +252,7 @@ def _parse_huffman_dct_scan(
 
 
 def _parse_arithmetic_dct_scan(
-    reader: pyjpeg.io.BufferedReader,
+    reader: pyjpeg.io.Reader,
     sof: pyjpeg.sof.StartOfFrame,
     dri: pyjpeg.dri.DefineRestartInterval | None,
     sos: pyjpeg.sos.StartOfScan,
@@ -293,7 +295,7 @@ def _parse_arithmetic_dct_scan(
 
 
 def _parse_huffman_lossless_scan(
-    reader: pyjpeg.io.BufferedReader,
+    reader: pyjpeg.io.Reader,
     sof: pyjpeg.sof.StartOfFrame,
     dri: pyjpeg.dri.DefineRestartInterval | None,
     sos: pyjpeg.sos.StartOfScan,
@@ -324,7 +326,7 @@ def _parse_huffman_lossless_scan(
 
 
 def _parse_arithmetic_lossless_scan(
-    reader: pyjpeg.io.BufferedReader,
+    reader: pyjpeg.io.Reader,
     sof: pyjpeg.sof.StartOfFrame,
     dri: pyjpeg.dri.DefineRestartInterval | None,
     sos: pyjpeg.sos.StartOfScan,
@@ -362,7 +364,7 @@ def _parse_arithmetic_lossless_scan(
 
 
 def _parse_ls_scan(
-    reader: pyjpeg.io.BufferedReader,
+    reader: pyjpeg.io.Reader,
     sof: pyjpeg.sof.StartOfFrame,
     lse_coding_parameters: pyjpeg.lse.LSCodingParameters | None,
     lse_oversize_image_dimensions: pyjpeg.lse.LSOversizeImageDimensions | None,

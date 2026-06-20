@@ -137,7 +137,7 @@ class Writer:
         self.zero_count = 0
 
     # Encodes [value] using [state].
-    def write_bit(self, state: pyjpeg.arithmetic.State, value: int) -> None:
+    def write_bit(self, state: State, value: int) -> None:
         if value == state.mps:
             self._encode_mps(state)
         else:
@@ -165,7 +165,7 @@ class Writer:
 
         self._write_byte(self.data)
 
-    def _encode_mps(self, state: pyjpeg.arithmetic.State) -> None:
+    def _encode_mps(self, state: State) -> None:
         (qe, _, mps_next_index, _) = states[state.index]
         self.a -= qe
         if self.a >= 0x8000:
@@ -179,7 +179,7 @@ class Writer:
 
         state.index = mps_next_index
 
-    def _encode_lps(self, state: pyjpeg.arithmetic.State) -> None:
+    def _encode_lps(self, state: State) -> None:
         (qe, lps_next_index, _, switch_mps) = states[state.index]
         self.a -= qe
         if self.a >= qe:
@@ -257,7 +257,7 @@ class Reader:
         self.c |= self.d
         self.d = 0
 
-    def read_bit(self, state: pyjpeg.arithmetic.State) -> int:
+    def read_bit(self, state: State) -> int:
         (qe, _, _, _) = states[state.index]
         self.a = (self.a - qe) & 0xFFFF
         if self.c < self.a:
@@ -275,7 +275,7 @@ class Reader:
         # Default state is 0.5
         return self.read_bit(State())
 
-    def _cond_mps_exchange(self, state: pyjpeg.arithmetic.State) -> int:
+    def _cond_mps_exchange(self, state: State) -> int:
         (qe, lps_next_index, mps_next_index, switch_mps) = states[state.index]
         if self.a < qe:
             bit = state.mps ^ 0x1
@@ -287,7 +287,7 @@ class Reader:
             state.index = mps_next_index
         return bit
 
-    def _cond_lps_exchange(self, state: pyjpeg.arithmetic.State) -> int:
+    def _cond_lps_exchange(self, state: State) -> int:
         (qe, lps_next_index, mps_next_index, switch_mps) = states[state.index]
         self.c -= self.a
         if self.a < qe:

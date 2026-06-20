@@ -1,5 +1,6 @@
 import pyjpeg.arithmetic
 import pyjpeg.arithmetic_scan
+import pyjpeg.io
 import pyjpeg.lossless
 import pyjpeg.segment
 

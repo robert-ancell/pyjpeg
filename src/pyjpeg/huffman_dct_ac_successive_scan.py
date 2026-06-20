@@ -1,5 +1,7 @@
 import pyjpeg.dct
 import pyjpeg.huffman
+import pyjpeg.huffman_scan
+import pyjpeg.io
 import pyjpeg.scan
 import pyjpeg.segment
 

@@ -1,5 +1,6 @@
 import pyjpeg.io
 import pyjpeg.scan
+import pyjpeg.segment
 
 
 class HuffmanDCTDCSuccessiveScan(pyjpeg.segment.Segment):

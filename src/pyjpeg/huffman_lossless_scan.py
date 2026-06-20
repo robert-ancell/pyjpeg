@@ -1,5 +1,6 @@
 import pyjpeg.huffman
 import pyjpeg.huffman_scan
+import pyjpeg.io
 import pyjpeg.lossless
 import pyjpeg.segment
 
