@@ -83,7 +83,7 @@ class HuffmanLosslessScan(pyjpeg.segment.Segment):
         components: list[HuffmanLosslessScanComponent],
         precision: int = 8,
         predictor: int = 1,
-    ) -> HuffmanLosslessScan:
+    ) -> "HuffmanLosslessScan":
         scan_reader = pyjpeg.huffman_scan.Reader(reader)
         dc_decoders = []
         for scan_component in components:

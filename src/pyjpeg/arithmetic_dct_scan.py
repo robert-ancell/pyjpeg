@@ -81,7 +81,7 @@ class ArithmeticDCTScan(pyjpeg.segment.Segment):
         components: list[ArithmeticDCTScanComponent],
         spectral_selection: tuple[int, int] = (0, 63),
         point_transform: int = 0,
-    ) -> ArithmeticDCTScan:
+    ) -> "ArithmeticDCTScan":
         scan_reader = Reader(
             reader,
             spectral_selection=spectral_selection,

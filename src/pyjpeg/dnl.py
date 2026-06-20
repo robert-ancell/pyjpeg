@@ -16,7 +16,7 @@ class DefineNumberOfLines(pyjpeg.segment.Segment):
     @classmethod
     def read(
         cls, reader: pyjpeg.io.Reader, variable_length: bool = False
-    ) -> DefineNumberOfLines:
+    ) -> "DefineNumberOfLines":
         marker = reader.read_marker()
         assert marker == pyjpeg.marker.Marker.DNL
         length = reader.read_u16()

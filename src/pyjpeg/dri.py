@@ -1,5 +1,3 @@
-from unicodedata import numeric
-
 import pyjpeg.marker
 import pyjpeg.segment
 
@@ -17,7 +15,7 @@ class DefineRestartInterval(pyjpeg.segment.Segment):
     @classmethod
     def read(
         cls, reader: pyjpeg.io.Reader, variable_length: bool = False
-    ) -> DefineRestartInterval:
+    ) -> "DefineRestartInterval":
         marker = reader.read_marker()
         assert marker == pyjpeg.marker.Marker.DRI
         length = reader.read_u16()

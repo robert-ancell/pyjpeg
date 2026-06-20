@@ -13,11 +13,11 @@ class HuffmanTable:
         self.table = table
 
     @classmethod
-    def dc(cls, destination: int, table: list[list[int]]) -> HuffmanTable:
+    def dc(cls, destination: int, table: list[list[int]]) -> "HuffmanTable":
         return cls(0, destination, table)
 
     @classmethod
-    def ac(cls, destination: int, table: list[list[int]]) -> HuffmanTable:
+    def ac(cls, destination: int, table: list[list[int]]) -> "HuffmanTable":
         return cls(1, destination, table)
 
     def __eq__(self, other: object) -> bool:
@@ -56,7 +56,7 @@ class DefineHuffmanTables(pyjpeg.segment.Segment):
                     writer.write_u8(symbol)
 
     @classmethod
-    def read(cls, reader: pyjpeg.io.Reader) -> DefineHuffmanTables:
+    def read(cls, reader: pyjpeg.io.Reader) -> "DefineHuffmanTables":
         marker = reader.read_marker()
         assert marker == pyjpeg.marker.Marker.DHT
         length = reader.read_u16()

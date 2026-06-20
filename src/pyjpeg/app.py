@@ -8,7 +8,7 @@ class ApplicationSpecificData(pyjpeg.segment.Segment):
         self.n = n
 
     @classmethod
-    def read(cls, reader: pyjpeg.io.Reader) -> ApplicationSpecificData:
+    def read(cls, reader: pyjpeg.io.Reader) -> "ApplicationSpecificData":
         marker = reader.read_marker()
         assert (
             marker >= pyjpeg.marker.Marker.APP0 and marker <= pyjpeg.marker.Marker.APP15
@@ -148,15 +148,15 @@ class JfifDensity:
         self.y = y
 
     @classmethod
-    def aspect_ratio(cls, x: int, y: int) -> JfifDensity:
+    def aspect_ratio(cls, x: int, y: int) -> "JfifDensity":
         return cls(JfifDensityUnit.ASPECT_RATIO, x, y)
 
     @classmethod
-    def dpi(cls, x: int, y: int) -> JfifDensity:
+    def dpi(cls, x: int, y: int) -> "JfifDensity":
         return cls(JfifDensityUnit.DPI, x, y)
 
     @classmethod
-    def dpcm(cls, x: int, y: int) -> JfifDensity:
+    def dpcm(cls, x: int, y: int) -> "JfifDensity":
         return cls(JfifDensityUnit.DPCM, x, y)
 
 

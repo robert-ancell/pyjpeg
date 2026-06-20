@@ -30,7 +30,7 @@ class Image:
         self.components = components
 
     @classmethod
-    def read(cls, reader: pyjpeg.io.Reader) -> Image:
+    def read(cls, reader: pyjpeg.io.Reader) -> "Image":
         number_of_lines = 0
         samples_per_line = 0
         components = []

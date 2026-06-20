@@ -12,7 +12,7 @@ class Comment(pyjpeg.segment.Segment):
         writer.write(self.data)
 
     @classmethod
-    def read(cls, reader: pyjpeg.io.Reader) -> Comment:
+    def read(cls, reader: pyjpeg.io.Reader) -> "Comment":
         marker = reader.read_marker()
         assert marker == pyjpeg.marker.Marker.COM
         length = reader.read_u16()

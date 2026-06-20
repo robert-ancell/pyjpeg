@@ -1,3 +1,6 @@
+import pyjpeg.io
+
+
 class Writer:
     def __init__(self, writer: pyjpeg.io.Writer) -> None:
         self.writer = writer

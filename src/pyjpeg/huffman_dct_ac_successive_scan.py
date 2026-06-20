@@ -105,7 +105,7 @@ class HuffmanDCTACSuccessiveScan(pyjpeg.segment.Segment):
         table: list[list[int]],
         spectral_selection: tuple[int, int] = (1, 63),
         point_transform: int = 0,
-    ) -> HuffmanDCTACSuccessiveScan:
+    ) -> "HuffmanDCTACSuccessiveScan":
         scan_reader = pyjpeg.huffman_scan.Reader(reader)
 
         updated_data_units = []

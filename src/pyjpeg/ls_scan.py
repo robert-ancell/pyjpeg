@@ -30,6 +30,86 @@ class LSScanComponent:
         return f"LSScanComponent(sampling_factor={self.sampling_factor})"
 
 
+class CodingParameters:
+    def __init__(
+        self,
+        difference_bound: int = 0,
+        maxval: int = 255,
+        gradient_thresholds: tuple[int, int, int] = (0, 0, 0),
+        reset: int = 0,
+    ) -> None:
+        self.difference_bound = difference_bound
+        self.maxval = maxval
+        self.gradient_thresholds = _generate_gradient_thresholds(
+            difference_bound, maxval, gradient_thresholds
+        )
+        self.reset = reset
+        if self.reset == 0:
+            self.reset = 64
+
+        assert self.gradient_thresholds[1] >= self.gradient_thresholds[0]
+        assert self.gradient_thresholds[2] >= self.gradient_thresholds[1]
+
+        # Derived parameters
+        self.range = ((maxval + 2 * difference_bound) // (2 * difference_bound + 1)) + 1
+        self.qbpp = math.ceil(math.log2(self.range))
+        bpp = max(2, math.ceil(math.log2(maxval + 1)))
+        self.limit = 2 * (bpp + max(8, bpp))
+
+    def classify(self, d: int) -> int:
+        if d <= -self.gradient_thresholds[2]:
+            return -4
+        elif d <= -self.gradient_thresholds[1]:
+            return -3
+        elif d <= -self.gradient_thresholds[0]:
+            return -2
+        elif d < -self.difference_bound:
+            return -1
+        elif d <= self.difference_bound:
+            return 0
+        elif d < self.gradient_thresholds[0]:
+            return 1
+        elif d < self.gradient_thresholds[1]:
+            return 2
+        elif d < self.gradient_thresholds[2]:
+            return 3
+        else:
+            return 4
+
+    def quantize_error(self, errval: int) -> int:
+        if self.difference_bound > 0:
+            delta = 2 * self.difference_bound + 1
+            if errval > 0:
+                errval = (errval + self.difference_bound) // delta
+            else:
+                errval = -(self.difference_bound - errval) // delta
+
+        max_error = (self.range + 1) // 2
+        min_error = max_error - self.range
+        if errval < min_error:
+            errval += self.range
+        if errval >= max_error:
+            errval -= self.range
+
+        return errval
+
+    def reconstruct(self, predicted_sample: int, errval: int) -> int:
+        delta = 2 * self.difference_bound + 1
+        sample = predicted_sample + errval * delta
+
+        if sample < -self.difference_bound:
+            sample += self.range * delta
+        if sample > self.maxval + self.difference_bound:
+            sample -= self.range * delta
+
+        if sample > self.maxval:
+            sample = self.maxval
+        if sample < 0:
+            sample = 0
+
+        return sample
+
+
 class LSScan(pyjpeg.segment.Segment):
     def __init__(
         self,
@@ -80,7 +160,7 @@ class LSScan(pyjpeg.segment.Segment):
         maxval: int = 255,
         gradient_thresholds: tuple[int, int, int] = (0, 0, 0),
         reset: int = 0,
-    ) -> LSScan:
+    ) -> "LSScan":
         assert len(components) > 0
         scan_reader = Reader(
             reader,
@@ -155,6 +235,257 @@ def _get_neighbours(
         else b
     )
     return (a, b, c, d)
+
+
+class RegularContext:
+    def __init__(self, accumulated_prediction_error_magnitude: int) -> None:
+        self.accumulated_prediction_error_magnitude = (
+            accumulated_prediction_error_magnitude
+        )
+        self.bias = 0
+        self.prediction_correction = 0
+        self.frequency_of_occurence = 1
+
+    def write_sample(
+        self,
+        writer: pyjpeg.golomb_scan.Writer,
+        parameters: CodingParameters,
+        sign: int,
+        sample: int,
+        a: int,
+        b: int,
+        c: int,
+    ) -> None:
+        predicted_sample = self._predict(parameters, sign, a, b, c)
+        errval = sign * (sample - predicted_sample)
+        errval = parameters.quantize_error(errval)
+        k = self._get_golomb_size()
+        mapped_errval = self._map_error(parameters, errval, k)
+        writer.write_value(
+            mapped_errval, self._get_golomb_size(), self._get_limit(parameters)
+        )
+        self._update_bias(parameters, errval)
+
+    def read_sample(
+        self,
+        reader: pyjpeg.golomb_scan.Reader,
+        parameters: CodingParameters,
+        sign: int,
+        a: int,
+        b: int,
+        c: int,
+    ) -> int:
+        predicted_sample = self._predict(parameters, sign, a, b, c)
+        k = self._get_golomb_size()
+        mapped_errval = reader.read_value(k, self._get_limit(parameters))
+        errval = self._unmap_error(parameters, mapped_errval, k)
+        self._update_bias(parameters, errval)
+        sample = parameters.reconstruct(predicted_sample, sign * errval)
+
+        return sample
+
+    def _predict(
+        self, parameters: CodingParameters, sign: int, a: int, b: int, c: int
+    ) -> int:
+        # Predict next value
+        if c >= max(a, b):
+            px = min(a, b)
+        elif c <= min(a, b):
+            px = max(a, b)
+        else:
+            px = a + b - c
+        px += sign * self.prediction_correction
+        if px > parameters.maxval:
+            px = parameters.maxval
+        elif px < 0:
+            px = 0
+        return px
+
+    def _get_golomb_size(self) -> int:
+        k = 0
+        while (
+            self.frequency_of_occurence << k
+            < self.accumulated_prediction_error_magnitude
+        ):
+            k += 1
+        return k
+
+    def _get_limit(self, parameters: CodingParameters) -> int:
+        return parameters.limit - parameters.qbpp - 1
+
+    def _get_error_mapping_offset(self, parameters: CodingParameters, k: int) -> int:
+        if (
+            parameters.difference_bound == 0
+            and k == 0
+            and 2 * self.bias <= -self.frequency_of_occurence
+        ):
+            return 1
+        else:
+            return 0
+
+    def _map_error(self, parameters: CodingParameters, errval: int, k: int) -> int:
+        offset = self._get_error_mapping_offset(parameters, k)
+        if errval < 0:
+            return ((-errval) * 2) - 1 - offset
+        else:
+            return (errval * 2) + offset
+
+    def _unmap_error(
+        self, parameters: CodingParameters, mapped_errval: int, k: int
+    ) -> int:
+        if mapped_errval % 2 == 1:
+            errval = -((mapped_errval + 1) // 2)
+        else:
+            errval = mapped_errval // 2
+
+        offset = self._get_error_mapping_offset(parameters, k)
+        if offset == 1:
+            return -(errval + 1)
+        else:
+            return errval
+
+    def _update_bias(self, parameters: CodingParameters, errval: int) -> None:
+        self.bias += errval * (2 * parameters.difference_bound + 1)
+        self.accumulated_prediction_error_magnitude += abs(errval)
+
+        if self.frequency_of_occurence == parameters.reset:
+            self.accumulated_prediction_error_magnitude >>= 1
+            if self.bias >= 0:
+                self.bias >>= 1
+            else:
+                self.bias = -((1 - self.bias) >> 1)
+            self.frequency_of_occurence >>= 1
+        self.frequency_of_occurence += 1
+
+        MIN_CORRECTION = -128
+        MAX_CORRECTION = 127
+        if self.bias <= -self.frequency_of_occurence:
+            self.bias += self.frequency_of_occurence
+            if self.bias <= -self.frequency_of_occurence:
+                self.bias = -self.frequency_of_occurence + 1
+            if self.prediction_correction > MIN_CORRECTION:
+                self.prediction_correction -= 1
+        elif self.bias > 0:
+            self.bias -= self.frequency_of_occurence
+            if self.bias > 0:
+                self.bias = 0
+            if self.prediction_correction < MAX_CORRECTION:
+                self.prediction_correction += 1
+
+
+class RunInterruptContext:
+    def __init__(self, a: int, near: bool) -> None:
+        self.accumulated_prediction_error_magnitude = a
+        self.near = near
+        self.frequency_of_occurence = 1
+        self.negative_prediction_error = 0
+
+    def write_sample(
+        self,
+        writer: pyjpeg.golomb_scan.Writer,
+        parameters: CodingParameters,
+        run_index: int,
+        sample: int,
+        a: int,
+        b: int,
+    ) -> None:
+        if self.near:
+            errval = sample - a
+        else:
+            errval = sample - b
+            if a > b:
+                errval = -errval
+        errval = parameters.quantize_error(errval)
+        k = self._get_golomb_size()
+        mapped_errval = self._map_error(errval, k)
+        writer.write_value(mapped_errval, k, self._get_limit(parameters, run_index))
+        self._update_accumulated_prediction_error(parameters, errval)
+
+    def read_sample(
+        self,
+        reader: pyjpeg.golomb_scan.Reader,
+        parameters: CodingParameters,
+        run_index: int,
+        a: int,
+        b: int,
+    ) -> int:
+        k = self._get_golomb_size()
+        mapped_errval = reader.read_value(k, self._get_limit(parameters, run_index))
+        errval = self._unmap_error(mapped_errval, k)
+        self._update_accumulated_prediction_error(parameters, errval)
+        if self.near:
+            predicted_sample = a
+        else:
+            predicted_sample = b
+            if a > b:
+                errval = -errval
+        return parameters.reconstruct(predicted_sample, errval)
+
+    def _get_golomb_size(self) -> int:
+        max_size = self.accumulated_prediction_error_magnitude
+        if self.near:
+            max_size += self.frequency_of_occurence >> 1
+        k = 0
+        while (self.frequency_of_occurence << k) < max_size:
+            k += 1
+        return k
+
+    def _get_limit(self, parameters: CodingParameters, run_index: int) -> int:
+        return parameters.limit - parameters.qbpp - 1 - run_widths[run_index] - 1
+
+    def _get_error_mapping_offset(self, nonzero: bool, k: int) -> int:
+        if (
+            nonzero
+            and k == 0
+            and 2 * self.negative_prediction_error < self.frequency_of_occurence
+        ):
+            return -1
+        else:
+            return 0
+
+    def _map_error(self, errval: int, k: int) -> int:
+        offset = self._get_error_mapping_offset(errval != 0, k)
+        if errval < 0:
+            mapped_errval = ((-errval) * 2) - 1 - offset
+        else:
+            mapped_errval = (errval * 2) + offset
+        if self.near:
+            mapped_errval -= 1
+        return mapped_errval
+
+    def _unmap_error(self, mapped_errval: int, k: int) -> int:
+        if self.near:
+            mapped_errval += 1
+
+        if mapped_errval % 2 == 1:
+            errval = -((mapped_errval + 1) // 2)
+        else:
+            errval = mapped_errval // 2
+
+        offset = self._get_error_mapping_offset(self.near or mapped_errval != 0, k)
+        if offset > 0:
+            return -(errval + 1)
+        elif offset < 0:
+            return -errval
+        else:
+            return errval
+
+    def _update_accumulated_prediction_error(
+        self, parameters: CodingParameters, errval: int
+    ) -> None:
+        if errval < 0:
+            self.negative_prediction_error += 1
+            self.accumulated_prediction_error_magnitude += -errval
+        else:
+            self.accumulated_prediction_error_magnitude += errval
+        if self.near:
+            self.accumulated_prediction_error_magnitude -= 1
+
+        if self.frequency_of_occurence == parameters.reset:
+            self.accumulated_prediction_error_magnitude >>= 1
+            self.frequency_of_occurence >>= 1
+            self.negative_prediction_error >>= 1
+        self.frequency_of_occurence += 1
 
 
 class Codec:
@@ -560,337 +891,6 @@ def _generate_gradient_thresholds(
         if t3 == 0:
             t3 = clamp(max(4, BASIC_T3 // factor + 7 * difference_bound), t2)
     return (t1, t2, t3)
-
-
-class CodingParameters:
-    def __init__(
-        self,
-        difference_bound: int = 0,
-        maxval: int = 255,
-        gradient_thresholds: tuple[int, int, int] = (0, 0, 0),
-        reset: int = 0,
-    ) -> None:
-        self.difference_bound = difference_bound
-        self.maxval = maxval
-        self.gradient_thresholds = _generate_gradient_thresholds(
-            difference_bound, maxval, gradient_thresholds
-        )
-        self.reset = reset
-        if self.reset == 0:
-            self.reset = 64
-
-        assert self.gradient_thresholds[1] >= self.gradient_thresholds[0]
-        assert self.gradient_thresholds[2] >= self.gradient_thresholds[1]
-
-        # Derived parameters
-        self.range = ((maxval + 2 * difference_bound) // (2 * difference_bound + 1)) + 1
-        self.qbpp = math.ceil(math.log2(self.range))
-        bpp = max(2, math.ceil(math.log2(maxval + 1)))
-        self.limit = 2 * (bpp + max(8, bpp))
-
-    def classify(self, d: int) -> int:
-        if d <= -self.gradient_thresholds[2]:
-            return -4
-        elif d <= -self.gradient_thresholds[1]:
-            return -3
-        elif d <= -self.gradient_thresholds[0]:
-            return -2
-        elif d < -self.difference_bound:
-            return -1
-        elif d <= self.difference_bound:
-            return 0
-        elif d < self.gradient_thresholds[0]:
-            return 1
-        elif d < self.gradient_thresholds[1]:
-            return 2
-        elif d < self.gradient_thresholds[2]:
-            return 3
-        else:
-            return 4
-
-    def quantize_error(self, errval: int) -> int:
-        if self.difference_bound > 0:
-            delta = 2 * self.difference_bound + 1
-            if errval > 0:
-                errval = (errval + self.difference_bound) // delta
-            else:
-                errval = -(self.difference_bound - errval) // delta
-
-        max_error = (self.range + 1) // 2
-        min_error = max_error - self.range
-        if errval < min_error:
-            errval += self.range
-        if errval >= max_error:
-            errval -= self.range
-
-        return errval
-
-    def reconstruct(self, predicted_sample: int, errval: int) -> int:
-        delta = 2 * self.difference_bound + 1
-        sample = predicted_sample + errval * delta
-
-        if sample < -self.difference_bound:
-            sample += self.range * delta
-        if sample > self.maxval + self.difference_bound:
-            sample -= self.range * delta
-
-        if sample > self.maxval:
-            sample = self.maxval
-        if sample < 0:
-            sample = 0
-
-        return sample
-
-
-class RegularContext:
-    def __init__(self, accumulated_prediction_error_magnitude: int) -> None:
-        self.accumulated_prediction_error_magnitude = (
-            accumulated_prediction_error_magnitude
-        )
-        self.bias = 0
-        self.prediction_correction = 0
-        self.frequency_of_occurence = 1
-
-    def write_sample(
-        self,
-        writer: pyjpeg.golomb_scan.Writer,
-        parameters: CodingParameters,
-        sign: int,
-        sample: int,
-        a: int,
-        b: int,
-        c: int,
-    ) -> None:
-        predicted_sample = self._predict(parameters, sign, a, b, c)
-        errval = sign * (sample - predicted_sample)
-        errval = parameters.quantize_error(errval)
-        k = self._get_golomb_size()
-        mapped_errval = self._map_error(parameters, errval, k)
-        writer.write_value(
-            mapped_errval, self._get_golomb_size(), self._get_limit(parameters)
-        )
-        self._update_bias(parameters, errval)
-
-    def read_sample(
-        self,
-        reader: pyjpeg.golomb_scan.Reader,
-        parameters: CodingParameters,
-        sign: int,
-        a: int,
-        b: int,
-        c: int,
-    ) -> int:
-        predicted_sample = self._predict(parameters, sign, a, b, c)
-        k = self._get_golomb_size()
-        mapped_errval = reader.read_value(k, self._get_limit(parameters))
-        errval = self._unmap_error(parameters, mapped_errval, k)
-        self._update_bias(parameters, errval)
-        sample = parameters.reconstruct(predicted_sample, sign * errval)
-
-        return sample
-
-    def _predict(
-        self, parameters: CodingParameters, sign: int, a: int, b: int, c: int
-    ) -> int:
-        # Predict next value
-        if c >= max(a, b):
-            px = min(a, b)
-        elif c <= min(a, b):
-            px = max(a, b)
-        else:
-            px = a + b - c
-        px += sign * self.prediction_correction
-        if px > parameters.maxval:
-            px = parameters.maxval
-        elif px < 0:
-            px = 0
-        return px
-
-    def _get_golomb_size(self) -> int:
-        k = 0
-        while (
-            self.frequency_of_occurence << k
-            < self.accumulated_prediction_error_magnitude
-        ):
-            k += 1
-        return k
-
-    def _get_limit(self, parameters: CodingParameters) -> int:
-        return parameters.limit - parameters.qbpp - 1
-
-    def _get_error_mapping_offset(self, parameters: CodingParameters, k: int) -> int:
-        if (
-            parameters.difference_bound == 0
-            and k == 0
-            and 2 * self.bias <= -self.frequency_of_occurence
-        ):
-            return 1
-        else:
-            return 0
-
-    def _map_error(self, parameters: CodingParameters, errval: int, k: int) -> int:
-        offset = self._get_error_mapping_offset(parameters, k)
-        if errval < 0:
-            return ((-errval) * 2) - 1 - offset
-        else:
-            return (errval * 2) + offset
-
-    def _unmap_error(
-        self, parameters: CodingParameters, mapped_errval: int, k: int
-    ) -> int:
-        if mapped_errval % 2 == 1:
-            errval = -((mapped_errval + 1) // 2)
-        else:
-            errval = mapped_errval // 2
-
-        offset = self._get_error_mapping_offset(parameters, k)
-        if offset == 1:
-            return -(errval + 1)
-        else:
-            return errval
-
-    def _update_bias(self, parameters: CodingParameters, errval: int) -> None:
-        self.bias += errval * (2 * parameters.difference_bound + 1)
-        self.accumulated_prediction_error_magnitude += abs(errval)
-
-        if self.frequency_of_occurence == parameters.reset:
-            self.accumulated_prediction_error_magnitude >>= 1
-            if self.bias >= 0:
-                self.bias >>= 1
-            else:
-                self.bias = -((1 - self.bias) >> 1)
-            self.frequency_of_occurence >>= 1
-        self.frequency_of_occurence += 1
-
-        MIN_CORRECTION = -128
-        MAX_CORRECTION = 127
-        if self.bias <= -self.frequency_of_occurence:
-            self.bias += self.frequency_of_occurence
-            if self.bias <= -self.frequency_of_occurence:
-                self.bias = -self.frequency_of_occurence + 1
-            if self.prediction_correction > MIN_CORRECTION:
-                self.prediction_correction -= 1
-        elif self.bias > 0:
-            self.bias -= self.frequency_of_occurence
-            if self.bias > 0:
-                self.bias = 0
-            if self.prediction_correction < MAX_CORRECTION:
-                self.prediction_correction += 1
-
-
-class RunInterruptContext:
-    def __init__(self, a: int, near: bool) -> None:
-        self.accumulated_prediction_error_magnitude = a
-        self.near = near
-        self.frequency_of_occurence = 1
-        self.negative_prediction_error = 0
-
-    def write_sample(
-        self,
-        writer: pyjpeg.golomb_scan.Writer,
-        parameters: CodingParameters,
-        run_index: int,
-        sample: int,
-        a: int,
-        b: int,
-    ) -> None:
-        if self.near:
-            errval = sample - a
-        else:
-            errval = sample - b
-            if a > b:
-                errval = -errval
-        errval = parameters.quantize_error(errval)
-        k = self._get_golomb_size()
-        mapped_errval = self._map_error(errval, k)
-        writer.write_value(mapped_errval, k, self._get_limit(parameters, run_index))
-        self._update_accumulated_prediction_error(parameters, errval)
-
-    def read_sample(
-        self,
-        reader: pyjpeg.golomb_scan.Reader,
-        parameters: CodingParameters,
-        run_index: int,
-        a: int,
-        b: int,
-    ) -> int:
-        k = self._get_golomb_size()
-        mapped_errval = reader.read_value(k, self._get_limit(parameters, run_index))
-        errval = self._unmap_error(mapped_errval, k)
-        self._update_accumulated_prediction_error(parameters, errval)
-        if self.near:
-            predicted_sample = a
-        else:
-            predicted_sample = b
-            if a > b:
-                errval = -errval
-        return parameters.reconstruct(predicted_sample, errval)
-
-    def _get_golomb_size(self) -> int:
-        max_size = self.accumulated_prediction_error_magnitude
-        if self.near:
-            max_size += self.frequency_of_occurence >> 1
-        k = 0
-        while (self.frequency_of_occurence << k) < max_size:
-            k += 1
-        return k
-
-    def _get_limit(self, parameters: CodingParameters, run_index: int) -> int:
-        return parameters.limit - parameters.qbpp - 1 - run_widths[run_index] - 1
-
-    def _get_error_mapping_offset(self, nonzero: bool, k: int) -> int:
-        if (
-            nonzero
-            and k == 0
-            and 2 * self.negative_prediction_error < self.frequency_of_occurence
-        ):
-            return -1
-        else:
-            return 0
-
-    def _map_error(self, errval: int, k: int) -> int:
-        offset = self._get_error_mapping_offset(errval != 0, k)
-        if errval < 0:
-            mapped_errval = ((-errval) * 2) - 1 - offset
-        else:
-            mapped_errval = (errval * 2) + offset
-        if self.near:
-            mapped_errval -= 1
-        return mapped_errval
-
-    def _unmap_error(self, mapped_errval: int, k: int) -> int:
-        if self.near:
-            mapped_errval += 1
-
-        if mapped_errval % 2 == 1:
-            errval = -((mapped_errval + 1) // 2)
-        else:
-            errval = mapped_errval // 2
-
-        offset = self._get_error_mapping_offset(self.near or mapped_errval != 0, k)
-        if offset > 0:
-            return -(errval + 1)
-        elif offset < 0:
-            return -errval
-        else:
-            return errval
-
-    def _update_accumulated_prediction_error(
-        self, parameters: CodingParameters, errval: int
-    ) -> None:
-        if errval < 0:
-            self.negative_prediction_error += 1
-            self.accumulated_prediction_error_magnitude += -errval
-        else:
-            self.accumulated_prediction_error_magnitude += errval
-        if self.near:
-            self.accumulated_prediction_error_magnitude -= 1
-
-        if self.frequency_of_occurence == parameters.reset:
-            self.accumulated_prediction_error_magnitude >>= 1
-            self.frequency_of_occurence >>= 1
-            self.negative_prediction_error >>= 1
-        self.frequency_of_occurence += 1
 
 
 if __name__ == "__main__":

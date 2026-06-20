@@ -1,3 +1,5 @@
+import pyjpeg.io
+
 # State machine as defined in ISO/IEC 10918-1 Table D.3
 # Contains (Qe, next_lps, next_mps, switch_mps)
 states = [

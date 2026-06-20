@@ -34,17 +34,17 @@ class FrameComponent:
         id: int,
         sampling_factor: tuple[int, int] = (1, 1),
         quantization_table_index: int = 0,
-    ) -> FrameComponent:
+    ) -> "FrameComponent":
         return cls(id, sampling_factor, quantization_table_index)
 
     @classmethod
     def lossless(
         cls, id: int, sampling_factor: tuple[int, int] = (1, 1)
-    ) -> FrameComponent:
+    ) -> "FrameComponent":
         return cls(id, sampling_factor, 0)
 
     @classmethod
-    def ls(cls, id: int, sampling_factor: tuple[int, int] = (1, 1)) -> FrameComponent:
+    def ls(cls, id: int, sampling_factor: tuple[int, int] = (1, 1)) -> "FrameComponent":
         return cls(id, sampling_factor, 0)
 
     def __eq__(self, other: object) -> bool:
@@ -80,7 +80,7 @@ class StartOfFrame(pyjpeg.segment.Segment):
         number_of_lines: int,
         samples_per_line: int,
         components: list[FrameComponent],
-    ) -> StartOfFrame:
+    ) -> "StartOfFrame":
         return cls(FrameType.BASELINE, 8, number_of_lines, samples_per_line, components)
 
     @classmethod
@@ -91,7 +91,7 @@ class StartOfFrame(pyjpeg.segment.Segment):
         components: list[FrameComponent],
         precision: int = 8,
         arithmetic: bool = False,
-    ) -> StartOfFrame:
+    ) -> "StartOfFrame":
         if arithmetic:
             n = FrameType.EXTENDED_ARITHMETIC
         else:
@@ -106,7 +106,7 @@ class StartOfFrame(pyjpeg.segment.Segment):
         components: list[FrameComponent],
         precision: int = 8,
         arithmetic: bool = False,
-    ) -> StartOfFrame:
+    ) -> "StartOfFrame":
         if arithmetic:
             n = FrameType.PROGRESSIVE_ARITHMETIC
         else:
@@ -121,7 +121,7 @@ class StartOfFrame(pyjpeg.segment.Segment):
         components: list[FrameComponent],
         precision: int = 8,
         arithmetic: bool = False,
-    ) -> StartOfFrame:
+    ) -> "StartOfFrame":
         if arithmetic:
             n = FrameType.LOSSLESS_ARITHMETIC
         else:
@@ -135,7 +135,7 @@ class StartOfFrame(pyjpeg.segment.Segment):
         samples_per_line: int,
         components: list[FrameComponent],
         precision: int = 8,
-    ) -> StartOfFrame:
+    ) -> "StartOfFrame":
         return cls(
             FrameType.LS, precision, number_of_lines, samples_per_line, components
         )
@@ -177,7 +177,7 @@ class StartOfFrame(pyjpeg.segment.Segment):
             writer.write_u8(component.quantization_table_index)
 
     @classmethod
-    def read(cls, reader: pyjpeg.io.Reader) -> StartOfFrame:
+    def read(cls, reader: pyjpeg.io.Reader) -> "StartOfFrame":
         marker = reader.read_marker()
         assert marker in (
             pyjpeg.marker.Marker.SOF0,

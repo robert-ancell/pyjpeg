@@ -18,7 +18,7 @@ class ExpandReferenceComponents(pyjpeg.segment.Segment):
         writer.write_u8(value)
 
     @classmethod
-    def read(cls, reader: pyjpeg.io.Reader) -> ExpandReferenceComponents:
+    def read(cls, reader: pyjpeg.io.Reader) -> "ExpandReferenceComponents":
         marker = reader.read_marker()
         assert marker == pyjpeg.marker.Marker.EXP
         length = reader.read_u16()
@@ -48,5 +48,5 @@ if __name__ == "__main__":
 
     reader = pyjpeg.io.BufferedReader(writer.data)
     exp = ExpandReferenceComponents.read(reader)
-    assert exp.expand_horizontal == True
-    assert exp.expand_vertical == False
+    assert exp.expand_horizontal
+    assert not exp.expand_vertical

@@ -88,7 +88,7 @@ class ArithmeticLosslessScan(pyjpeg.segment.Segment):
         components: list[ArithmeticLosslessScanComponent],
         precision: int = 8,
         predictor: int = 1,
-    ) -> ArithmeticLosslessScan:
+    ) -> "ArithmeticLosslessScan":
         samples = []
         scan_reader = Reader(reader)
         samples = [0] * number_of_samples

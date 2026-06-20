@@ -20,7 +20,7 @@ class ArithmeticDCTDCSuccessiveScan(pyjpeg.segment.Segment):
         reader: pyjpeg.io.Reader,
         data_units: list[list[int]],
         point_transform: int = 0,
-    ) -> ArithmeticDCTDCSuccessiveScan:
+    ) -> "ArithmeticDCTDCSuccessiveScan":
         scan_reader = pyjpeg.arithmetic.Reader(reader)
         updated_data_units = []
         for data_unit in data_units:

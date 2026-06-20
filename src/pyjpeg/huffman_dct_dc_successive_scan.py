@@ -22,7 +22,7 @@ class HuffmanDCTDCSuccessiveScan(pyjpeg.segment.Segment):
         reader: pyjpeg.io.Reader,
         data_units: list[list[int]],
         point_transform: int = 0,
-    ) -> HuffmanDCTDCSuccessiveScan:
+    ) -> "HuffmanDCTDCSuccessiveScan":
         scan_reader = pyjpeg.scan.Reader(reader)
         updated_data_units = []
         for data_unit in data_units:

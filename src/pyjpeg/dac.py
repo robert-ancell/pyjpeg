@@ -10,11 +10,11 @@ class ArithmeticConditioning:
         self.value = value
 
     @classmethod
-    def dc(cls, destination: int, bounds: tuple[int, int]) -> ArithmeticConditioning:
+    def dc(cls, destination: int, bounds: tuple[int, int]) -> "ArithmeticConditioning":
         return cls(0, destination, bounds[1] << 4 | bounds[0])
 
     @classmethod
-    def ac(cls, destination: int, kx: int) -> ArithmeticConditioning:
+    def ac(cls, destination: int, kx: int) -> "ArithmeticConditioning":
         return cls(1, destination, kx)
 
     def __eq__(self, other: object) -> bool:
@@ -44,7 +44,7 @@ class DefineArithmeticConditioning(pyjpeg.segment.Segment):
             writer.write_u8(table.value)
 
     @classmethod
-    def read(cls, reader: pyjpeg.io.Reader) -> DefineArithmeticConditioning:
+    def read(cls, reader: pyjpeg.io.Reader) -> "DefineArithmeticConditioning":
         marker = reader.read_marker()
         assert marker == pyjpeg.marker.Marker.DAC
         length = reader.read_u16()

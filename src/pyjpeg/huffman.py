@@ -1,3 +1,6 @@
+import pyjpeg.scan
+
+
 def make_huffman_table(frequencies: list[int]) -> list[list[int]]:
     assert len(frequencies) == 256
 

@@ -1,5 +1,3 @@
-from pdb import run
-
 import pyjpeg.arithmetic
 import pyjpeg.io
 
@@ -91,11 +89,9 @@ class Writer:
         assert ac != 0
 
         if ac > 0:
-            sign = 1
             magnitude = ac
             self.writer.write_fixed_bit(0)
         else:
-            sign = -1
             magnitude = -ac
             self.writer.write_fixed_bit(1)
 

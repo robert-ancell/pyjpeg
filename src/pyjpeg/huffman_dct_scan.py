@@ -98,7 +98,7 @@ class HuffmanDCTScan(pyjpeg.segment.Segment):
         components: list[HuffmanDCTScanComponent],
         spectral_selection: tuple[int, int] = (0, 63),
         point_transform: int = 0,
-    ) -> HuffmanDCTScan:
+    ) -> "HuffmanDCTScan":
         assert len(components) > 0
 
         scan_reader = Reader(

@@ -86,7 +86,7 @@ class ArithmeticDCTACSuccessiveScan(pyjpeg.segment.Segment):
         approximate_data_units: list[list[int]],
         spectral_selection: tuple[int, int] = (1, 63),
         point_transform: int = 0,
-    ) -> ArithmeticDCTACSuccessiveScan:
+    ) -> "ArithmeticDCTACSuccessiveScan":
         eob_states = [pyjpeg.arithmetic.State() for _ in range(63)]
         nonzero_states = [pyjpeg.arithmetic.State() for _ in range(63)]
         additional_states = [pyjpeg.arithmetic.State() for _ in range(63)]

@@ -17,15 +17,15 @@ class ScanComponent:
     @classmethod
     def dct(
         cls, component_selector: int, dc_table: int, ac_table: int
-    ) -> ScanComponent:
+    ) -> "ScanComponent":
         return cls(component_selector, dc_table, ac_table)
 
     @classmethod
-    def lossless(cls, component_selector: int, table: int) -> ScanComponent:
+    def lossless(cls, component_selector: int, table: int) -> "ScanComponent":
         return cls(component_selector, table, 0)
 
     @classmethod
-    def ls(cls, component_selector: int, mapping_table: int = 0) -> ScanComponent:
+    def ls(cls, component_selector: int, mapping_table: int = 0) -> "ScanComponent":
         return cls(component_selector, mapping_table >> 4, mapping_table & 0xF)
 
     def get_mapping_table(self) -> int:
@@ -64,7 +64,7 @@ class StartOfScan(pyjpeg.segment.Segment):
         spectral_selection: tuple[int, int] = (0, 63),
         point_transform: int = 0,
         previous_point_transform: int = 0,
-    ) -> StartOfScan:
+    ) -> "StartOfScan":
         assert point_transform >= 0 and point_transform <= 15
         assert previous_point_transform >= 0 and previous_point_transform <= 15
         return cls(
@@ -79,7 +79,7 @@ class StartOfScan(pyjpeg.segment.Segment):
         components: list[ScanComponent],
         predictor: int = 1,
         point_transform: int = 0,
-    ) -> StartOfScan:
+    ) -> "StartOfScan":
         assert point_transform >= 0 and point_transform <= 15
         return cls(components, (predictor, 0), point_transform)
 
@@ -90,7 +90,7 @@ class StartOfScan(pyjpeg.segment.Segment):
         difference_bound: int = 0,
         interleave_mode: int = 0,
         point_transform: int = 0,
-    ) -> StartOfScan:
+    ) -> "StartOfScan":
         assert point_transform >= 0 and point_transform <= 15
         return cls(components, (difference_bound, interleave_mode), point_transform)
 
@@ -106,7 +106,7 @@ class StartOfScan(pyjpeg.segment.Segment):
         writer.write_u8(self.point_transform)
 
     @classmethod
-    def read(cls, reader: pyjpeg.io.Reader) -> StartOfScan:
+    def read(cls, reader: pyjpeg.io.Reader) -> "StartOfScan":
         marker = reader.read_marker()
         assert marker == pyjpeg.marker.Marker.SOS
         length = reader.read_u16()

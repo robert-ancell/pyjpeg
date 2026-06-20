@@ -17,7 +17,7 @@ class Stream:
     # FIXME: Use empty Huffman tables instead of None
     # FIXME: Use list for tables instead of object
     @classmethod
-    def read(cls, reader: pyjpeg.io.Reader) -> Stream:
+    def read(cls, reader: pyjpeg.io.Reader) -> "Stream":
         quantization_tables = [[1] * 64, [1] * 64, [1] * 64, [1] * 64]
         dc_arithmetic_conditioning_bounds = [(0, 1), (0, 1), (0, 1), (0, 1)]
         ac_arithmetic_kx = [5, 5, 5, 5]

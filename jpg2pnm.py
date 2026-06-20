@@ -3,7 +3,7 @@
 import sys
 
 import pyjpeg
-from pnm import *
+from pnm import write_pnm
 
 if len(sys.argv) != 3:
     print("Usage: jpg2pnm.py <input.jpg> <output.pnm>")

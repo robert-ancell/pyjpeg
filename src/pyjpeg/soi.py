@@ -11,7 +11,7 @@ class StartOfImage(pyjpeg.segment.Segment):
         writer.write_marker(pyjpeg.marker.Marker.SOI)
 
     @classmethod
-    def read(cls, reader: pyjpeg.io.Reader) -> StartOfImage:
+    def read(cls, reader: pyjpeg.io.Reader) -> "StartOfImage":
         assert reader.read_marker() == pyjpeg.marker.Marker.SOI
         return cls()
 

@@ -10,7 +10,7 @@ class EndOfImage(pyjpeg.segment.Segment):
         writer.write_marker(pyjpeg.marker.Marker.EOI)
 
     @classmethod
-    def read(cls, reader: pyjpeg.io.Reader) -> EndOfImage:
+    def read(cls, reader: pyjpeg.io.Reader) -> "EndOfImage":
         assert reader.read_marker() == pyjpeg.marker.Marker.EOI
         return cls()
 
