@@ -107,7 +107,6 @@ class Stream:
             ):
                 sof = pyjpeg.StartOfFrame.read(reader)
                 segments.append(sof)
-                sof = sof
             elif marker == Marker.DHT:
                 dht = pyjpeg.DefineHuffmanTables.read(reader)
                 segments.append(dht)
@@ -163,7 +162,6 @@ class Stream:
             elif marker == Marker.SOS:
                 sos = pyjpeg.StartOfScan.read(reader)
                 segments.append(sos)
-                sos = sos
                 segments.append(parse_scan())
             elif marker in (
                 Marker.APP0,
