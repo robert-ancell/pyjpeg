@@ -5,9 +5,12 @@ The easiest way to get PyJPEG is to install from the [Python Packaging Index](ht
 pip install pyjpeg
 ```
 
-TODO Example:
+Example:
 ```python
 import pyjpeg
 
-# FIXME
+data = open('test.jpg', 'rb').read()
+reader = pyjpeg.io.BufferedReader(data)
+image = pyjpeg.Image.read(reader)
+print(image.components[0].samples)
 ```
