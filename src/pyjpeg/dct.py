@@ -9,7 +9,7 @@ def transform_coefficient(coefficient: int, point_transform: int) -> int:
 
 
 # Calculate the order that DCT coefficients are stored in the zig-zag pattern.
-def zig_zag_indexes() -> list[tuple[int, int]]:
+def zig_zag_indexes() -> list[int]:
     x = 0
     y = 0
     dx = 1

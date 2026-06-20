@@ -33,7 +33,7 @@ class Image:
     def read(cls, reader: pyjpeg.io.Reader) -> "Image":
         number_of_lines = 0
         samples_per_line = 0
-        components = []
+        components: list[Component] = []
         stream = pyjpeg.stream.Stream.read(reader)
         for segment in stream.segments:
             if isinstance(segment, pyjpeg.sof.StartOfFrame):
@@ -64,7 +64,7 @@ class Image:
         )
         dc_huffman_table = pyjpeg.huffman_tables.standard_luminance_dc_huffman_table
         ac_huffman_table = pyjpeg.huffman_tables.standard_luminance_ac_huffman_table
-        segments = [pyjpeg.soi.StartOfImage()]
+        segments: list[pyjpeg.segment.Segment] = [pyjpeg.soi.StartOfImage()]
         segments.append(
             pyjpeg.dqt.DefineQuantizationTables(
                 [pyjpeg.dqt.QuantizationTable(0, quantization_table)]
@@ -91,9 +91,13 @@ class Image:
             )
         )
         for component in self.components:
-            scan_components = [pyjpeg.sos.ScanComponent.dct(component.id, 0, 0)]
+            scan_components: list[pyjpeg.sos.ScanComponent] = [
+                pyjpeg.sos.ScanComponent.dct(component.id, 0, 0)
+            ]
             segments.append(pyjpeg.sos.StartOfScan.dct(scan_components))
-            scan_components = [
+            dct_scan_components: list[
+                pyjpeg.huffman_dct_scan.HuffmanDCTScanComponent
+            ] = [
                 pyjpeg.huffman_dct_scan.HuffmanDCTScanComponent(
                     dc_huffman_table,
                     ac_huffman_table,
@@ -109,7 +113,7 @@ class Image:
                     # FIXME: precision
                     data_units.append(pyjpeg.dct.fdct(samples, 8, quantization_table))
             segments.append(
-                pyjpeg.huffman_dct_scan.HuffmanDCTScan(data_units, scan_components)
+                pyjpeg.huffman_dct_scan.HuffmanDCTScan(data_units, dct_scan_components)
             )
         segments.append(pyjpeg.eoi.EndOfImage())
         stream = pyjpeg.stream.Stream(segments)

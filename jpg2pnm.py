@@ -9,14 +9,14 @@ if len(sys.argv) != 3:
     print("Usage: jpg2pnm.py <input.jpg> <output.pnm>")
     sys.exit(1)
 
-data = open(sys.argv[1], "rb").read()
-reader = pyjpeg.BufferedReader(data)
+jpeg_data = open(sys.argv[1], "rb").read()
+reader = pyjpeg.BufferedReader(jpeg_data)
 stream = pyjpeg.Stream.read(reader)
 
 data = []
 convert_ycbcr = False
-sof = None
-sos = None
+sof: pyjpeg.StartOfFrame | None = None
+sos: pyjpeg.StartOfScan | None = None
 quantization_tables = [
     [1] * 64,
     [1] * 64,
@@ -45,6 +45,7 @@ for segment in stream.segments:
     elif isinstance(segment, pyjpeg.HuffmanDCTScan) or isinstance(
         segment, pyjpeg.ArithmeticDCTScan
     ):
+        assert sof is not None
         # FIXME: Channels, sampling factor
         du_x = 0
         du_y = 0
@@ -78,7 +79,7 @@ for segment in stream.segments:
         for i, sample in enumerate(segment.samples):
             data[i] = sample
 
-
+assert sof is not None
 write_pnm(
     sys.argv[2],
     sof.samples_per_line,
