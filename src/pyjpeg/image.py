@@ -32,32 +32,75 @@ class Image:
 
     @classmethod
     def read(cls, reader: pyjpeg.io.Reader) -> "Image":
-        number_of_lines = 0
-        samples_per_line = 0
         components: list[Component] = []
+        components_by_id = {}
+        sof: pyjpeg.StartOfFrame | None = None
+        quantization_tables = [
+            [1] * 64,
+            [1] * 64,
+            [1] * 64,
+            [1] * 64,
+        ]
+
         stream = pyjpeg.stream.Stream.read(reader)
         for segment in stream.segments:
             if isinstance(segment, pyjpeg.sof.StartOfFrame):
-                number_of_lines = segment.number_of_lines
-                samples_per_line = segment.samples_per_line
+                sof = segment
                 components = []
                 for frame_component in segment.components:
                     samples = [0] * (
-                        number_of_lines
+                        sof.number_of_lines
                         // frame_component.sampling_factor[0]
-                        * samples_per_line
+                        * sof.samples_per_line
                         // frame_component.sampling_factor[1]
                     )
-                    components.append(
-                        Component(
-                            frame_component.id,
-                            samples,
-                            sampling_factor=frame_component.sampling_factor,
-                        )
+                    component = Component(
+                        frame_component.id,
+                        samples,
+                        sampling_factor=frame_component.sampling_factor,
                     )
+                    components.append(component)
+                    components_by_id[frame_component.id] = component
+            elif isinstance(segment, pyjpeg.dqt.DefineQuantizationTables):
+                for table in segment.tables:
+                    quantization_tables[table.destination] = table.values
             elif isinstance(segment, pyjpeg.sos.StartOfScan):
-                pass
-        return cls(number_of_lines, samples_per_line, components)
+                pass  # sos = segment
+            elif isinstance(segment, pyjpeg.HuffmanDCTScan):
+                assert sof is not None
+                # FIXME: Channels, sampling factor
+                du_x = 0
+                du_y = 0
+                sof_component = sof.get_component(sof.components[0].id)
+                component = components_by_id.get(sof_component.id)
+                assert component is not None
+                for data_unit in segment.data_units:
+                    samples = pyjpeg.dct.idct(
+                        data_unit,
+                        quantization_tables[sof_component.quantization_table_index],
+                        sof.precision,
+                    )
+                    x_max = 8
+                    if du_x + x_max > sof.samples_per_line:
+                        x_max = max(sof.samples_per_line - du_x, 0)
+                    y_max = 8
+                    if du_y + y_max > sof.number_of_lines:
+                        y_max = max(sof.number_of_lines - du_y, 0)
+                    for y in range(x_max):
+                        for x in range(y_max):
+                            component.samples[
+                                (du_y + y) * sof.samples_per_line + du_x + x
+                            ] = samples[y * 8 + x]
+
+                    du_x += 8
+                    if du_x >= sof.samples_per_line:
+                        du_x = 0
+                        du_y += 8
+            elif isinstance(segment, pyjpeg.eoi.EndOfImage):
+                assert sof is not None
+                return cls(sof.number_of_lines, sof.samples_per_line, components)
+
+        raise Exception("Missing end of image")
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
         quantization_table = (
