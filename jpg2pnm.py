@@ -17,6 +17,6 @@ write_pnm(
     sys.argv[2],
     image.samples_per_line,
     image.number_of_lines,
-    image.components[0].samples,
-    channels=1,
+    image.get_interleaved_samples(),
+    channels=len(image.components),
 )

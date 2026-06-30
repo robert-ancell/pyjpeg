@@ -72,8 +72,7 @@ class Image:
                 du_x = 0
                 du_y = 0
                 sof_component = sof.get_component(sof.components[0].id)
-                component = components_by_id.get(sof_component.id)
-                assert component is not None
+                component = components_by_id[sof_component.id]
                 for data_unit in segment.data_units:
                     samples = pyjpeg.dct.idct(
                         data_unit,
@@ -162,6 +161,16 @@ class Image:
         segments.append(pyjpeg.eoi.EndOfImage())
         stream = pyjpeg.stream.Stream(segments)
         stream.write(writer)
+
+    def get_interleaved_samples(self) -> list[int]:
+        if len(self.components) == 1:
+            return self.components[0].samples
+
+        samples: list[int] = []
+        for i in range(len(samples)):
+            for component in self.components:
+                samples.append(component.samples[i])
+        return samples
 
 
 if __name__ == "__main__":
