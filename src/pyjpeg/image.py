@@ -27,11 +27,16 @@ class Component:
 
 class Image:
     def __init__(
-        self, number_of_lines: int, samples_per_line: int, components: list[Component]
+        self,
+        number_of_lines: int,
+        samples_per_line: int,
+        components: list[Component],
+        precision: int = 8,
     ) -> None:
         self.number_of_lines = number_of_lines
         self.samples_per_line = samples_per_line
         self.components = components
+        self.precision = precision
 
     @classmethod
     def read(cls, reader: pyjpeg.io.Reader) -> "Image":
@@ -109,7 +114,12 @@ class Image:
                         du_coord[component_index] = (du_x, du_y)
             elif isinstance(segment, pyjpeg.eoi.EndOfImage):
                 assert sof is not None
-                return cls(sof.number_of_lines, sof.samples_per_line, components)
+                return cls(
+                    sof.number_of_lines,
+                    sof.samples_per_line,
+                    components,
+                    precision=sof.precision,
+                )
 
         raise Exception("Missing end of image")
 
@@ -185,7 +195,7 @@ class Image:
         return samples
 
     def __repr__(self) -> str:
-        return f"Image(number_of_lines={self.number_of_lines}, samples_per_line={self.samples_per_line}, components={self.components})"
+        return f"Image(number_of_lines={self.number_of_lines}, samples_per_line={self.samples_per_line}, components={self.components}, precision={self.precision})"
 
 
 if __name__ == "__main__":

@@ -18,5 +18,6 @@ write_pnm(
     image.samples_per_line,
     image.number_of_lines,
     image.get_interleaved_samples(),
+    max_value=(1 << image.precision) - 1,
     channels=len(image.components),
 )
