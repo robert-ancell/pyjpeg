@@ -21,6 +21,9 @@ class Component:
         self.samples = samples
         self.sampling_factor = sampling_factor
 
+    def __repr__(self) -> str:
+        return f"Component(id={self.id}, len(samples)={len(self.samples)}, sampling_factor={self.sampling_factor})"
+
 
 class Image:
     def __init__(
@@ -35,6 +38,7 @@ class Image:
         components: list[Component] = []
         components_by_id = {}
         sof: pyjpeg.StartOfFrame | None = None
+        sos: pyjpeg.StartOfScan | None = None
         quantization_tables = [
             [1] * 64,
             [1] * 64,
@@ -65,36 +69,44 @@ class Image:
                 for table in segment.tables:
                     quantization_tables[table.destination] = table.values
             elif isinstance(segment, pyjpeg.sos.StartOfScan):
-                pass  # sos = segment
+                sos = segment
             elif isinstance(segment, pyjpeg.HuffmanDCTScan):
                 assert sof is not None
-                # FIXME: Channels, sampling factor
-                du_x = 0
-                du_y = 0
-                sof_component = sof.get_component(sof.components[0].id)
-                component = components_by_id[sof_component.id]
-                for data_unit in segment.data_units:
-                    samples = pyjpeg.dct.idct(
-                        data_unit,
-                        quantization_tables[sof_component.quantization_table_index],
-                        sof.precision,
-                    )
-                    x_max = 8
-                    if du_x + x_max > sof.samples_per_line:
-                        x_max = max(sof.samples_per_line - du_x, 0)
-                    y_max = 8
-                    if du_y + y_max > sof.number_of_lines:
-                        y_max = max(sof.number_of_lines - du_y, 0)
-                    for y in range(x_max):
-                        for x in range(y_max):
-                            component.samples[
-                                (du_y + y) * sof.samples_per_line + du_x + x
-                            ] = samples[y * 8 + x]
+                assert sos is not None
+                # FIXME: sampling factor
+                du_coord = [(0, 0), (0, 0), (0, 0), (0, 0)]
+                du_index = 0
+                while du_index < len(segment.data_units):
+                    for component_index, sos_component in enumerate(sos.components):
+                        sof_component = sof.get_component(
+                            sos_component.component_selector
+                        )
+                        component = components_by_id[sof_component.id]
+                        samples = pyjpeg.dct.idct(
+                            segment.data_units[du_index],
+                            quantization_tables[sof_component.quantization_table_index],
+                            sof.precision,
+                        )
+                        du_index += 1
 
-                    du_x += 8
-                    if du_x >= sof.samples_per_line:
-                        du_x = 0
-                        du_y += 8
+                        du_x, du_y = du_coord[component_index]
+                        x_max = 8
+                        if du_x + x_max > sof.samples_per_line:
+                            x_max = max(sof.samples_per_line - du_x, 0)
+                        y_max = 8
+                        if du_y + y_max > sof.number_of_lines:
+                            y_max = max(sof.number_of_lines - du_y, 0)
+                        for y in range(x_max):
+                            for x in range(y_max):
+                                component.samples[
+                                    (du_y + y) * sof.samples_per_line + du_x + x
+                                ] = samples[y * 8 + x]
+
+                        du_x += 8
+                        if du_x >= sof.samples_per_line:
+                            du_x = 0
+                            du_y += 8
+                        du_coord[component_index] = (du_x, du_y)
             elif isinstance(segment, pyjpeg.eoi.EndOfImage):
                 assert sof is not None
                 return cls(sof.number_of_lines, sof.samples_per_line, components)
@@ -167,10 +179,13 @@ class Image:
             return self.components[0].samples
 
         samples: list[int] = []
-        for i in range(len(samples)):
+        for i in range(len(self.components[0].samples)):
             for component in self.components:
                 samples.append(component.samples[i])
         return samples
+
+    def __repr__(self) -> str:
+        return f"Image(number_of_lines={self.number_of_lines}, samples_per_line={self.samples_per_line}, components={self.components})"
 
 
 if __name__ == "__main__":
