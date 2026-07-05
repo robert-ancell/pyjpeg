@@ -9,7 +9,21 @@ Example:
 ```python
 import pyjpeg
 
-reader = pyjpeg.io.FileReader(open('test.jpg', 'rb'))
+reader = pyjpeg.FileReader(open('test.jpg', 'rb'))
 image = pyjpeg.Image.read(reader)
 print(image.components[0].samples)
+
+samples = [
+    0,   0,   0,   0,   0,   0,   0,  0,
+    0,   0,   0,   255, 255, 255, 0,  0,
+    0,   0,   0,   0,   255, 0,   0,  0,
+    0,   0,   0,   0,   255, 0,   0,  0,
+    0,   0,   255, 0,   255, 0,   0,  0,
+    0,   0,   255, 0,   255, 0,   0,  0,
+    0,   0,   0,   255, 0,   0,   0,  0,
+    0,   0,   0,   0,   0,   0,   0,  0,
+]
+out_image = pyjpeg.Image(8, 8, [pyjpeg.Component(1, samples)])
+writer = pyjpeg.FileWriter(open('test_out.jpg', 'wb'))
+out_image.write(writer)
 ```
