@@ -3,8 +3,8 @@
 import argparse
 import sys
 
-import pyjpeg
 from pnm import read_pnm, write_pnm
+from src import pyjpeg
 
 
 def encode_jpeg(args: argparse.Namespace) -> None:

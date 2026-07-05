@@ -2,11 +2,11 @@
 
 import sys
 
-import pyjpeg
+from src import pyjpeg
 
 
 def print_data_unit(data_unit: list[int]) -> None:
-    values = pyjpeg.dct.unzig_zag(data_unit)
+    values = pyjpeg.unzig_zag(data_unit)
 
     cols = []
     for x in range(8):
