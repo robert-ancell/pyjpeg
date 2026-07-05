@@ -171,12 +171,25 @@ class Image:
             data_units = []
             width_in_data_units = (self.samples_per_line + 7) // 8
             height_in_data_units = (self.number_of_lines + 7) // 8
-            for y in range(height_in_data_units):
-                for x in range(width_in_data_units):
-                    # FIXME
-                    samples = [0] * 64
-                    # FIXME: precision
-                    data_units.append(pyjpeg.dct.fdct(samples, 8, quantization_table))
+            du_samples = [0] * 64
+            for du_y in range(0, height_in_data_units * 8, 8):
+                for du_x in range(0, width_in_data_units * 8, 8):
+                    index = 0
+                    for y in range(du_y, du_y + 8):
+                        for x in range(du_x, du_x + 8):
+                            if y >= self.number_of_lines:
+                                sample = du_samples[index - 8]
+                            elif x >= self.samples_per_line:
+                                sample = du_samples[index - 1]
+                            else:
+                                sample = component.samples[
+                                    y * self.samples_per_line + x
+                                ]
+                            du_samples[index] = sample
+                            index += 1
+                    data_units.append(
+                        pyjpeg.dct.fdct(du_samples, self.precision, quantization_table)
+                    )
             segments.append(
                 pyjpeg.huffman_dct_scan.HuffmanDCTScan(data_units, dct_scan_components)
             )
