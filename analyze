@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import argparse
 import sys
 
 from src import pyjpeg
@@ -29,11 +30,13 @@ def print_data_unit(data_unit: list[int]) -> None:
         print("  %s" % " ".join(row))
 
 
-if len(sys.argv) != 2:
-    print("Usage: analyze <filename.jpg>")
-    sys.exit(1)
+parser = argparse.ArgumentParser(
+    prog="analyze", description="A tool for analyze JPEG images."
+)
+parser.add_argument("input", help="Path to the input JPEG file")
+args = parser.parse_args(sys.argv[1:])
 
-data = open(sys.argv[1], "rb").read()
+data = open(args.input, "rb").read()
 reader = pyjpeg.BufferedReader(data)
 stream = pyjpeg.Stream.read(reader)
 
