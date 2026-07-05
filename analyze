@@ -30,7 +30,7 @@ def print_data_unit(data_unit: list[int]) -> None:
 
 
 if len(sys.argv) != 2:
-    print("Usage: analyze.py <filename.jpg>")
+    print("Usage: analyze <filename.jpg>")
     sys.exit(1)
 
 data = open(sys.argv[1], "rb").read()
