@@ -1,3 +1,6 @@
+from typing import BinaryIO
+
+
 class Writer:
     def __init__(self) -> None:
         pass
@@ -89,3 +92,31 @@ class BufferedReader(Reader):
             raise EOFError
 
         return self.data[self.offset + offset]
+
+
+class FileWriter(Writer):
+    def __init__(self, f: BinaryIO) -> None:
+        self.f = f
+
+    def write_u8(self, value: int) -> None:
+        self.f.write(bytes([value]))
+
+
+class FileReader(Reader):
+    def __init__(self, f: BinaryIO) -> None:
+        self.f = f
+
+    def read_u8(self) -> int:
+        data = self.f.read(1)
+        if not data:
+            raise EOFError
+        return data[0]
+
+    def peek_u8(self, offset: int = 0) -> int:
+        pos = self.f.tell()
+        self.f.seek(offset, 1)
+        data = self.f.read(1)
+        self.f.seek(pos)
+        if not data:
+            raise EOFError
+        return data[0]

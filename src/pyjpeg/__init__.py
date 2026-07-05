@@ -46,7 +46,14 @@ from pyjpeg.huffman_tables import (
     standard_luminance_dc_huffman_table,
 )
 from pyjpeg.image import Component, Image
-from pyjpeg.io import BufferedReader, BufferedWriter, Reader, Writer
+from pyjpeg.io import (
+    BufferedReader,
+    BufferedWriter,
+    FileReader,
+    FileWriter,
+    Reader,
+    Writer,
+)
 from pyjpeg.ls_scan import LSInterleaveMode, LSScan, LSScanComponent
 from pyjpeg.lse import (
     LSCodingParameters,
@@ -90,6 +97,8 @@ __all__ = [
     "EndOfImage",
     "ExifHeader",
     "ExpandReferenceComponents",
+    "FileReader",
+    "FileWriter",
     "FrameComponent",
     "FrameType",
     "HuffmanDCTACSuccessiveScan",

@@ -36,8 +36,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument("input", help="Path to the input JPEG file")
 args = parser.parse_args(sys.argv[1:])
 
-data = open(args.input, "rb").read()
-reader = pyjpeg.BufferedReader(data)
+reader = pyjpeg.FileReader(open(args.input, "rb"))
 stream = pyjpeg.Stream.read(reader)
 
 is_lossless = False

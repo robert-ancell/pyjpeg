@@ -24,16 +24,12 @@ def encode_jpeg(args: argparse.Namespace) -> None:
         components=components,
     )
 
-    # FIXME: Make FileWriter
-    writer = pyjpeg.BufferedWriter()
+    writer = pyjpeg.FileWriter(open(args.output, "wb"))
     image.write(writer)
-    open(args.output, "wb").write(writer.data)
 
 
 def decode_jpeg(args: argparse.Namespace) -> None:
-    # FIXME: Make FileReader
-    jpeg_data = open(args.input, "rb").read()
-    reader = pyjpeg.BufferedReader(jpeg_data)
+    reader = pyjpeg.FileReader(open(args.input, "rb"))
     image = pyjpeg.Image.read(reader)
 
     write_pnm(
