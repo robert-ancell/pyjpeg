@@ -9,8 +9,7 @@ Example:
 ```python
 import pyjpeg
 
-data = open('test.jpg', 'rb').read()
-reader = pyjpeg.io.BufferedReader(data)
+reader = pyjpeg.io.FileReader(open('test.jpg', 'rb'))
 image = pyjpeg.Image.read(reader)
 print(image.components[0].samples)
 ```
