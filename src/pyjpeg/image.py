@@ -42,8 +42,8 @@ class Image:
     def read(cls, reader: pyjpeg.io.Reader) -> "Image":
         components: list[Component] = []
         components_by_id = {}
-        sof: pyjpeg.StartOfFrame | None = None
-        sos: pyjpeg.StartOfScan | None = None
+        sof: pyjpeg.sof.StartOfFrame | None = None
+        sos: pyjpeg.sos.StartOfScan | None = None
         quantization_tables = [
             [1] * 64,
             [1] * 64,
@@ -75,7 +75,7 @@ class Image:
                     quantization_tables[table.destination] = table.values
             elif isinstance(segment, pyjpeg.sos.StartOfScan):
                 sos = segment
-            elif isinstance(segment, pyjpeg.HuffmanDCTScan):
+            elif isinstance(segment, pyjpeg.huffman_dct_scan.HuffmanDCTScan):
                 assert sof is not None
                 assert sos is not None
                 # FIXME: sampling factor
