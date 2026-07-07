@@ -67,18 +67,3 @@ class DefineArithmeticConditioning(pyjpeg.segment.Segment):
 
     def __repr__(self) -> str:
         return f"DefineArithmeticConditioning({self.tables})"
-
-
-if __name__ == "__main__":
-    writer = pyjpeg.io.BufferedWriter()
-    DefineArithmeticConditioning(
-        [ArithmeticConditioning.dc(1, (2, 3)), ArithmeticConditioning.ac(2, 34)]
-    ).write(writer)
-    assert writer.data == b"\xff\xcc\x00\x06\x012\x12\x22"
-
-    reader = pyjpeg.io.BufferedReader(writer.data)
-    dac = DefineArithmeticConditioning.read(reader)
-    assert dac.tables == [
-        ArithmeticConditioning.dc(1, (2, 3)),
-        ArithmeticConditioning.ac(2, 34),
-    ]

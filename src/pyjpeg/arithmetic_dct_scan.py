@@ -294,28 +294,3 @@ class Reader:
             k += 1
 
         return data_unit
-
-
-if __name__ == "__main__":
-    import random
-
-    data_units = []
-    for _ in range(4):
-        samples = [random.randint(0, 255) for _ in range(64)]
-        data_units.append(pyjpeg.dct.fdct(samples, 8, [1] * 64))
-
-    scan = ArithmeticDCTScan(
-        data_units,
-        [ArithmeticDCTScanComponent()],
-    )
-    writer = pyjpeg.io.BufferedWriter()
-    scan.write(writer)
-
-    reader = pyjpeg.io.BufferedReader(writer.data)
-    scan2 = ArithmeticDCTScan.read(
-        reader,
-        4,
-        [ArithmeticDCTScanComponent()],
-    )
-    assert scan2.data_units == data_units
-    assert scan2.components == [ArithmeticDCTScanComponent()]

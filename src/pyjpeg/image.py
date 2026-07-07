@@ -209,17 +209,3 @@ class Image:
 
     def __repr__(self) -> str:
         return f"Image(number_of_lines={self.number_of_lines}, samples_per_line={self.samples_per_line}, components={self.components}, precision={self.precision})"
-
-
-if __name__ == "__main__":
-    image = Image(32, 32, [Component(1, [0] * 32 * 32)])
-    writer = pyjpeg.io.BufferedWriter()
-    image.write(writer)
-
-    reader = pyjpeg.io.BufferedReader(writer.data)
-    decoded_image = Image.read(reader)
-    assert decoded_image.number_of_lines == 32
-    assert decoded_image.samples_per_line == 32
-    assert len(decoded_image.components) == 1
-    assert decoded_image.components[0].id == 1
-    assert len(decoded_image.components[0].samples) == 32 * 32

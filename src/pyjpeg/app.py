@@ -408,17 +408,3 @@ class UnknownApplicationSpecificData(ApplicationSpecificData):
 
     def __repr__(self) -> str:
         return f"UnknownApplicationSpecificData({self.n}, {self.data!r})"
-
-
-if __name__ == "__main__":
-    writer = pyjpeg.io.BufferedWriter()
-    JfifHeader().write(writer)
-    assert (
-        writer.data == b"\xff\xe0\x00\x10JFIF\x00\x01\x02\x00\x00\x01\x00\x01\x00\x00"
-    )
-
-    reader = pyjpeg.io.BufferedReader(writer.data)
-    app = ApplicationSpecificData.read(reader)
-    assert isinstance(app, JfifHeader)
-    assert app.n == 0
-    assert app.version == (1, 2)

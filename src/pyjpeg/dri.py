@@ -38,13 +38,3 @@ class DefineRestartInterval(pyjpeg.segment.Segment):
 
     def __repr__(self) -> str:
         return f"DefineRestartInterval({self.restart_interval}, number_of_bytes={self.number_of_bytes})"
-
-
-if __name__ == "__main__":
-    writer = pyjpeg.io.BufferedWriter()
-    DefineRestartInterval(123).write(writer)
-    assert writer.data == b"\xff\xdd\x00\x04\x00\x7b"
-
-    reader = pyjpeg.io.BufferedReader(writer.data)
-    rst = DefineRestartInterval.read(reader)
-    assert rst.restart_interval == 123

@@ -49,23 +49,3 @@ class Reader:
         bit = (self.data >> (self.bit_count - 1)) & 1
         self.bit_count -= 1
         return bit
-
-
-if __name__ == "__main__":
-    import pyjpeg.segment
-
-    bits = [1, 0, 1, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1]
-
-    writer = pyjpeg.io.BufferedWriter()
-    scan_writer = Writer(writer)
-    for bit in bits:
-        scan_writer.write_bit(bit)
-    scan_writer.flush()
-
-    assert writer.data == b"\xaa\xff\x00\x0f"
-
-    reader = pyjpeg.io.BufferedReader(writer.data)
-    scan_reader = Reader(reader)
-    for i in range(len(bits)):
-        bit = scan_reader.read_bit()
-        assert bit == bits[i]

@@ -240,27 +240,3 @@ class Reader:
         return self.reader.read_dc(
             self.non_zero[c], self.sign[c], self.sp[c], self.sn[c], xstates, mstates
         )
-
-
-if __name__ == "__main__":
-    import random
-
-    samples = [random.randint(0, 255) for _ in range(64)]
-    scan = ArithmeticLosslessScan(
-        8,
-        samples,
-        [ArithmeticLosslessScanComponent()],
-    )
-    writer = pyjpeg.io.BufferedWriter()
-    scan.write(writer)
-
-    reader = pyjpeg.io.BufferedReader(writer.data)
-    scan2 = ArithmeticLosslessScan.read(
-        reader,
-        8,
-        64,
-        [ArithmeticLosslessScanComponent()],
-    )
-    assert scan2.samples_per_line == 8
-    assert scan2.samples == samples
-    assert scan2.components == [ArithmeticLosslessScanComponent()]

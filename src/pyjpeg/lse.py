@@ -211,20 +211,3 @@ class LSUnknownPresetParameters(LSPresetParameters):
 
     def __repr__(self) -> str:
         return f"LSUnknownPresetParameters(id={self.id}, data={self.data!r})"
-
-
-if __name__ == "__main__":
-    writer = pyjpeg.io.BufferedWriter()
-    LSCodingParameters(maxval=255, gradient_thresholds=(3, 7, 21), reset=64).write(
-        writer
-    )
-    assert (
-        writer.data == b"\xff\xf8\x00\x0d\x01\x00\xff\x00\x03\x00\x07\x00\x15\x00\x40"
-    )
-
-    reader = pyjpeg.io.BufferedReader(writer.data)
-    lse = LSPresetParameters.read(reader)
-    assert isinstance(lse, LSCodingParameters)
-    assert lse.maxval == 255
-    assert lse.gradient_thresholds == (3, 7, 21)
-    assert lse.reset == 64

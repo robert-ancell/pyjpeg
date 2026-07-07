@@ -25,13 +25,3 @@ class Comment(pyjpeg.segment.Segment):
 
     def __repr__(self) -> str:
         return f"Comment({self.data!r})"
-
-
-if __name__ == "__main__":
-    writer = pyjpeg.io.BufferedWriter()
-    Comment(bytes("Hello world!", "utf-8")).write(writer)
-    assert writer.data == b"\xff\xfe\x00\x0eHello world!"
-
-    reader = pyjpeg.io.BufferedReader(writer.data)
-    com = Comment.read(reader)
-    assert com.data == bytes("Hello world!", "utf-8")

@@ -246,25 +246,3 @@ class StartOfFrame(pyjpeg.segment.Segment):
             return f"StartOfFrame.lossless({self.number_of_lines}, {self.samples_per_line}, {self.components}, precision={self.precision}, arithmetic={self.n == 11})"
         else:
             return f"StartOfFrame({self.n}, {self.precision}, {self.number_of_lines}, {self.samples_per_line}, {self.components})"
-
-
-if __name__ == "__main__":
-    writer = pyjpeg.io.BufferedWriter()
-    StartOfFrame(
-        10, 8, 480, 640, [FrameComponent(42, (1, 2), 0), FrameComponent(43, (2, 3), 1)]
-    ).write(writer)
-    assert (
-        writer.data
-        == b"\xff\xca\x00\x0e\x08\x01\xe0\x02\x80\x02\x2a\x12\x00\x2b\x23\x01"
-    )
-
-    reader = pyjpeg.io.BufferedReader(writer.data)
-    sof = StartOfFrame.read(reader)
-    assert sof.n == 10
-    assert sof.precision == 8
-    assert sof.number_of_lines == 480
-    assert sof.samples_per_line == 640
-    assert sof.components == [
-        FrameComponent(42, (1, 2), 0),
-        FrameComponent(43, (2, 3), 1),
-    ]

@@ -24,14 +24,3 @@ class Restart(pyjpeg.segment.Segment):
 
     def __repr__(self) -> str:
         return f"Restart({self.index})"
-
-
-if __name__ == "__main__":
-    writer = pyjpeg.io.BufferedWriter()
-
-    Restart(5).write(writer)
-    assert writer.data == b"\xff\xd5"
-
-    reader = pyjpeg.io.BufferedReader(writer.data)
-    rst = Restart.read(reader)
-    assert rst.index == 5

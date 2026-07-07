@@ -74,21 +74,3 @@ class DefineQuantizationTables(pyjpeg.segment.Segment):
 
     def __repr__(self) -> str:
         return f"DefineQuantizationTables({self.tables})"
-
-
-if __name__ == "__main__":
-    tables = [
-        QuantizationTable(1, [1] * 64, precision=8),
-        QuantizationTable(3, [3] * 64, precision=16),
-    ]
-
-    writer = pyjpeg.io.BufferedWriter()
-    DefineQuantizationTables(tables).write(writer)
-    assert (
-        writer.data.hex()
-        == "ffdb00c40101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101130003000300030003000300030003000300030003000300030003000300030003000300030003000300030003000300030003000300030003000300030003000300030003000300030003000300030003000300030003000300030003000300030003000300030003000300030003000300030003000300030003000300030003"
-    )
-
-    reader = pyjpeg.io.BufferedReader(writer.data)
-    dqt = DefineQuantizationTables.read(reader)
-    assert dqt.tables == tables

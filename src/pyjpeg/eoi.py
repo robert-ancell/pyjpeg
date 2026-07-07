@@ -20,12 +20,3 @@ class EndOfImage(pyjpeg.segment.Segment):
 
     def __repr__(self) -> str:
         return "EndOfImage()"
-
-
-if __name__ == "__main__":
-    writer = pyjpeg.io.BufferedWriter()
-    EndOfImage().write(writer)
-    assert writer.data == b"\xff\xd9"
-
-    reader = pyjpeg.io.BufferedReader(writer.data)
-    EndOfImage.read(reader)

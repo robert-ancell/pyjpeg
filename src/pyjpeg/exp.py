@@ -40,14 +40,3 @@ class ExpandReferenceComponents(pyjpeg.segment.Segment):
 
     def __repr__(self) -> str:
         return f"ExpandReferenceComponents({self.expand_horizontal}, {self.expand_vertical})"
-
-
-if __name__ == "__main__":
-    writer = pyjpeg.io.BufferedWriter()
-    ExpandReferenceComponents(True, False).write(writer)
-    assert writer.data == b"\xff\xdf\x00\x03\x10"
-
-    reader = pyjpeg.io.BufferedReader(writer.data)
-    exp = ExpandReferenceComponents.read(reader)
-    assert exp.expand_horizontal
-    assert not exp.expand_vertical

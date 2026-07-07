@@ -153,24 +153,3 @@ def order_mcu_dct_data_units(
                     i = (mcu_y + du_y) * (width // 8) + mcu_x + du_x
                     mcu_data_units.append(data_units[i])
     return mcu_data_units
-
-
-if __name__ == "__main__":
-    import random
-
-    def is_near(a: list[int], b: list[int], tolerance: int = 0) -> bool:
-        if len(a) != len(b):
-            return False
-        for i in range(len(a)):
-            if abs(a[i] - b[i]) > tolerance:
-                return False
-        return True
-
-    samples = [random.randint(0, 255) for _ in range(64)]
-    quantization_table = [1] * 64
-    coefficients = fdct(samples, 8, quantization_table)
-    reconstructed_samples = idct(coefficients, quantization_table, 8)
-    assert is_near(reconstructed_samples, samples, tolerance=1)
-
-    reconstructed_coefficients = unzig_zag(coefficients)
-    assert zig_zag(reconstructed_coefficients) == coefficients

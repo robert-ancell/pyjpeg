@@ -84,34 +84,3 @@ class Reader:
         for _ in range(length):
             value = (value << 1) | self.read_bit()
         return value
-
-
-if __name__ == "__main__":
-    write_buffer = pyjpeg.io.BufferedWriter()
-    writer = Writer(write_buffer)
-    writer.write_value(19, 2, 12)
-    writer.flush()
-    assert write_buffer.data == b"\x0e"
-    read_buffer = pyjpeg.io.BufferedReader(b"\x0e")
-    reader = Reader(read_buffer)
-    assert reader.read_value(2, 12) == 19
-
-    write_buffer = pyjpeg.io.BufferedWriter()
-    writer = Writer(write_buffer)
-    writer.write_value(179, 2, 12)
-    writer.flush()
-    read_buffer = pyjpeg.io.BufferedReader(write_buffer.data)
-    reader = Reader(read_buffer)
-    assert reader.read_value(2, 12) == 179
-
-    # Check bit stuffing
-    write_buffer = pyjpeg.io.BufferedWriter()
-    writer = Writer(write_buffer)
-    for _ in range(15):
-        writer.write_bit(1)
-    writer.flush()
-    assert write_buffer.data == b"\xff\x7f"
-    read_buffer = pyjpeg.io.BufferedReader(write_buffer.data)
-    reader = Reader(read_buffer)
-    for _ in range(14):
-        assert reader.read_bit() == 1

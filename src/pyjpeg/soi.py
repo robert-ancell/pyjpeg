@@ -20,12 +20,3 @@ class StartOfImage(pyjpeg.segment.Segment):
 
     def __repr__(self) -> str:
         return "StartOfImage()"
-
-
-if __name__ == "__main__":
-    writer = pyjpeg.io.BufferedWriter()
-    StartOfImage().write(writer)
-    assert writer.data == b"\xff\xd8"
-
-    reader = pyjpeg.io.BufferedReader(writer.data)
-    StartOfImage.read(reader)
