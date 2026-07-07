@@ -97,7 +97,7 @@ class ArithmeticDCTACSuccessiveScan(pyjpeg.segment.Segment):
             updated_data_units.append([0] * 64)
 
         scan_reader = pyjpeg.arithmetic.Reader(reader)
-        for data_unit_index, data_unit in enumerate(data_units):
+        for data_unit_index, data_unit in enumerate(approximate_data_units):
             updated_data_unit = updated_data_units[data_unit_index]
 
             eob_prev = spectral_selection[1] + 1
