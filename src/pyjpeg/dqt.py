@@ -46,7 +46,8 @@ class DefineQuantizationTables(pyjpeg.segment.Segment):
     @classmethod
     def read(cls, reader: pyjpeg.io.Reader) -> "DefineQuantizationTables":
         marker = reader.read_marker()
-        assert marker == pyjpeg.marker.Marker.DQT
+        if marker != pyjpeg.marker.Marker.DQT:
+            raise pyjpeg.io.MarkerError("Invalid DQT marker")
         length = reader.read_u16()
         if length < 2:
             raise pyjpeg.io.LengthError("Invalid DQT length")

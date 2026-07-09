@@ -109,7 +109,8 @@ class StartOfScan(pyjpeg.segment.Segment):
     @classmethod
     def read(cls, reader: pyjpeg.io.Reader) -> "StartOfScan":
         marker = reader.read_marker()
-        assert marker == pyjpeg.marker.Marker.SOS
+        if marker != pyjpeg.marker.Marker.SOS:
+            raise pyjpeg.io.MarkerError("Invalid SOS marker")
         length = reader.read_u16()
         if length < 6:
             raise pyjpeg.io.LengthError("Invalid SOS length")

@@ -46,7 +46,8 @@ class DefineArithmeticConditioning(pyjpeg.segment.Segment):
     @classmethod
     def read(cls, reader: pyjpeg.io.Reader) -> "DefineArithmeticConditioning":
         marker = reader.read_marker()
-        assert marker == pyjpeg.marker.Marker.DAC
+        if marker != pyjpeg.marker.Marker.DAC:
+            raise pyjpeg.io.MarkerError("Invalid DAC marker")
         length = reader.read_u16()
         if length < 3 or (length - 2) % 2 != 0:
             raise pyjpeg.io.LengthError("Invalid DAC length")

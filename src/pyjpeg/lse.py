@@ -17,7 +17,8 @@ class LSPresetParameters(pyjpeg.segment.Segment):
     @classmethod
     def read(cls, reader: pyjpeg.io.Reader) -> "LSPresetParameters":
         marker = reader.read_marker()
-        assert marker == pyjpeg.marker.Marker.LSE
+        if marker != pyjpeg.marker.Marker.LSE:
+            raise pyjpeg.io.MarkerError("Invalid LSE marker")
         length = reader.read_u16()
         if length < 3:
             raise pyjpeg.io.LengthError("Invalid LSE length")

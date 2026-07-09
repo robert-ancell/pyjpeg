@@ -14,9 +14,8 @@ class Restart(pyjpeg.segment.Segment):
     @classmethod
     def read(cls, reader: pyjpeg.io.Reader) -> "Restart":
         marker = reader.read_marker()
-        assert (
-            marker >= pyjpeg.marker.Marker.RST0 and marker <= pyjpeg.marker.Marker.RST7
-        )
+        if marker < pyjpeg.marker.Marker.RST0 or marker > pyjpeg.marker.Marker.RST7:
+            raise pyjpeg.io.MarkerError("Invalid RST marker")
         return cls(marker - pyjpeg.marker.Marker.RST0)
 
     def __eq__(self, other: object) -> bool:

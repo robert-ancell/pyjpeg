@@ -180,7 +180,7 @@ class StartOfFrame(pyjpeg.segment.Segment):
     @classmethod
     def read(cls, reader: pyjpeg.io.Reader) -> "StartOfFrame":
         marker = reader.read_marker()
-        assert marker in (
+        if marker not in (
             pyjpeg.marker.Marker.SOF0,
             pyjpeg.marker.Marker.SOF1,
             pyjpeg.marker.Marker.SOF2,
@@ -196,7 +196,8 @@ class StartOfFrame(pyjpeg.segment.Segment):
             pyjpeg.marker.Marker.SOF15,
             pyjpeg.marker.Marker.SOF55,
             pyjpeg.marker.Marker.SOF57,
-        )
+        ):
+            raise pyjpeg.io.MarkerError("Invalid SOF marker")
         n = marker - pyjpeg.marker.Marker.SOF0
         length = reader.read_u16()
         if length < 8:

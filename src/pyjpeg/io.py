@@ -9,6 +9,10 @@ class LengthError(ReadError):
     pass
 
 
+class MarkerError(ReadError):
+    pass
+
+
 class Writer:
     def __init__(self) -> None:
         pass

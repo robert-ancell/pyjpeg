@@ -59,7 +59,8 @@ class DefineHuffmanTables(pyjpeg.segment.Segment):
     @classmethod
     def read(cls, reader: pyjpeg.io.Reader) -> "DefineHuffmanTables":
         marker = reader.read_marker()
-        assert marker == pyjpeg.marker.Marker.DHT
+        if marker != pyjpeg.marker.Marker.DHT:
+            raise pyjpeg.io.MarkerError("Invalid DHT marker")
         length = reader.read_u16()
         if length < 2:
             raise pyjpeg.io.LengthError("Insufficient DHT length")

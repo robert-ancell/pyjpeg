@@ -12,7 +12,9 @@ class StartOfImage(pyjpeg.segment.Segment):
 
     @classmethod
     def read(cls, reader: pyjpeg.io.Reader) -> "StartOfImage":
-        assert reader.read_marker() == pyjpeg.marker.Marker.SOI
+        marker = reader.read_marker()
+        if marker != pyjpeg.marker.Marker.SOI:
+            raise pyjpeg.io.MarkerError("Invalid SOI marker")
         return cls()
 
     def __eq__(self, other: object) -> bool:

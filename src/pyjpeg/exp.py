@@ -21,7 +21,8 @@ class ExpandReferenceComponents(pyjpeg.segment.Segment):
     @classmethod
     def read(cls, reader: pyjpeg.io.Reader) -> "ExpandReferenceComponents":
         marker = reader.read_marker()
-        assert marker == pyjpeg.marker.Marker.EXP
+        if marker != pyjpeg.marker.Marker.EXP:
+            raise pyjpeg.io.MarkerError("Invalid EXP marker")
         length = reader.read_u16()
         if length != 3:
             raise pyjpeg.io.LengthError("Invalid EXP length")

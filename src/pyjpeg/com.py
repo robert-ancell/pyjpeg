@@ -15,7 +15,8 @@ class Comment(pyjpeg.segment.Segment):
     @classmethod
     def read(cls, reader: pyjpeg.io.Reader) -> "Comment":
         marker = reader.read_marker()
-        assert marker == pyjpeg.marker.Marker.COM
+        if marker != pyjpeg.marker.Marker.COM:
+            raise pyjpeg.io.MarkerError("Invalid COM marker")
         length = reader.read_u16()
         data = reader.read(length - 2)
         return cls(data)
