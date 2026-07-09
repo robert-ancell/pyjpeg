@@ -1,5 +1,6 @@
 import pyjpeg.dct
 import pyjpeg.dht
+import pyjpeg.dnl
 import pyjpeg.dqt
 import pyjpeg.eoi
 import pyjpeg.huffman_dct_scan
@@ -44,6 +45,7 @@ class Image:
         components_by_id = {}
         sof: pyjpeg.sof.StartOfFrame | None = None
         sos: pyjpeg.sos.StartOfScan | None = None
+        dnl: pyjpeg.dnl.DefineNumberOfLines | None = None
         quantization_tables = [
             [1] * 64,
             [1] * 64,
@@ -101,8 +103,8 @@ class Image:
                         y_max = 8
                         if du_y + y_max > sof.number_of_lines:
                             y_max = max(sof.number_of_lines - du_y, 0)
-                        for y in range(x_max):
-                            for x in range(y_max):
+                        for y in range(y_max):
+                            for x in range(x_max):
                                 component.samples[
                                     (du_y + y) * sof.samples_per_line + du_x + x
                                 ] = samples[y * 8 + x]
@@ -112,10 +114,16 @@ class Image:
                             du_x = 0
                             du_y += 8
                         du_coord[component_index] = (du_x, du_y)
+            elif isinstance(segment, pyjpeg.dnl.DefineNumberOfLines):
+                dnl = segment
             elif isinstance(segment, pyjpeg.eoi.EndOfImage):
                 assert sof is not None
+                if dnl is not None:
+                    number_of_lines = dnl.number_of_lines
+                else:
+                    number_of_lines = sof.number_of_lines
                 return cls(
-                    sof.number_of_lines,
+                    number_of_lines,
                     sof.samples_per_line,
                     components,
                     precision=sof.precision,
