@@ -1,4 +1,5 @@
 import math
+import operator
 
 
 def transform_coefficient(coefficient: int, point_transform: int) -> int:
@@ -101,9 +102,7 @@ def fdct(values: list[int], precision: int, quantization_table: list[int]) -> li
     shifted_values = [value - offset for value in values]
     for coefficient_index in range(64):
         coefficient_weights = precalculated_dct_weights[coefficient_index]
-        s = 0.0
-        for value_index, value in enumerate(shifted_values):
-            s += coefficient_weights[value_index] * value
+        s = sum(map(operator.mul, coefficient_weights, shifted_values))
         coefficients[coefficient_index] = round(
             (precalculated_coefficient_constants[coefficient_index] * s)
             / quantization_table[coefficient_index]
