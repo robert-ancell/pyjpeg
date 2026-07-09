@@ -13,8 +13,7 @@ class Writer:
         self.write_u8(marker)
 
     def write_unsigned(self, value: int, number_of_bytes: int) -> None:
-        for i in reversed(range(number_of_bytes)):
-            self.write_u8((value >> (8 * i)) & 0xFF)
+        self.write(value.to_bytes(number_of_bytes, "big"))
 
     def write_u16(self, value: int) -> None:
         self.write_unsigned(value, 2)
@@ -23,6 +22,7 @@ class Writer:
         self.write_unsigned(value, 4)
 
     def write(self, data: bytes) -> None:
+        # Fallback for implementations that don't override this.
         for byte in data:
             self.write_u8(byte)
 
@@ -48,10 +48,7 @@ class Reader:
         return self.peek_u8(1)
 
     def read_unsigned(self, number_of_bytes: int) -> int:
-        value = 0
-        for _ in range(number_of_bytes):
-            value = value << 8 | self.read_u8()
-        return value
+        return int.from_bytes(self.read(number_of_bytes), "big")
 
     def read_u16(self) -> int:
         return self.read_unsigned(2)
@@ -60,7 +57,8 @@ class Reader:
         return self.read_unsigned(4)
 
     def read(self, length: int) -> bytes:
-        data = []
+        # Fallback for implementations that don't override this.
+        data = bytearray()
         for _ in range(length):
             data.append(self.read_u8())
         return bytes(data)
@@ -72,6 +70,9 @@ class BufferedWriter(Writer):
 
     def write_u8(self, value: int) -> None:
         self.data.append(value)
+
+    def write(self, data: bytes) -> None:
+        self.data.extend(data)
 
 
 class BufferedReader(Reader):
@@ -93,13 +94,24 @@ class BufferedReader(Reader):
 
         return self.data[self.offset + offset]
 
+    def read(self, length: int) -> bytes:
+        if self.offset + length > len(self.data):
+            raise EOFError
+
+        data = bytes(self.data[self.offset : self.offset + length])
+        self.offset += length
+        return data
+
 
 class FileWriter(Writer):
     def __init__(self, f: BinaryIO) -> None:
         self.f = f
 
     def write_u8(self, value: int) -> None:
-        self.f.write(bytes([value]))
+        self.f.write(bytes((value,)))
+
+    def write(self, data: bytes) -> None:
+        self.f.write(data)
 
 
 class FileReader(Reader):
@@ -120,3 +132,9 @@ class FileReader(Reader):
         if not data:
             raise EOFError
         return data[0]
+
+    def read(self, length: int) -> bytes:
+        data = self.f.read(length)
+        if len(data) != length:
+            raise EOFError
+        return data
