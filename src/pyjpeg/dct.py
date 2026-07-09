@@ -122,6 +122,8 @@ def idct(
     for sample_index in range(64):
         s = 0.0
         for coefficient_index, coefficient in enumerate(coefficients):
+            if coefficient == 0:
+                continue
             coefficient_weights = precalculated_dct_weights[coefficient_index]
             s += (
                 precalculated_coefficient_constants[coefficient_index]
