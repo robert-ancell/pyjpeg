@@ -15,6 +15,6 @@ jobs:
         with:
           python-version: "3.13"
       - name: Install mypy
-        run: pip install mypy
+        run: pip install mypy pytest
       - name: Run mypy
         run: mypy .
