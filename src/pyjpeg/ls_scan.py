@@ -47,8 +47,10 @@ class CodingParameters:
         if self.reset == 0:
             self.reset = 64
 
-        assert self.gradient_thresholds[1] >= self.gradient_thresholds[0]
-        assert self.gradient_thresholds[2] >= self.gradient_thresholds[1]
+        if self.gradient_thresholds[1] < self.gradient_thresholds[0]:
+            raise ValueError("Invalid gradient thresholds")
+        if self.gradient_thresholds[2] < self.gradient_thresholds[1]:
+            raise ValueError("Invalid gradient thresholds")
 
         # Derived parameters
         self.range = ((maxval + 2 * difference_bound) // (2 * difference_bound + 1)) + 1
@@ -122,7 +124,27 @@ class LSScan(pyjpeg.segment.Segment):
         gradient_thresholds: tuple[int, int, int] = (0, 0, 0),
         reset: int = 0,
     ) -> None:
-        assert len(components) > 0
+        if len(components) == 0:
+            raise ValueError("No components")
+        if interleave_mode not in [
+            LSInterleaveMode.NONE,
+            LSInterleaveMode.LINE,
+            LSInterleaveMode.SAMPLE,
+        ]:
+            raise ValueError("Invalid interleave mode")
+        if interleave_mode == LSInterleaveMode.NONE:
+            if len(components) != 1:
+                raise ValueError("Expected 1 component for NONE interleave mode")
+        elif interleave_mode == LSInterleaveMode.LINE:
+            if len(components) <= 1:
+                raise ValueError(
+                    "Expected at least 2 components for LINE interleave mode"
+                )
+        elif interleave_mode == LSInterleaveMode.SAMPLE:
+            if len(components) <= 1:
+                raise ValueError(
+                    "Expected at least 2 components for SAMPLE interleave mode"
+                )
         self.width = width
         self.samples = samples
         self.components = components
@@ -161,7 +183,8 @@ class LSScan(pyjpeg.segment.Segment):
         gradient_thresholds: tuple[int, int, int] = (0, 0, 0),
         reset: int = 0,
     ) -> "LSScan":
-        assert len(components) > 0
+        if len(components) == 0:
+            raise ValueError("No components")
         scan_reader = Reader(
             reader,
             width,
@@ -585,16 +608,11 @@ class Writer(Codec):
 
     def write(self) -> None:
         if self.interleave_mode == LSInterleaveMode.NONE:
-            assert len(self.components) == 1
             self.write_non_interleaved()
         elif self.interleave_mode == LSInterleaveMode.LINE:
-            assert len(self.components) > 0
             self.write_line_interleaved()
         elif self.interleave_mode == LSInterleaveMode.SAMPLE:
-            assert len(self.components) > 0
             self.write_sample_interleaved()
-        else:
-            assert False
         self.writer.flush()
 
     def write_non_interleaved(self) -> None:
@@ -739,16 +757,11 @@ class Reader(Codec):
 
     def read(self) -> list[int]:
         if self.interleave_mode == LSInterleaveMode.NONE:
-            assert len(self.components) == 1
             self.read_non_interleaved()
         elif self.interleave_mode == LSInterleaveMode.LINE:
-            assert len(self.components) > 1
             self.read_line_interleaved()
         elif self.interleave_mode == LSInterleaveMode.SAMPLE:
-            assert len(self.components) > 1
             self.read_sample_interleaved()
-        else:
-            assert False
         return self.samples
 
     def read_non_interleaved(self) -> None:
