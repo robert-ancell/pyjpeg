@@ -82,7 +82,8 @@ class DefineHuffmanTables(pyjpeg.segment.Segment):
                 offset += symbols_length
                 table.append(symbols)
             tables.append(HuffmanTable(table_class, destination, table))
-        assert offset == length
+        if offset != length:
+            raise pyjpeg.io.LengthError("Invalid DHT length")
         return cls(tables)
 
     def __eq__(self, other: object) -> bool:

@@ -67,7 +67,8 @@ class DefineQuantizationTables(pyjpeg.segment.Segment):
                     values.append(reader.read_u16())
                 offset += 129
             tables.append(QuantizationTable(destination, values, precision=precision))
-        assert offset == length
+        if offset != length:
+            raise pyjpeg.io.LengthError("Invalid DQT length")
         return cls(tables)
 
     def __eq__(self, other: object) -> bool:
