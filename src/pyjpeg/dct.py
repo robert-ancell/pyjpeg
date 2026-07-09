@@ -84,7 +84,7 @@ def dct_coefficient_weights(u: int, v: int) -> list[float]:
 
 def dct_weights() -> list[list[float]]:
     weights = []
-    for coefficient_index, sample_index in enumerate(precalculated_zig_zag_indexes):
+    for sample_index in precalculated_zig_zag_indexes:
         u = sample_index % 8
         v = sample_index // 8
         weights.append(dct_coefficient_weights(u, v))
