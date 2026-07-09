@@ -40,7 +40,8 @@ precalculated_zig_zag_indexes = zig_zag_indexes()
 
 
 def zig_zag(coefficients: list[int]) -> list[int]:
-    assert len(coefficients) == 64
+    if len(coefficients) != 64:
+        raise ValueError("coefficients must have 64 elements")
     zz = []
     for index in precalculated_zig_zag_indexes:
         zz.append(coefficients[index])
@@ -48,7 +49,8 @@ def zig_zag(coefficients: list[int]) -> list[int]:
 
 
 def unzig_zag(zz: list[int]) -> list[int]:
-    assert len(zz) == 64
+    if len(zz) != 64:
+        raise ValueError("zz must have 64 elements")
     coefficients = [0] * 64
     for i, index in enumerate(precalculated_zig_zag_indexes):
         coefficients[index] = zz[i]
