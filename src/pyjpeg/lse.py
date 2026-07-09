@@ -19,10 +19,12 @@ class LSPresetParameters(pyjpeg.segment.Segment):
         marker = reader.read_marker()
         assert marker == pyjpeg.marker.Marker.LSE
         length = reader.read_u16()
-        assert length >= 3
+        if length < 3:
+            raise pyjpeg.io.LengthError("Invalid LSE length")
         id = reader.read_u8()
         if id == LSPresetParametersId.CODING_PARAMETERS:
-            assert length == 13
+            if length != 13:
+                raise pyjpeg.io.LengthError("Invalid LSE length")
             maxval = reader.read_u16()
             t1 = reader.read_u16()
             t2 = reader.read_u16()
@@ -32,23 +34,27 @@ class LSPresetParameters(pyjpeg.segment.Segment):
                 maxval=maxval, gradient_thresholds=(t1, t2, t3), reset=reset
             )
         elif id == LSPresetParametersId.MAPPING_TABLE:
-            assert length >= 5
+            if length < 5:
+                raise pyjpeg.io.LengthError("Invalid LSE length")
             table_id = reader.read_u8()
             weight = reader.read_u8()
             table_length = length - 5
             table = reader.read(table_length)
             return LSMappingTable(table_id, table, weight=weight)
         elif id == LSPresetParametersId.MAPPING_TABLE_CONTINUATION:
-            assert length >= 5
+            if length < 5:
+                raise pyjpeg.io.LengthError("Invalid LSE length")
             table_id = reader.read_u8()
             weight = reader.read_u8()
             table_length = length - 5
             table = reader.read(table_length)
             return LSMappingTableContinuation(table_id, table, weight=weight)
         elif id == LSPresetParametersId.OVERSIZE_IMAGE_DIMENSION:
-            assert length >= 4
+            if length < 4:
+                raise pyjpeg.io.LengthError("Invalid LSE length")
             number_of_bytes = reader.read_u8()
-            assert length == 4 + number_of_bytes * 2
+            if length != 4 + number_of_bytes * 2:
+                raise pyjpeg.io.LengthError("Invalid LSE length")
             number_of_lines = reader.read_unsigned(number_of_bytes)
             samples_per_line = reader.read_unsigned(number_of_bytes)
             assert samples_per_line > 0

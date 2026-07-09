@@ -199,12 +199,14 @@ class StartOfFrame(pyjpeg.segment.Segment):
         )
         n = marker - pyjpeg.marker.Marker.SOF0
         length = reader.read_u16()
-        assert length >= 8
+        if length < 8:
+            raise pyjpeg.io.LengthError("Invalid SOF length")
         precision = reader.read_u8()
         number_of_lines = reader.read_u16()
         samples_per_line = reader.read_u16()
         num_components = reader.read_u8()
-        assert length == 8 + num_components * 3
+        if length != 8 + num_components * 3:
+            raise pyjpeg.io.LengthError("Invalid SOF length")
         components = []
         for _ in range(num_components):
             component_id = reader.read_u8()

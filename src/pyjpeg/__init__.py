@@ -51,7 +51,9 @@ from pyjpeg.io import (
     BufferedWriter,
     FileReader,
     FileWriter,
+    LengthError,
     Reader,
+    ReadError,
     Writer,
 )
 from pyjpeg.ls_scan import LSInterleaveMode, LSScan, LSScanComponent
@@ -115,6 +117,7 @@ __all__ = [
     "JfifJpegThumbnail",
     "JfifPalletizedThumbnail",
     "JfifRgbThumbnail",
+    "LengthError",
     "LSCodingParameters",
     "LSInterleaveMode",
     "LSMappingTable",
@@ -125,6 +128,7 @@ __all__ = [
     "LSScanComponent",
     "LSUnknownPresetParameters",
     "QuantizationTable",
+    "ReadError",
     "Reader",
     "Restart",
     "Segment",

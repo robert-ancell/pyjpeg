@@ -15,7 +15,8 @@ class ApplicationSpecificData(pyjpeg.segment.Segment):
             marker >= pyjpeg.marker.Marker.APP0 and marker <= pyjpeg.marker.Marker.APP15
         )
         length = reader.read_u16()
-        assert length > 2
+        if length < 2:
+            raise pyjpeg.io.LengthError("Invalid APPn length")
 
         def check_extension(extension_marker: int, signature: bytes) -> bool:
             if marker != extension_marker:
@@ -27,7 +28,8 @@ class ApplicationSpecificData(pyjpeg.segment.Segment):
             return True
 
         if check_extension(pyjpeg.marker.Marker.APP0, b"JFIF\x00"):
-            assert length >= 16
+            if length < 16:
+                raise pyjpeg.io.LengthError("Invalid APP0 JFIF length")
             version_major = reader.read_u8()
             version_minor = reader.read_u8()
             density_unit = reader.read_u8()
@@ -36,7 +38,8 @@ class ApplicationSpecificData(pyjpeg.segment.Segment):
             thumbnail_width = reader.read_u8()
             thumbnail_height = reader.read_u8()
             thumbnail_length = thumbnail_width * thumbnail_height * 3
-            assert length == 16 + thumbnail_length
+            if length != 16 + thumbnail_length:
+                raise pyjpeg.io.LengthError("Invalid APP0 JFIF length")
             thumbnail_data = []
             for _ in range(thumbnail_length):
                 thumbnail_data.append(reader.read_u8())
@@ -47,7 +50,8 @@ class ApplicationSpecificData(pyjpeg.segment.Segment):
                 thumbnail_data=thumbnail_data,
             )
         elif check_extension(pyjpeg.marker.Marker.APP0, b"JFXX\x00"):
-            assert length >= 8
+            if length < 8:
+                raise pyjpeg.io.LengthError("Invalid APP0 JFXX length")
             thumbnail_format = reader.read_u8()
             if thumbnail_format == 0x10:
                 jpeg_thumbnail_data = reader.read(length - 8)
@@ -55,14 +59,16 @@ class ApplicationSpecificData(pyjpeg.segment.Segment):
                     jpeg_thumbnail_data,
                 )
             elif thumbnail_format == 0x11:
-                assert length >= 778
+                if length < 778:
+                    raise pyjpeg.io.LengthError("Invalid APP0 JFXX length")
                 thumbnail_width = reader.read_u8()
                 thumbnail_height = reader.read_u8()
                 palette = []
                 for _ in range(768):
                     palette.append(reader.read_u8())
                 thumbnail_length = thumbnail_width * thumbnail_height
-                assert length == 778 + thumbnail_length
+                if length != 778 + thumbnail_length:
+                    raise pyjpeg.io.LengthError("Invalid APP0 JFXX length")
                 thumbnail_data = []
                 for _ in range(thumbnail_length):
                     thumbnail_data.append(reader.read_u8())
@@ -73,11 +79,13 @@ class ApplicationSpecificData(pyjpeg.segment.Segment):
                     thumbnail_data,
                 )
             elif thumbnail_format == 0x12:
-                assert length >= 10
+                if length < 10:
+                    raise pyjpeg.io.LengthError("Invalid APP0 JFXX length")
                 thumbnail_width = reader.read_u8()
                 thumbnail_height = reader.read_u8()
                 thumbnail_length = thumbnail_width * thumbnail_height * 3
-                assert length == 10 + thumbnail_length
+                if length != 10 + thumbnail_length:
+                    raise pyjpeg.io.LengthError("Invalid APP0 JFXX length")
                 thumbnail_data = []
                 for _ in range(thumbnail_length):
                     thumbnail_data.append(reader.read_u8())
@@ -91,7 +99,8 @@ class ApplicationSpecificData(pyjpeg.segment.Segment):
         elif check_extension(pyjpeg.marker.Marker.APP1, b"Exif\x00\x00"):
             return ExifHeader(reader.read(length - 8))
         elif check_extension(pyjpeg.marker.Marker.APP8, b"SPIFF\x00"):
-            assert length == 32
+            if length != 32:
+                raise pyjpeg.io.LengthError("Invalid APP8 SPIFF length")
             version = reader.read_u16()
             version_major = version >> 8
             version_minor = version & 0xFF
@@ -120,7 +129,8 @@ class ApplicationSpecificData(pyjpeg.segment.Segment):
                 vertical_resoution=vertical_resoution,
             )
         elif check_extension(pyjpeg.marker.Marker.APP14, b"Adobe"):
-            assert length == 14
+            if length != 14:
+                raise pyjpeg.io.LengthError("Invalid APP14 Adobe length")
             version = reader.read_u16()
             assert version in (100, 101)
             flags0 = reader.read_u16()

@@ -111,9 +111,11 @@ class StartOfScan(pyjpeg.segment.Segment):
         marker = reader.read_marker()
         assert marker == pyjpeg.marker.Marker.SOS
         length = reader.read_u16()
-        assert length >= 6
+        if length < 6:
+            raise pyjpeg.io.LengthError("Invalid SOS length")
         num_components = reader.read_u8()
-        assert length == 6 + num_components * 2
+        if length != 6 + num_components * 2:
+            raise pyjpeg.io.LengthError("Invalid SOS length")
         components = []
         for _ in range(num_components):
             component_selector = reader.read_u8()

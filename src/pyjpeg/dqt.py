@@ -48,7 +48,8 @@ class DefineQuantizationTables(pyjpeg.segment.Segment):
         marker = reader.read_marker()
         assert marker == pyjpeg.marker.Marker.DQT
         length = reader.read_u16()
-        assert length >= 2
+        if length < 2:
+            raise pyjpeg.io.LengthError("Invalid DQT length")
         offset = 2
         tables = []
         while offset < length:

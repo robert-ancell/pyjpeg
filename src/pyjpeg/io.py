@@ -1,6 +1,14 @@
 from typing import BinaryIO
 
 
+class ReadError(Exception):
+    pass
+
+
+class LengthError(ReadError):
+    pass
+
+
 class Writer:
     def __init__(self) -> None:
         pass

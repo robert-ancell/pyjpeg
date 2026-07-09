@@ -61,7 +61,8 @@ class DefineHuffmanTables(pyjpeg.segment.Segment):
         marker = reader.read_marker()
         assert marker == pyjpeg.marker.Marker.DHT
         length = reader.read_u16()
-        assert length >= 2
+        if length < 2:
+            raise pyjpeg.io.LengthError("Insufficient DHT length")
         offset = 2
         tables = []
         while offset < length:

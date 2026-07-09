@@ -21,11 +21,12 @@ class DefineRestartInterval(pyjpeg.segment.Segment):
         assert marker == pyjpeg.marker.Marker.DRI
         length = reader.read_u16()
         if variable_length:
-            assert length >= 4 and length <= 6
-            number_of_bytes = length - 2
+            if length < 4 or length > 6:
+                raise pyjpeg.io.LengthError("Invalid DRI length")
         else:
-            assert length == 4
-            number_of_bytes = 2
+            if length != 4:
+                raise pyjpeg.io.LengthError("Invalid DRI length")
+        number_of_bytes = length - 2
         restart_interval = reader.read_unsigned(number_of_bytes)
         return cls(restart_interval, number_of_bytes=number_of_bytes)
 

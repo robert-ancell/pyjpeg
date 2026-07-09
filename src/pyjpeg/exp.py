@@ -23,7 +23,8 @@ class ExpandReferenceComponents(pyjpeg.segment.Segment):
         marker = reader.read_marker()
         assert marker == pyjpeg.marker.Marker.EXP
         length = reader.read_u16()
-        assert length == 3
+        if length != 3:
+            raise pyjpeg.io.LengthError("Invalid EXP length")
         expand = reader.read_u8()
         expand_horizontal = expand >> 4
         assert expand_horizontal in (0, 1)

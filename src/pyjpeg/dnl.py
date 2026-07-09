@@ -22,11 +22,12 @@ class DefineNumberOfLines(pyjpeg.segment.Segment):
         assert marker == pyjpeg.marker.Marker.DNL
         length = reader.read_u16()
         if variable_length:
-            assert length >= 4 and length <= 6
-            number_of_bytes = length - 2
+            if length < 4 or length > 6:
+                raise pyjpeg.io.LengthError("Invalid DNL length")
         else:
-            assert length == 4
-            number_of_bytes = 2
+            if length != 4:
+                raise pyjpeg.io.LengthError("Invalid DNL length")
+        number_of_bytes = length - 2
         number_of_lines = reader.read_unsigned(number_of_bytes)
         assert number_of_lines > 0
         return cls(number_of_lines, number_of_bytes=number_of_bytes)

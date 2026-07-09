@@ -48,7 +48,8 @@ class DefineArithmeticConditioning(pyjpeg.segment.Segment):
         marker = reader.read_marker()
         assert marker == pyjpeg.marker.Marker.DAC
         length = reader.read_u16()
-        assert length > 2 and (length - 2) % 2 == 0
+        if length < 3 or (length - 2) % 2 != 0:
+            raise pyjpeg.io.LengthError("Invalid DAC length")
         n_tables = (length - 2) // 2
         tables = []
         for _ in range(n_tables):
