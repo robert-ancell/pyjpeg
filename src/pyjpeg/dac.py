@@ -5,6 +5,12 @@ import pyjpeg.segment
 
 class ArithmeticConditioning:
     def __init__(self, table_class: int, destination: int, value: int) -> None:
+        if table_class < 0 or table_class > 3:
+            raise ValueError("Table class must be between 0 and 3")
+        if destination < 0 or destination > 3:
+            raise ValueError("Destination must be between 0 and 3")
+        if value < 0 or value > 0xFFFF:
+            raise ValueError("Value must be between 0 and 0xFFFF")
         self.table_class = table_class
         self.destination = destination
         self.value = value

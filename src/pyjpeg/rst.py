@@ -5,7 +5,8 @@ import pyjpeg.segment
 
 class Restart(pyjpeg.segment.Segment):
     def __init__(self, index: int) -> None:
-        assert index >= 0 and index <= 7
+        if index < 0 or index > 7:
+            raise ValueError("Invalid RST index")
         self.index = index
 
     def write(self, writer: pyjpeg.io.Writer) -> None:

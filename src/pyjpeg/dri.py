@@ -5,6 +5,13 @@ import pyjpeg.segment
 
 class DefineRestartInterval(pyjpeg.segment.Segment):
     def __init__(self, restart_interval: int, number_of_bytes: int = 2) -> None:
+        if number_of_bytes < 1 or number_of_bytes > 4:
+            raise ValueError("Number of bytes must be between 1 and 4")
+        max_restart_interval = 2 ** (8 * number_of_bytes) - 1
+        if restart_interval < 0 or restart_interval > max_restart_interval:
+            raise ValueError(
+                f"Restart interval must be between 0 and {max_restart_interval}"
+            )
         self.restart_interval = restart_interval
         self.number_of_bytes = number_of_bytes
 

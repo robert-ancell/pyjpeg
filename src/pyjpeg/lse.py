@@ -58,7 +58,8 @@ class LSPresetParameters(pyjpeg.segment.Segment):
                 raise pyjpeg.io.LengthError("Invalid LSE length")
             number_of_lines = reader.read_unsigned(number_of_bytes)
             samples_per_line = reader.read_unsigned(number_of_bytes)
-            assert samples_per_line > 0
+            if samples_per_line == 0:
+                raise pyjpeg.io.ReadError("Invalid LSE samples per line")
             return LSOversizeImageDimensions(
                 number_of_lines, samples_per_line, number_of_bytes=number_of_bytes
             )
@@ -171,9 +172,12 @@ class LSOversizeImageDimensions(LSPresetParameters):
         self, number_of_lines: int, samples_per_line: int, number_of_bytes: int = 2
     ) -> None:
         super().__init__(LSPresetParametersId.OVERSIZE_IMAGE_DIMENSION)
-        assert number_of_bytes >= 2 and number_of_bytes <= 4
-        assert number_of_lines < 1 << (8 * number_of_bytes)
-        assert samples_per_line < 1 << (8 * number_of_bytes)
+        if number_of_bytes < 2 or number_of_bytes > 4:
+            raise ValueError("Invalid LSE number of bytes")
+        if number_of_lines >= 1 << (8 * number_of_bytes):
+            raise ValueError("Invalid LSE number of lines")
+        if samples_per_line >= 1 << (8 * number_of_bytes):
+            raise ValueError("Invalid LSE samples per line")
         self.number_of_lines = number_of_lines
         self.samples_per_line = samples_per_line
         self.number_of_bytes = number_of_bytes

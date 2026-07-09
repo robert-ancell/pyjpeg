@@ -5,15 +5,15 @@ import pyjpeg.segment
 
 class ApplicationSpecificData(pyjpeg.segment.Segment):
     def __init__(self, n: int) -> None:
-        assert n >= 0 and n <= 15
+        if n < 0 or n > 15:
+            raise ValueError("n must be between 0 and 15")
         self.n = n
 
     @classmethod
     def read(cls, reader: pyjpeg.io.Reader) -> "ApplicationSpecificData":
         marker = reader.read_marker()
-        assert (
-            marker >= pyjpeg.marker.Marker.APP0 and marker <= pyjpeg.marker.Marker.APP15
-        )
+        if marker < pyjpeg.marker.Marker.APP0 or marker > pyjpeg.marker.Marker.APP15:
+            raise pyjpeg.io.MarkerError("Invalid APPn marker")
         length = reader.read_u16()
         if length < 2:
             raise pyjpeg.io.LengthError("Invalid APPn length")
@@ -95,7 +95,7 @@ class ApplicationSpecificData(pyjpeg.segment.Segment):
                     thumbnail_data,
                 )
             else:
-                assert False
+                raise pyjpeg.io.ReadError("Unknown APP0 JFXX format")
         elif check_extension(pyjpeg.marker.Marker.APP1, b"Exif\x00\x00"):
             return ExifHeader(reader.read(length - 8))
         elif check_extension(pyjpeg.marker.Marker.APP8, b"SPIFF\x00"):
@@ -104,7 +104,8 @@ class ApplicationSpecificData(pyjpeg.segment.Segment):
             version = reader.read_u16()
             version_major = version >> 8
             version_minor = version & 0xFF
-            assert version_major == 1
+            if version_major != 1:
+                raise pyjpeg.io.ReadError("Invalid APP8 SPIFF version")
             profile = reader.read_u8()
             number_of_components = reader.read_u8()
             height = reader.read_u32()
@@ -132,7 +133,8 @@ class ApplicationSpecificData(pyjpeg.segment.Segment):
             if length != 14:
                 raise pyjpeg.io.LengthError("Invalid APP14 Adobe length")
             version = reader.read_u16()
-            assert version in (100, 101)
+            if version not in (100, 101):
+                raise pyjpeg.io.ReadError("Invalid APP14 Adobe version")
             flags0 = reader.read_u16()
             flags1 = reader.read_u16()
             color_space = reader.read_u8()

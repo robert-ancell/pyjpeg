@@ -5,6 +5,8 @@ import pyjpeg.segment
 
 class QuantizationTable:
     def __init__(self, destination: int, values: list[int], precision: int = 8) -> None:
+        if destination < 0 or destination > 3:
+            raise ValueError("Destination must be between 0 and 3")
         self.destination = destination
         self.precision = precision
         self.values = values

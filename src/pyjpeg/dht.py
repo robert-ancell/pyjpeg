@@ -7,7 +7,12 @@ class HuffmanTable:
     def __init__(
         self, table_class: int, destination: int, table: list[list[int]]
     ) -> None:
-        assert len(table) == 16
+        if table_class < 0 or table_class > 3:
+            raise ValueError("Table class must be between 0 and 3")
+        if destination < 0 or destination > 3:
+            raise ValueError("Destination must be between 0 and 3")
+        if len(table) != 16:
+            raise ValueError("Table must have 16 entries")
         self.table_class = table_class
         self.destination = destination
         # FIXME: Rename to symbols_by_length

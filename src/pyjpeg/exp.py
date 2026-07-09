@@ -28,9 +28,11 @@ class ExpandReferenceComponents(pyjpeg.segment.Segment):
             raise pyjpeg.io.LengthError("Invalid EXP length")
         expand = reader.read_u8()
         expand_horizontal = expand >> 4
-        assert expand_horizontal in (0, 1)
+        if expand_horizontal not in (0, 1):
+            raise pyjpeg.io.ReadError("Invalid expand horizontal value")
         expand_vertical = expand & 0x0F
-        assert expand_vertical in (0, 1)
+        if expand_vertical not in (0, 1):
+            raise pyjpeg.io.ReadError("Invalid expand vertical value")
         return cls(expand_horizontal != 0, expand_vertical != 0)
 
     def __eq__(self, other: object) -> bool:

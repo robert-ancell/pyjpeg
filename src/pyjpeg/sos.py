@@ -11,6 +11,12 @@ class LSInterleaveMode:
 
 class ScanComponent:
     def __init__(self, component_selector: int, dc_table: int, ac_table: int):
+        if component_selector < 0 or component_selector > 255:
+            raise ValueError("Invalid component selector")
+        if dc_table < 0 or dc_table > 15:
+            raise ValueError("Invalid DC table")
+        if ac_table < 0 or ac_table > 15:
+            raise ValueError("Invalid AC table")
         self.component_selector = component_selector
         self.dc_table = dc_table
         self.ac_table = ac_table
@@ -51,9 +57,12 @@ class StartOfScan(pyjpeg.segment.Segment):
         spectral_selection: tuple[int, int],
         point_transform: int,
     ) -> None:
-        assert spectral_selection[0] >= 0 and spectral_selection[0] <= 255
-        assert spectral_selection[1] >= 0 and spectral_selection[1] <= 255
-        assert point_transform >= 0 and point_transform <= 255
+        if spectral_selection[0] < 0 or spectral_selection[0] > 255:
+            raise ValueError("Invalid spectral selection")
+        if spectral_selection[1] < 0 or spectral_selection[1] > 255:
+            raise ValueError("Invalid spectral selection")
+        if point_transform < 0 or point_transform > 255:
+            raise ValueError("Invalid point transform")
         self.components = components
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
@@ -66,8 +75,10 @@ class StartOfScan(pyjpeg.segment.Segment):
         point_transform: int = 0,
         previous_point_transform: int = 0,
     ) -> "StartOfScan":
-        assert point_transform >= 0 and point_transform <= 15
-        assert previous_point_transform >= 0 and previous_point_transform <= 15
+        if point_transform < 0 or point_transform > 15:
+            raise ValueError("Invalid point transform")
+        if previous_point_transform < 0 or previous_point_transform > 15:
+            raise ValueError("Invalid previous point transform")
         return cls(
             components,
             spectral_selection,
@@ -81,7 +92,8 @@ class StartOfScan(pyjpeg.segment.Segment):
         predictor: int = 1,
         point_transform: int = 0,
     ) -> "StartOfScan":
-        assert point_transform >= 0 and point_transform <= 15
+        if point_transform < 0 or point_transform > 15:
+            raise ValueError("Invalid point transform")
         return cls(components, (predictor, 0), point_transform)
 
     @classmethod
@@ -92,7 +104,8 @@ class StartOfScan(pyjpeg.segment.Segment):
         interleave_mode: int = 0,
         point_transform: int = 0,
     ) -> "StartOfScan":
-        assert point_transform >= 0 and point_transform <= 15
+        if point_transform < 0 or point_transform > 15:
+            raise ValueError("Invalid point transform")
         return cls(components, (difference_bound, interleave_mode), point_transform)
 
     def write(self, writer: pyjpeg.io.Writer) -> None:

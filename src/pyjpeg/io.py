@@ -51,12 +51,14 @@ class Reader:
 
     def read_marker(self) -> int:
         x = self.read_u8()
-        assert x == 0xFF
+        if x != 0xFF:
+            raise ReadError("Invalid marker")
         return self.read_u8()
 
     def peek_marker(self) -> int:
         x = self.peek_u8(0)
-        assert x == 0xFF
+        if x != 0xFF:
+            raise ReadError("Invalid marker")
         return self.peek_u8(1)
 
     def read_unsigned(self, number_of_bytes: int) -> int:
