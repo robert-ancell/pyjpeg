@@ -86,7 +86,8 @@ class Writer:
         xstates: list[pyjpeg.arithmetic.State],
         mstates: list[pyjpeg.arithmetic.State],
     ) -> None:
-        assert ac != 0
+        if ac == 0:
+            raise ValueError("ac coefficient must not be 0")
 
         if ac > 0:
             magnitude = ac

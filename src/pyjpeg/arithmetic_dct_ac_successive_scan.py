@@ -128,7 +128,10 @@ class ArithmeticDCTACSuccessiveScan(pyjpeg.segment.Segment):
                         if bit == 1:
                             break
                         k += 1
-                        assert k <= spectral_selection[1]
+                        if k > spectral_selection[1]:
+                            raise pyjpeg.io.ReadError(
+                                "Number of coefficients exceeds spectral selection range"
+                            )
                         old_transformed_coefficient = pyjpeg.dct.transform_coefficient(
                             data_unit[k], point_transform + 1
                         )

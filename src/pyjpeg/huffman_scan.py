@@ -14,7 +14,8 @@ class Writer:
         encoder: pyjpeg.huffman.Encoder,
         symbol_frequencies: list[int] | None = None,
     ) -> None:
-        assert dc_diff >= -32767 and dc_diff <= 32768
+        if dc_diff < -32767 or dc_diff > 32768:
+            raise ValueError("dc_diff must be between -32767 and 32768")
         length = self._get_magnitude_length(dc_diff)
         symbol = length
         self._write_symbol(symbol, encoder, symbol_frequencies)
@@ -27,7 +28,8 @@ class Writer:
         block_count: int = 1,
         symbol_frequencies: list[int] | None = None,
     ) -> None:
-        assert 1 <= block_count <= 32767
+        if block_count < 1 or block_count > 32767:
+            raise ValueError("block_count must be between 1 and 32767")
         length = self._get_magnitude_length(block_count)
         self._write_ac(length - 1, 0, encoder, symbol_frequencies=symbol_frequencies)
         self._write_magnitude(block_count, length - 1)
@@ -48,7 +50,10 @@ class Writer:
         encoder: pyjpeg.huffman.Encoder,
         symbol_frequencies: list[int] | None = None,
     ) -> None:
-        assert ac != 0 and ac >= -16383 and ac <= 16383
+        if ac == 0 or ac < -16383 or ac > 16383:
+            raise ValueError(
+                "ac coefficient must be non-zero and between -16383 and 16383"
+            )
         self._write_ac(run_length, ac, encoder, symbol_frequencies=symbol_frequencies)
 
     def write_ac_correction_bits(self, correction_bits: list[int]) -> None:
@@ -108,7 +113,8 @@ class Reader:
 
     def read_dc(self, decoder: pyjpeg.huffman.Decoder) -> int:
         length = decoder.read_symbol(self.reader)
-        assert length <= 16
+        if length > 16:
+            raise pyjpeg.io.ReadError("Invalid DC length")
         return self._read_magnitude(length)
 
     def read_ac(self, decoder: pyjpeg.huffman.Decoder) -> tuple[int, int]:

@@ -64,7 +64,8 @@ class HuffmanDCTACSuccessiveScan(pyjpeg.segment.Segment):
                             scan_writer.write_ac_correction_bits(correction_bits[0])
                             run_length -= 16
                             correction_bits = correction_bits[1:]
-                        assert len(correction_bits) == 1
+                        if len(correction_bits) != 1:
+                            raise pyjpeg.io.ReadError("Invalid correction bits")
 
                         scan_writer.write_ac(
                             run_length,
@@ -129,7 +130,8 @@ class HuffmanDCTACSuccessiveScan(pyjpeg.segment.Segment):
                     eob_count = scan_reader.read_eob_count(run_length) + 1
             else:
                 n_zeros = run_length
-                assert new_ac in (-1, 1)
+                if new_ac not in (-1, 1):
+                    raise pyjpeg.io.ReadError("Invalid AC coefficient")
 
             while n_zeros > 0 or eob_count > 0 or new_ac != 0:
                 coefficient = data_units[data_unit_index][k]

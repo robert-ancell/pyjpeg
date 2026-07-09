@@ -97,7 +97,8 @@ class ArithmeticDCTScan(pyjpeg.segment.Segment):
                 for _ in range(
                     component.sampling_factor[0] * component.sampling_factor[1]
                 ):
-                    assert i < number_of_data_units
+                    if i >= number_of_data_units:
+                        raise pyjpeg.io.ReadError("Too many data units")
                     data_unit = scan_reader.read_data_unit(
                         prev_dc=prev_dc[component_index],
                         prev_dc_diff=prev_dc_diff[component_index],

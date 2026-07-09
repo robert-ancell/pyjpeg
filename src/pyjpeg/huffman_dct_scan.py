@@ -37,7 +37,8 @@ class HuffmanDCTScan(pyjpeg.segment.Segment):
         spectral_selection: tuple[int, int] = (0, 63),
         point_transform: int = 0,
     ) -> None:
-        assert len(components) > 0
+        if len(components) == 0:
+            raise ValueError("components must not be empty")
 
         self.data_units = data_units
         self.components = components
@@ -100,7 +101,8 @@ class HuffmanDCTScan(pyjpeg.segment.Segment):
         spectral_selection: tuple[int, int] = (0, 63),
         point_transform: int = 0,
     ) -> "HuffmanDCTScan":
-        assert len(components) > 0
+        if len(components) == 0:
+            raise ValueError("components must not be empty")
 
         scan_reader = Reader(
             reader,
@@ -121,7 +123,8 @@ class HuffmanDCTScan(pyjpeg.segment.Segment):
                     scan_component.sampling_factor[0]
                     * scan_component.sampling_factor[1]
                 ):
-                    assert i < number_of_data_units
+                    if i >= number_of_data_units:
+                        raise pyjpeg.io.ReadError("Too many data units")
                     data_unit = scan_reader.read_data_unit(
                         dc_decoder=dc_decoders[component_index],
                         ac_decoder=ac_decoders[component_index],
@@ -261,8 +264,9 @@ class Reader:
                 else:
                     # EOBn
                     # FIXME
-                    assert False
-            assert k + run_length <= self.spectral_selection[1]
+                    raise pyjpeg.io.ReadError("EOBn not supported")
+            if k + run_length > self.spectral_selection[1]:
+                raise pyjpeg.io.ReadError("Run length exceeds spectral selection")
             k += run_length
             data_unit[k] = ac
             k += 1
