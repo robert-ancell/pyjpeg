@@ -116,29 +116,32 @@ def fdct(values: list[int], precision: int, quantization_table: list[int]) -> li
 def idct(
     coefficients: list[int], quantization_table: list[int], precision: int
 ) -> list[int]:
-    samples = [0] * 64
+    values = [0] * 64
     offset = 1 << (precision - 1)
     max_sample = (1 << precision) - 1
-    for sample_index in range(64):
-        s = 0.0
-        for coefficient_index, coefficient in enumerate(coefficients):
-            if coefficient == 0:
-                continue
-            coefficient_weights = precalculated_dct_weights[coefficient_index]
-            s += (
-                precalculated_coefficient_constants[coefficient_index]
-                * coefficient
-                * quantization_table[coefficient_index]
-                * coefficient_weights[sample_index]
+    shifted_values = [0.0] * 64
+    for coefficient_index, coefficient in enumerate(coefficients):
+        if coefficient == 0:
+            continue
+        quantized_coefficient = (
+            precalculated_coefficient_constants[coefficient_index]
+            * coefficient
+            * quantization_table[coefficient_index]
+        )
+        coefficient_weights = precalculated_dct_weights[coefficient_index]
+        for value_index in range(64):
+            shifted_values[value_index] += (
+                quantized_coefficient * coefficient_weights[value_index]
             )
-        sample = round(s) + offset
-        if sample < 0:
-            sample = 0
-        elif sample > max_sample:
-            sample = max_sample
-        samples[sample_index] = sample
+    for value_index in range(64):
+        value = round(shifted_values[value_index]) + offset
+        if value < 0:
+            value = 0
+        elif value > max_sample:
+            value = max_sample
+        values[value_index] = value
 
-    return samples
+    return values
 
 
 def order_mcu_dct_data_units(
