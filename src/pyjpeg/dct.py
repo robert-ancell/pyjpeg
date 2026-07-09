@@ -96,11 +96,12 @@ precalculated_dct_weights = dct_weights()
 def fdct(values: list[int], precision: int, quantization_table: list[int]) -> list[int]:
     coefficients = [0] * 64
     offset = 1 << (precision - 1)
+    shifted_values = [value - offset for value in values]
     for coefficient_index in range(64):
         coefficient_weights = precalculated_dct_weights[coefficient_index]
         s = 0.0
-        for value_index, value in enumerate(values):
-            s += coefficient_weights[value_index] * (value - offset)
+        for value_index, value in enumerate(shifted_values):
+            s += coefficient_weights[value_index] * value
         coefficients[coefficient_index] = round(
             (precalculated_coefficient_constants[coefficient_index] * s)
             / quantization_table[coefficient_index]
