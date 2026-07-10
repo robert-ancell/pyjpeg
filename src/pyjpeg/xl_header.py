@@ -1,3 +1,5 @@
+from cmath import e
+
 import pyjpeg.io
 
 
@@ -30,6 +32,34 @@ class XLOrientation:
     ROTATE_90_CW = 6
     ANTITRANSPOSE = 7
     ROTATE_90_CCW = 8
+
+
+class XLColorSpace:
+    RGB = 0
+    GRAY = 1
+    XYB = 2
+    UNKNOWN = 3
+
+
+class XLWhitePoint:
+    D65 = 1
+    CUSTOM = 2
+    E = 10
+    DCI = 11
+
+
+class XLPrimaries:
+    SRGB = 1
+    CUSTOM = 2
+    _2100 = 9
+    P3 = 11
+
+
+class XLRenderingIntent:
+    PERCEPTUAL = 0
+    RELATIVE = 1
+    SATURATION = 2
+    ABSOLUTE = 3
 
 
 class Writer:
@@ -222,6 +252,97 @@ class XLExtraChannelInfo:
         return f"XLExtraChannelInfo({self.type}, bit_depth={self.bit_depth}, dim_shift={self.dim_shift}, name={self.name}, alpha_associated={self.alpha_associated})"
 
 
+class XLColorEncodingBundle:
+    def __init__(
+        self,
+        color_encoding=XLColorSpace.RGB,
+        white_point=XLWhitePoint.D65,
+        primaries=XLPrimaries.SRGB,
+        rendering_intent=XLRenderingIntent.RELATIVE,
+    ) -> None:
+        self.color_encoding = color_encoding
+        self.white_point = white_point
+        self.primaries = primaries
+        self.rendering_intent = rendering_intent
+
+    @classmethod
+    def read(cls, bit_reader) -> "XLColorEncodingBundle":
+        if bit_reader.read_bool():
+            return cls()
+
+        use_icc_profile = bit_reader.read_bool()
+        color_encoding = bit_reader.read_enum()
+        if use_icc_profile:
+            white_point = XLWhitePoint.D65
+            primaries = XLPrimaries.SRGB
+            transfer_function = 0
+            rendering_intent = XLRenderingIntent.RELATIVE
+        else:
+            if color_encoding != XLColorSpace.XYB:
+                white_point = bit_reader.read_enum()
+                if white_point == XLWhitePoint.CUSTOM:
+                    raise Exception("Custom white point is not supported")  # FIXME
+            else:
+                white_point = XLWhitePoint.D65
+            if color_encoding not in (XLColorSpace.XYB, XLColorSpace.GRAY):
+                primaries = bit_reader.read_enum()
+                if primaries == XLPrimaries.CUSTOM:
+                    raise Exception("Custom white point is not supported")  # FIXME
+            else:
+                primaries = XLPrimaries.SRGB
+            use_gamma = bit_reader.read_bool()
+            if use_gamma:
+                transfer_function = bit_reader.read_bits(24)
+            else:
+                transfer_function = (1 << 24) + bit_reader.read_enum()
+            rendering_intent = bit_reader.read_enum()
+
+        return cls(
+            color_encoding=color_encoding,
+            white_point=white_point,
+            primaries=primaries,
+            rendering_intent=rendering_intent,
+        )
+
+    def __repr__(self) -> str:
+        return f"XLColorEncodingBundle(color_encoding={self.color_encoding}, white_point={self.white_point}, primaries={self.primaries}, rendering_intent={self.rendering_intent})"
+
+
+class XLToneMapping:
+    def __init__(
+        self,
+        intensity_target: float = 255.0,
+        min_nits: float = 0.0,
+        relative_to_max_display: bool = False,
+        linear_below: float = 0.0,
+    ) -> None:
+        self.intensity_target = intensity_target
+        self.min_nits = min_nits
+        self.relative_to_max_display = relative_to_max_display
+        self.linear_below = linear_below
+
+    @classmethod
+    def read(cls, bit_reader: Reader) -> "XLToneMapping":
+        if bit_reader.read_bool():
+            return cls()
+
+        # FIXME: Validate values
+        intensity_target = bit_reader.read_f16()
+        min_nits = bit_reader.read_f16()
+        relative_to_max_display = bit_reader.read_bool()
+        linear_below = bit_reader.read_f16()
+
+        return cls(
+            intensity_target=intensity_target,
+            min_nits=min_nits,
+            relative_to_max_display=relative_to_max_display,
+            linear_below=linear_below,
+        )
+
+    def __repr__(self) -> str:
+        return f"XLToneMapping(intensity_target={self.intensity_target}, min_nits={self.min_nits}, relative_to_max_display={self.relative_to_max_display}, linear_below={self.linear_below})"
+
+
 class XLHeader:
     def __init__(
         self,
@@ -232,7 +353,8 @@ class XLHeader:
         modular_16bit_buffers: bool = True,
         extra_channels: list[XLExtraChannelInfo] = [],
         xyb_encoded: bool = True,
-        color_encoding: int = 0,
+        color_encoding: XLColorEncodingBundle = XLColorEncodingBundle(),
+        tone_mapping: XLToneMapping = XLToneMapping(),
     ) -> None:
         self.width = width
         self.height = height
@@ -242,6 +364,7 @@ class XLHeader:
         self.extra_channels = extra_channels
         self.xyb_encoded = xyb_encoded
         self.color_encoding = color_encoding
+        self.tone_mapping = tone_mapping
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
         pass  # bit_writer = Writer(writer)
@@ -255,8 +378,8 @@ class XLHeader:
         if bit_reader.read_bool():
             return cls(size.width, size.height)
 
-        # Extra fields
-        if bit_reader.read_bool():
+        extra_fields = bit_reader.read_bool()
+        if extra_fields:
             orientation = XLOrientation.IDENTITY + bit_reader.read_bits(3)
             if bit_reader.read_bool():
                 intrinsic_width, intrinsic_height = XLSize.read(bit_reader).size
@@ -274,7 +397,12 @@ class XLHeader:
         for _ in range(extra_channel_count):
             extra_channels.append(XLExtraChannelInfo.read(bit_reader))
         xyb_encoded = bit_reader.read_bool()
-        color_encoding = 0
+        color_encoding = XLColorEncodingBundle.read(bit_reader)
+
+        if extra_fields:
+            tone_mapping = XLToneMapping.read(bit_reader)
+        else:
+            tone_mapping = XLToneMapping()
 
         return cls(
             size.width,
@@ -285,7 +413,8 @@ class XLHeader:
             extra_channels=extra_channels,
             xyb_encoded=xyb_encoded,
             color_encoding=color_encoding,
+            tone_mapping=tone_mapping,
         )
 
     def __repr__(self) -> str:
-        return f"XLHeader({self.width}, {self.height}, orientation={self.orientation}, bit_depth={self.bit_depth}, modular_16bit_buffers={self.modular_16bit_buffers}, extra_channels={self.extra_channels}, xyb_encoded={self.xyb_encoded}, color_encoding={self.color_encoding})"
+        return f"XLHeader({self.width}, {self.height}, orientation={self.orientation}, bit_depth={self.bit_depth}, modular_16bit_buffers={self.modular_16bit_buffers}, extra_channels={self.extra_channels}, xyb_encoded={self.xyb_encoded}, color_encoding={self.color_encoding}, tone_mapping={self.tone_mapping})"
