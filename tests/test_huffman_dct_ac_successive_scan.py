@@ -9,6 +9,7 @@ def test_huffman_dct_ac_successive_scan():
         samples = [random.randint(0, 255) for _ in range(64)]
         data_units.append(pyjpeg.fdct(samples, 8, [1] * 64))
 
+    # FIXME: standard_luminance_ac_huffman_table does is not able to encode EOBn=1 - need to use a custom table
     writer = pyjpeg.BufferedWriter()
     scan = pyjpeg.HuffmanDCTACSuccessiveScan(
         data_units,
