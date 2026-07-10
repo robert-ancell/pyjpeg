@@ -76,6 +76,7 @@ from pyjpeg.sof import FrameComponent, FrameType, StartOfFrame
 from pyjpeg.soi import StartOfImage
 from pyjpeg.sos import ScanComponent, StartOfScan
 from pyjpeg.stream import Stream
+from pyjpeg.xl_header import XLHeader
 
 __all__ = [
     "AdobeColorSpace",
@@ -145,6 +146,7 @@ __all__ = [
     "Stream",
     "UnknownApplicationSpecificData",
     "Writer",
+    "XLHeader",
     "fdct",
     "huffman_optimize",
     "idct",
