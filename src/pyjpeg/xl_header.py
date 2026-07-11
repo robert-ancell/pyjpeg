@@ -121,6 +121,9 @@ class Reader:
     def read_bool(self) -> bool:
         return self.read_bit() != 0
 
+    def read_u8(self) -> int:
+        return self.read_bits(8)
+
     def read_u32(
         self,
         base_values: tuple[int, int, int, int],
@@ -128,6 +131,19 @@ class Reader:
     ) -> int:
         index = self.read_bits(2)
         return base_values[index] + self.read_bits(extra_bits[index])
+
+    def read_u64(self) -> int:
+        value = self.read_u32((0, 1, 17, 272), (0, 4, 8, 0))
+        if value < 272:
+            return value
+        value = self.read_bits(12)
+        length = 12
+        while self.read_bool():
+            if length == 60:
+                return self.read_bits(4) << length
+            value |= self.read_bits(8) << length
+            length += 8
+        return value
 
     def read_enum(self) -> int:
         return self.read_u32((0, 1, 2, 18), (0, 0, 4, 6))
@@ -137,6 +153,9 @@ class Reader:
         exponent = self.read_bits(5) - 15
         mantissa = 1 + self.read_bits(10)
         return sign * mantissa * (2**exponent)
+
+    def read_bytes(self, n: int) -> bytes:
+        return bytes([self.read_u8() for _ in range(n)])
 
     def read_dimension(self, size_multiple_of_eight: bool) -> int:
         if size_multiple_of_eight:
@@ -227,7 +246,7 @@ class XLExtraChannelInfo:
         bit_depth = XLBitDepth.read(reader)
         dim_shift = reader.read_u32((0, 3, 4, 1), (0, 0, 0, 3))
         name_length = reader.read_u32((0, 0, 16, 48), (0, 4, 5, 10))
-        name = bytes([reader.read_bits(8) for _ in range(name_length)]).decode("utf-8")
+        name = reader.read_bytes(name_length).decode("utf-8")
         if type == XLExtraChannelType.ALPHA:
             alpha_associated = reader.read_bool()
         else:
@@ -252,7 +271,7 @@ class XLExtraChannelInfo:
         return f"XLExtraChannelInfo({self.type}, bit_depth={self.bit_depth}, dim_shift={self.dim_shift}, name={self.name}, alpha_associated={self.alpha_associated})"
 
 
-class XLColorEncodingBundle:
+class XLColorEncoding:
     def __init__(
         self,
         color_encoding=XLColorSpace.RGB,
@@ -266,7 +285,7 @@ class XLColorEncodingBundle:
         self.rendering_intent = rendering_intent
 
     @classmethod
-    def read(cls, bit_reader) -> "XLColorEncodingBundle":
+    def read(cls, bit_reader) -> "XLColorEncoding":
         if bit_reader.read_bool():
             return cls()
 
@@ -305,7 +324,7 @@ class XLColorEncodingBundle:
         )
 
     def __repr__(self) -> str:
-        return f"XLColorEncodingBundle(color_encoding={self.color_encoding}, white_point={self.white_point}, primaries={self.primaries}, rendering_intent={self.rendering_intent})"
+        return f"XLColorEncoding(color_encoding={self.color_encoding}, white_point={self.white_point}, primaries={self.primaries}, rendering_intent={self.rendering_intent})"
 
 
 class XLToneMapping:
@@ -343,6 +362,24 @@ class XLToneMapping:
         return f"XLToneMapping(intensity_target={self.intensity_target}, min_nits={self.min_nits}, relative_to_max_display={self.relative_to_max_display}, linear_below={self.linear_below})"
 
 
+class XLExtensions:
+    def __init__(self, payloads: list[bytes]) -> None:
+        self.payloads = payloads
+
+    @classmethod
+    def read(cls, reader: Reader) -> "XLExtensions":
+        key = reader.read_u64()
+        lengths = []
+        for i in range(64):
+            if (1 << i) & key != 0:
+                length = reader.read_u64()
+                lengths.append(length)
+        payloads = []
+        for length in lengths:
+            payloads.append(reader.read_bytes(length))
+        return cls(payloads)
+
+
 class XLHeader:
     def __init__(
         self,
@@ -353,7 +390,7 @@ class XLHeader:
         modular_16bit_buffers: bool = True,
         extra_channels: list[XLExtraChannelInfo] = [],
         xyb_encoded: bool = True,
-        color_encoding: XLColorEncodingBundle = XLColorEncodingBundle(),
+        color_encoding: XLColorEncoding = XLColorEncoding(),
         tone_mapping: XLToneMapping = XLToneMapping(),
     ) -> None:
         self.width = width
@@ -397,12 +434,14 @@ class XLHeader:
         for _ in range(extra_channel_count):
             extra_channels.append(XLExtraChannelInfo.read(bit_reader))
         xyb_encoded = bit_reader.read_bool()
-        color_encoding = XLColorEncodingBundle.read(bit_reader)
+        color_encoding = XLColorEncoding.read(bit_reader)
 
         if extra_fields:
             tone_mapping = XLToneMapping.read(bit_reader)
         else:
             tone_mapping = XLToneMapping()
+
+        extensions = XLExtensions.read(bit_reader)
 
         return cls(
             size.width,
@@ -414,6 +453,7 @@ class XLHeader:
             xyb_encoded=xyb_encoded,
             color_encoding=color_encoding,
             tone_mapping=tone_mapping,
+            extensions=extensions,
         )
 
     def __repr__(self) -> str:
