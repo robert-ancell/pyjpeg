@@ -370,10 +370,19 @@ class Writer:
         self.write_bit(1 if value else 0)
 
     def write_u32(
-        self, value: int, base_values: list[int], extra_bits: list[int]
+        self,
+        value: int,
+        base_values: tuple[int, int, int, int],
+        extra_bits: tuple[int, int, int, int],
     ) -> None:
-        for base_value in base_values:
-            self.write_bits([(value >> i) & 1 for i in range(32)])
+        for i in range(4):
+            if value >= base_values[i] and value < base_values[i] + 2**extra_bits:
+                pass  # FIXME
+                return
+        raise ValueError("Unable to represent u32 value")
+
+    def write_u64(self, value: int) -> None:
+        pass  # FIXME
 
     def flush(self, pad_bit: int = 1) -> None:
         if self.bit_count == 0:
@@ -400,8 +409,8 @@ class Reader:
 
     def read_bits(self, n: int) -> int:
         result = 0
-        for _ in range(n):
-            result = result << 1 | self.read_bit()
+        for i in range(n):
+            result |= self.read_bit() << i
         return result
 
     def read_bool(self) -> bool:
