@@ -1,7 +1,3 @@
-from cmath import e
-
-from _pytest.stash import D
-
 import pyjpeg.io
 
 
