@@ -369,6 +369,9 @@ class Writer:
     def write_bool(self, value: bool) -> None:
         self.write_bit(1 if value else 0)
 
+    def write_u8(self, value: int) -> None:
+        self.write_bits(value, 8)
+
     def write_u32(
         self,
         value: int,
@@ -377,14 +380,33 @@ class Writer:
     ) -> None:
         for i in range(4):
             if value >= base_values[i] and value < base_values[i] + 2**extra_bits:
-                pass  # FIXME
+                self.write_bits(i, 2)
+                self.write_bits(value - base_values[i], extra_bits[i])
                 return
         raise ValueError("Unable to represent u32 value")
 
     def write_u64(self, value: int) -> None:
-        pass  # FIXME
+        if value == 0:
+            self.write_bits(0, 2)
+        elif value < 17:
+            self.write_bits(1, 2)
+            self.write_bits(value - 1, 4)
+        elif value < 272:
+            self.write_bits(2, 2)
+            self.write_bits(value - 1, 8)
+        else:
+            self.write_bits(3, 2)
+            self.write_bits(value & 0xFFF, 12)
+            value >>= 12
+            length = 12
+            while value > 0 and length >= 8:
+                self.write_bits(value & 0xFF, 8)
+                value >>= 8
+                length -= 8
+            if length > 0:
+                self.write_bits(value & 0xF, 4)
 
-    def flush(self, pad_bit: int = 1) -> None:
+    def flush(self, pad_bit: int = 0) -> None:
         if self.bit_count == 0:
             return
         n_padding = 8 - self.bit_count
