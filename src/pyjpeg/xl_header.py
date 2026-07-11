@@ -1,5 +1,7 @@
 from cmath import e
 
+from _pytest.stash import D
+
 import pyjpeg.io
 
 
@@ -60,6 +62,294 @@ class XLRenderingIntent:
     RELATIVE = 1
     SATURATION = 2
     ABSOLUTE = 3
+
+
+DEFAULT_UP2_WEIGHTS = [
+    -0.01716200,
+    -0.03452303,
+    -0.04022174,
+    -0.02921014,
+    -0.00624645,
+    0.14111091,
+    0.28896755,
+    0.00278718,
+    -0.01610267,
+    0.56661550,
+    0.03777607,
+    -0.01986694,
+    -0.03144731,
+    -0.01185068,
+    -0.00213539,
+]
+DEFAULT_UP4_WEIGHTS = [
+    -0.02419067,
+    -0.03491987,
+    -0.03693351,
+    -0.03094285,
+    -0.00529785,
+    -0.01663432,
+    -0.03556863,
+    -0.03888905,
+    -0.03516850,
+    -0.00989469,
+    0.23651958,
+    0.33392945,
+    -0.01073543,
+    -0.01313181,
+    -0.03556694,
+    0.13048175,
+    0.40103025,
+    0.03951150,
+    -0.02077584,
+    0.46914198,
+    -0.00209270,
+    -0.01484589,
+    -0.04064806,
+    0.18942530,
+    0.56279892,
+    0.06674400,
+    -0.02335494,
+    -0.03551682,
+    -0.00754830,
+    -0.02267919,
+    -0.02363578,
+    0.00315804,
+    -0.03399098,
+    -0.01359519,
+    -0.00091653,
+    -0.00335467,
+    -0.01163294,
+    -0.01610294,
+    -0.00974088,
+    -0.00191622,
+    -0.01095446,
+    -0.03198464,
+    -0.04455121,
+    -0.02799790,
+    -0.00645912,
+    0.06390599,
+    0.22963888,
+    0.00630981,
+    -0.01897349,
+    0.67537268,
+    0.08483369,
+    -0.02534994,
+    -0.02205197,
+    -0.01667999,
+    -0.00384443,
+]
+DEFAULT_UP8_WEIGHTS = [
+    -0.02928613,
+    -0.03706353,
+    -0.03783812,
+    -0.03324558,
+    -0.00447632,
+    -0.02519406,
+    -0.03752601,
+    -0.03901508,
+    -0.03663285,
+    -0.00646649,
+    -0.02066407,
+    -0.03838633,
+    -0.04002101,
+    -0.03900035,
+    -0.00901973,
+    -0.01626393,
+    -0.03954148,
+    -0.04046620,
+    -0.03979621,
+    -0.01224485,
+    0.29895328,
+    0.35757708,
+    -0.02447552,
+    -0.01081748,
+    -0.04314594,
+    0.23903219,
+    0.41119301,
+    -0.00573046,
+    -0.01450239,
+    -0.04246845,
+    0.17567618,
+    0.45220643,
+    0.02287757,
+    -0.01936783,
+    -0.03583255,
+    0.11572472,
+    0.47416733,
+    0.06284440,
+    -0.02685066,
+    0.42720050,
+    -0.02248939,
+    -0.01155273,
+    -0.04562755,
+    0.28689496,
+    0.49093869,
+    -0.00007891,
+    -0.01545926,
+    -0.04562659,
+    0.21238920,
+    0.53980934,
+    0.03369474,
+    -0.02070211,
+    -0.03866988,
+    0.14229550,
+    0.56593398,
+    0.08045181,
+    -0.02888298,
+    -0.03680918,
+    -0.00542229,
+    -0.02920477,
+    -0.02788574,
+    -0.02118180,
+    -0.03942402,
+    -0.00775547,
+    -0.02433614,
+    -0.03193943,
+    -0.02030828,
+    -0.04044014,
+    -0.01074016,
+    -0.01930822,
+    -0.03620399,
+    -0.01974125,
+    -0.03919545,
+    -0.01456093,
+    -0.00045072,
+    -0.00360110,
+    -0.01020207,
+    -0.01231907,
+    -0.00638988,
+    -0.00071592,
+    -0.00279122,
+    -0.00957115,
+    -0.01288327,
+    -0.00730937,
+    -0.00107783,
+    -0.00210156,
+    -0.00890705,
+    -0.01317668,
+    -0.00813895,
+    -0.00153491,
+    -0.02128481,
+    -0.04173044,
+    -0.04831487,
+    -0.03293190,
+    -0.00525260,
+    -0.01720322,
+    -0.04052736,
+    -0.05045706,
+    -0.03607317,
+    -0.00738030,
+    -0.01341764,
+    -0.03965629,
+    -0.05151616,
+    -0.03814886,
+    -0.01005819,
+    0.18968273,
+    0.33063684,
+    -0.01300105,
+    -0.01372950,
+    -0.04017465,
+    0.13727832,
+    0.36402234,
+    0.01027890,
+    -0.01832107,
+    -0.03365072,
+    0.08734506,
+    0.38194295,
+    0.04338228,
+    -0.02525993,
+    0.56408126,
+    0.00458352,
+    -0.01648227,
+    -0.04887868,
+    0.24585519,
+    0.62026135,
+    0.04314807,
+    -0.02213737,
+    -0.04158014,
+    0.16637289,
+    0.65027023,
+    0.09621636,
+    -0.03101388,
+    -0.04082742,
+    -0.00904519,
+    -0.02790922,
+    -0.02117818,
+    0.00798662,
+    -0.03995711,
+    -0.01243427,
+    -0.02231705,
+    -0.02946266,
+    0.00992055,
+    -0.03600283,
+    -0.01684920,
+    -0.00111684,
+    -0.00411204,
+    -0.01297130,
+    -0.01723725,
+    -0.01022545,
+    -0.00165306,
+    -0.00313110,
+    -0.01218016,
+    -0.01763266,
+    -0.01125620,
+    -0.00231663,
+    -0.01374149,
+    -0.03797620,
+    -0.05142937,
+    -0.03117307,
+    -0.00581914,
+    -0.01064003,
+    -0.03608089,
+    -0.05272168,
+    -0.03375670,
+    -0.00795586,
+    0.09628104,
+    0.27129991,
+    -0.00353779,
+    -0.01734151,
+    -0.03153981,
+    0.05686230,
+    0.28500998,
+    0.02230594,
+    -0.02374955,
+    0.68214326,
+    0.05018048,
+    -0.02320852,
+    -0.04383616,
+    0.18459474,
+    0.71517975,
+    0.10805613,
+    -0.03263677,
+    -0.03637639,
+    -0.01394373,
+    -0.02511203,
+    -0.01728636,
+    0.05407331,
+    -0.02867568,
+    -0.01893131,
+    -0.00240854,
+    -0.00446511,
+    -0.01636187,
+    -0.02377053,
+    -0.01522848,
+    -0.00333334,
+    -0.00819975,
+    -0.02964169,
+    -0.04499287,
+    -0.02745350,
+    -0.00612408,
+    0.02727416,
+    0.19446600,
+    0.00159832,
+    -0.02232473,
+    0.74982506,
+    0.11452620,
+    -0.03348048,
+    -0.01605681,
+    -0.02070339,
+    -0.00458223,
+]
 
 
 class Writer:
@@ -162,6 +452,10 @@ class Reader:
             return (1 + self.read_bits(5)) * 8
         else:
             return self.read_u32((1, 1, 1, 1), (9, 13, 18, 30))
+
+    def align(self) -> None:
+        while self.bit_count % 8 != 0:
+            self.read_bit()
 
 
 class XLSize:
@@ -274,11 +568,13 @@ class XLExtraChannelInfo:
 class XLColorEncoding:
     def __init__(
         self,
+        use_icc_profile: bool = False,
         color_encoding=XLColorSpace.RGB,
         white_point=XLWhitePoint.D65,
         primaries=XLPrimaries.SRGB,
         rendering_intent=XLRenderingIntent.RELATIVE,
     ) -> None:
+        self.use_icc_profile = use_icc_profile
         self.color_encoding = color_encoding
         self.white_point = white_point
         self.primaries = primaries
@@ -317,6 +613,7 @@ class XLColorEncoding:
             rendering_intent = bit_reader.read_enum()
 
         return cls(
+            use_icc_profile=use_icc_profile,
             color_encoding=color_encoding,
             white_point=white_point,
             primaries=primaries,
@@ -324,7 +621,7 @@ class XLColorEncoding:
         )
 
     def __repr__(self) -> str:
-        return f"XLColorEncoding(color_encoding={self.color_encoding}, white_point={self.white_point}, primaries={self.primaries}, rendering_intent={self.rendering_intent})"
+        return f"XLColorEncoding(use_icc_profile={self.use_icc_profile}, color_encoding={self.color_encoding}, white_point={self.white_point}, primaries={self.primaries}, rendering_intent={self.rendering_intent})"
 
 
 class XLToneMapping:
@@ -380,11 +677,9 @@ class XLExtensions:
         return cls(payloads)
 
 
-class XLHeader:
+class XLImageMetadata:
     def __init__(
         self,
-        width: int,
-        height: int,
         orientation: int = XLOrientation.IDENTITY,
         bit_depth: XLBitDepth = XLBitDepth(),
         modular_16bit_buffers: bool = True,
@@ -392,9 +687,8 @@ class XLHeader:
         xyb_encoded: bool = True,
         color_encoding: XLColorEncoding = XLColorEncoding(),
         tone_mapping: XLToneMapping = XLToneMapping(),
+        extensions: XLExtensions = XLExtensions([]),
     ) -> None:
-        self.width = width
-        self.height = height
         self.orientation = orientation
         self.bit_depth = bit_depth
         self.modular_16bit_buffers = modular_16bit_buffers
@@ -402,50 +696,46 @@ class XLHeader:
         self.xyb_encoded = xyb_encoded
         self.color_encoding = color_encoding
         self.tone_mapping = tone_mapping
+        self.extensions = extensions
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
         pass  # bit_writer = Writer(writer)
 
     @classmethod
-    def read(cls, reader: pyjpeg.io.Reader) -> "XLHeader":
-        bit_reader = Reader(reader)
-        size = XLSize.read(bit_reader)
-
+    def read(cls, reader: Reader) -> "XLImageMetadata":
         # All defaults
-        if bit_reader.read_bool():
-            return cls(size.width, size.height)
+        if reader.read_bool():
+            return cls()
 
-        extra_fields = bit_reader.read_bool()
+        extra_fields = reader.read_bool()
         if extra_fields:
-            orientation = XLOrientation.IDENTITY + bit_reader.read_bits(3)
-            if bit_reader.read_bool():
-                intrinsic_width, intrinsic_height = XLSize.read(bit_reader).size
-            if bit_reader.read_bool():
-                preview_width, preview_height = XLSize.read(bit_reader).size
-            if bit_reader.read_bool():
+            orientation = XLOrientation.IDENTITY + reader.read_bits(3)
+            if reader.read_bool():
+                intrinsic_width, intrinsic_height = XLSize.read(reader).size
+            if reader.read_bool():
+                preview_width, preview_height = XLSize.read(reader).size
+            if reader.read_bool():
                 pass  # FIXME: Read animation header
         else:
             orientation = XLOrientation.IDENTITY
 
-        bit_depth = XLBitDepth.read(bit_reader)
-        modular_16bit_buffers = bit_reader.read_bool()
-        extra_channel_count = bit_reader.read_u32((0, 1, 2, 1), (0, 0, 4, 12))
+        bit_depth = XLBitDepth.read(reader)
+        modular_16bit_buffers = reader.read_bool()
+        extra_channel_count = reader.read_u32((0, 1, 2, 1), (0, 0, 4, 12))
         extra_channels = []
         for _ in range(extra_channel_count):
-            extra_channels.append(XLExtraChannelInfo.read(bit_reader))
-        xyb_encoded = bit_reader.read_bool()
-        color_encoding = XLColorEncoding.read(bit_reader)
+            extra_channels.append(XLExtraChannelInfo.read(reader))
+        xyb_encoded = reader.read_bool()
+        color_encoding = XLColorEncoding.read(reader)
 
         if extra_fields:
-            tone_mapping = XLToneMapping.read(bit_reader)
+            tone_mapping = XLToneMapping.read(reader)
         else:
             tone_mapping = XLToneMapping()
 
-        extensions = XLExtensions.read(bit_reader)
+        extensions = XLExtensions.read(reader)
 
         return cls(
-            size.width,
-            size.height,
             orientation=orientation,
             bit_depth=bit_depth,
             modular_16bit_buffers=modular_16bit_buffers,
@@ -457,4 +747,115 @@ class XLHeader:
         )
 
     def __repr__(self) -> str:
-        return f"XLHeader({self.width}, {self.height}, orientation={self.orientation}, bit_depth={self.bit_depth}, modular_16bit_buffers={self.modular_16bit_buffers}, extra_channels={self.extra_channels}, xyb_encoded={self.xyb_encoded}, color_encoding={self.color_encoding}, tone_mapping={self.tone_mapping})"
+        return f"XLImageMetadata(orientation={self.orientation}, bit_depth={self.bit_depth}, modular_16bit_buffers={self.modular_16bit_buffers}, extra_channels={self.extra_channels}, xyb_encoded={self.xyb_encoded}, color_encoding={self.color_encoding}, tone_mapping={self.tone_mapping})"
+
+
+class XLCustomTransform:
+    def __init__(
+        self,
+        up2_weights: list[float] = DEFAULT_UP2_WEIGHTS,
+        up4_weights: list[float] = DEFAULT_UP4_WEIGHTS,
+        up8_weights: list[float] = DEFAULT_UP8_WEIGHTS,
+    ) -> None:
+        self.up2_weights = up2_weights
+        self.up4_weights = up4_weights
+        self.up8_weights = up8_weights
+
+    @classmethod
+    def read(cls, reader: Reader, color_encoding: XLColorSpace) -> "XLCustomTransform":
+        if reader.read_bool():
+            return cls()
+
+        if color_encoding == XLColorSpace.XYB:
+            pass  # FIXME: Decode inverse matrix
+        cw_mask = reader.read_bits(3)
+        if cw_mask & 0x1:
+            up2_weights = [reader.read_f16() for _ in range(15)]
+        else:
+            up2_weights = DEFAULT_UP2_WEIGHTS
+        if cw_mask & 0x2:
+            up4_weights = [reader.read_f16() for _ in range(55)]
+        else:
+            up4_weights = DEFAULT_UP4_WEIGHTS
+        if cw_mask & 0x4:
+            up8_weights = [reader.read_f16() for _ in range(210)]
+        else:
+            up8_weights = DEFAULT_UP8_WEIGHTS
+        return cls(
+            up2_weights=up2_weights, up4_weights=up4_weights, up8_weights=up8_weights
+        )
+
+    def __repr__(self) -> str:
+        if self.up2_weights == DEFAULT_UP2_WEIGHTS:
+            up2_weights_string = "DEFAULT_UP2_WEIGHTS"
+        else:
+            up2_weights_string = str(self.up2_weights)
+        if self.up4_weights == DEFAULT_UP4_WEIGHTS:
+            up4_weights_string = "DEFAULT_UP4_WEIGHTS"
+        else:
+            up4_weights_string = str(self.up4_weights)
+        if self.up8_weights == DEFAULT_UP8_WEIGHTS:
+            up8_weights_string = "DEFAULT_UP8_WEIGHTS"
+        else:
+            up8_weights_string = str(self.up8_weights)
+        return f"XLCustomTransform(up2_weights={up2_weights_string}, up4_weights={up4_weights_string}, up8_weights={up8_weights_string})"
+
+
+class XLIccProfile:
+    def __init__(
+        self,
+    ) -> None:
+        pass
+
+    @classmethod
+    def read(cls, reader: Reader) -> "XLIccProfile":
+        encoded_size = reader.read_u64()
+        # FIXME: read entropy stream
+        return cls()
+
+    def __repr__(self) -> str:
+        return f"XLIccProfile()"
+
+
+class XLHeader:
+    def __init__(
+        self,
+        width: int,
+        height: int,
+        image_metadata: XLImageMetadata,
+        custom_transform: XLCustomTransform,
+        icc_profile: XLIccProfile | None = None,
+    ) -> None:
+        self.width = width
+        self.height = height
+        self.image_metadata = image_metadata
+        self.custom_transform = custom_transform
+        self.icc_profile = icc_profile
+
+    def write(self, writer: pyjpeg.io.Writer) -> None:
+        pass  # bit_writer = Writer(writer)
+
+    @classmethod
+    def read(cls, reader: pyjpeg.io.Reader) -> "XLHeader":
+        bit_reader = Reader(reader)
+        size = XLSize.read(bit_reader)
+        image_metadata = XLImageMetadata.read(bit_reader)
+        custom_transform = XLCustomTransform.read(
+            bit_reader, image_metadata.color_encoding.color_encoding
+        )
+        if image_metadata.color_encoding.use_icc_profile:
+            icc_profile = XLIccProfile.read(bit_reader)
+        else:
+            icc_profile = None
+        bit_reader.align()
+
+        return cls(
+            size.width,
+            size.height,
+            image_metadata=image_metadata,
+            custom_transform=custom_transform,
+            icc_profile=icc_profile,
+        )
+
+    def __repr__(self) -> str:
+        return f"XLHeader({self.width}, {self.height}, image_metadata={self.image_metadata}, custom_transform={self.custom_transform}, icc_profile={self.icc_profile})"
