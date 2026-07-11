@@ -362,9 +362,9 @@ class Writer:
             self.data = 0
             self.bit_count = 0
 
-    def write_bits(self, bits: list[int]) -> None:
-        for bit in bits:
-            self.write_bit(bit)
+    def write_bits(self, value: int, n: int) -> None:
+        for i in range(n):
+            self.write_bit((value >> i) & 1)
 
     def write_bool(self, value: bool) -> None:
         self.write_bit(1 if value else 0)
