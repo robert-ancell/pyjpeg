@@ -762,11 +762,11 @@ class XLCustomTransform:
         self.up8_weights = up8_weights
 
     @classmethod
-    def read(cls, reader: Reader, color_encoding: XLColorSpace) -> "XLCustomTransform":
+    def read(cls, reader: Reader, xyb_encoded: bool) -> "XLCustomTransform":
         if reader.read_bool():
             return cls()
 
-        if color_encoding == XLColorSpace.XYB:
+        if xyb_encoded:
             pass  # FIXME: Decode inverse matrix
         cw_mask = reader.read_bits(3)
         if cw_mask & 0x1:
@@ -841,7 +841,7 @@ class XLHeader:
         size = XLSize.read(bit_reader)
         image_metadata = XLImageMetadata.read(bit_reader)
         custom_transform = XLCustomTransform.read(
-            bit_reader, image_metadata.color_encoding.color_encoding
+            bit_reader, image_metadata.xyb_encoded
         )
         if image_metadata.color_encoding.use_icc_profile:
             icc_profile = XLIccProfile.read(bit_reader)
