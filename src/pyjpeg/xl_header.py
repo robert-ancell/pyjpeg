@@ -430,7 +430,7 @@ class Reader:
         length = 12
         while self.read_bool():
             if length == 60:
-                return self.read_bits(4) << length
+                return value | self.read_bits(4) << length
             value |= self.read_bits(8) << length
             length += 8
         return value
