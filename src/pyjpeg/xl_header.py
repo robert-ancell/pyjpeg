@@ -602,7 +602,7 @@ class XLColorEncoding:
             if color_encoding not in (XLColorSpace.XYB, XLColorSpace.GRAY):
                 primaries = bit_reader.read_enum()
                 if primaries == XLPrimaries.CUSTOM:
-                    raise Exception("Custom white point is not supported")  # FIXME
+                    raise Exception("Custom primaries is not supported")  # FIXME
             else:
                 primaries = XLPrimaries.SRGB
             use_gamma = bit_reader.read_bool()
