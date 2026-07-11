@@ -707,17 +707,18 @@ class XLImageMetadata:
         if reader.read_bool():
             return cls()
 
+        orientation = XLOrientation.IDENTITY
+        intrinsic_size: XLSize | None = None
+        preview_size: XLSize | None = None
         extra_fields = reader.read_bool()
         if extra_fields:
             orientation = XLOrientation.IDENTITY + reader.read_bits(3)
             if reader.read_bool():
-                intrinsic_width, intrinsic_height = XLSize.read(reader).size
+                intrinsic_size = XLSize.read(reader)
             if reader.read_bool():
-                preview_width, preview_height = XLSize.read(reader).size
+                preview_size = XLSize.read(reader)
             if reader.read_bool():
                 pass  # FIXME: Read animation header
-        else:
-            orientation = XLOrientation.IDENTITY
 
         bit_depth = XLBitDepth.read(reader)
         modular_16bit_buffers = reader.read_bool()
