@@ -48,7 +48,7 @@ class XLColorEncoding:
         self.transfer_function = transfer_function
         self.rendering_intent = rendering_intent
 
-    def write(self, writer: pyjpeg.xl_io.Writer) -> None:
+    def write(self, writer: pyjpeg.xl_io.XLWriter) -> None:
         is_default = self == XLColorEncoding()
         writer.write_bool(is_default)
         if is_default:
