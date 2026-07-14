@@ -1,4 +1,4 @@
-import pyjpeg.xl_io
+from pyjpeg.xl_io import XLReader, XLWriter
 
 
 class XLBitDepth:
@@ -12,7 +12,7 @@ class XLBitDepth:
         self.bits_per_sample = bits_per_sample
         self.exp_bits = exp_bits
 
-    def write(self, writer: pyjpeg.xl_io.XLWriter) -> None:
+    def write(self, writer: XLWriter) -> None:
         writer.write_bool(self.uses_float_samples)
         if self.uses_float_samples:
             writer.write_u32(self.bits_per_sample, (32, 16, 24, 1), (0, 0, 0, 6))
@@ -22,7 +22,7 @@ class XLBitDepth:
             writer.write_bits(self.exp_bits, 4)
 
     @classmethod
-    def read(cls, reader: pyjpeg.xl_io.XLReader) -> "XLBitDepth":
+    def read(cls, reader: XLReader) -> "XLBitDepth":
         uses_float_samples = reader.read_bool()
         if uses_float_samples:
             bits_per_sample = reader.read_u32((32, 16, 24, 1), (0, 0, 0, 6))

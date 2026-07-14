@@ -1,4 +1,4 @@
-import pyjpeg.xl_io
+from pyjpeg.xl_io import XLReader, XLWriter
 
 
 class XLColorSpace:
@@ -48,7 +48,7 @@ class XLColorEncoding:
         self.transfer_function = transfer_function
         self.rendering_intent = rendering_intent
 
-    def write(self, writer: pyjpeg.xl_io.XLWriter) -> None:
+    def write(self, writer: XLWriter) -> None:
         is_default = self == XLColorEncoding()
         writer.write_bool(is_default)
         if is_default:
@@ -68,12 +68,12 @@ class XLColorEncoding:
             writer.write_enum(self.rendering_intent)
 
     @classmethod
-    def read(cls, bit_reader) -> "XLColorEncoding":
-        if bit_reader.read_bool():
+    def read(cls, reader: XLReader) -> "XLColorEncoding":
+        if reader.read_bool():
             return cls()
 
-        use_icc_profile = bit_reader.read_bool()
-        color_encoding = bit_reader.read_enum()
+        use_icc_profile = reader.read_bool()
+        color_encoding = reader.read_enum()
         if use_icc_profile:
             white_point = XLWhitePoint.D65
             primaries = XLPrimaries.SRGB
@@ -82,23 +82,23 @@ class XLColorEncoding:
             rendering_intent = XLRenderingIntent.RELATIVE
         else:
             if color_encoding != XLColorSpace.XYB:
-                white_point = bit_reader.read_enum()
+                white_point = reader.read_enum()
                 if white_point == XLWhitePoint.CUSTOM:
                     raise Exception("Custom white point is not supported")  # FIXME
             else:
                 white_point = XLWhitePoint.D65
             if color_encoding not in (XLColorSpace.XYB, XLColorSpace.GRAY):
-                primaries = bit_reader.read_enum()
+                primaries = reader.read_enum()
                 if primaries == XLPrimaries.CUSTOM:
                     raise Exception("Custom primaries is not supported")  # FIXME
             else:
                 primaries = XLPrimaries.SRGB
-            use_gamma = bit_reader.read_bool()
+            use_gamma = reader.read_bool()
             if use_gamma:
-                transfer_function = bit_reader.read_bits(24)
+                transfer_function = reader.read_bits(24)
             else:
-                transfer_function = (1 << 24) + bit_reader.read_enum()
-            rendering_intent = bit_reader.read_enum()
+                transfer_function = (1 << 24) + reader.read_enum()
+            rendering_intent = reader.read_enum()
 
         return cls(
             use_icc_profile=use_icc_profile,

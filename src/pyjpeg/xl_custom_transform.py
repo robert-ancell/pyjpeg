@@ -1,4 +1,4 @@
-import pyjpeg.xl_io
+from pyjpeg.xl_io import XLReader, XLWriter
 
 DEFAULT_UP2_WEIGHTS = [
     -0.01716200,
