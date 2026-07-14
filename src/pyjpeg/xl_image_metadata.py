@@ -1,5 +1,3 @@
-from numpy.f2py.auxfuncs import throw_error
-
 from pyjpeg.xl_bit_depth import XLBitDepth
 from pyjpeg.xl_color_encoding import XLColorEncoding
 from pyjpeg.xl_extensions import XLExtensions
