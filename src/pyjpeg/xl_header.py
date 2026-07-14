@@ -1,4 +1,5 @@
 import pyjpeg.xl_io
+import pyjpeg.xl_size
 
 
 class XLExtraChannelType:
@@ -346,51 +347,6 @@ DEFAULT_UP8_WEIGHTS = [
     -0.02070339,
     -0.00458223,
 ]
-
-
-class XLSize:
-    def __init__(
-        self,
-        width: int,
-        height: int,
-    ) -> None:
-        self.width = width
-        self.height = height
-
-    def write(self, writer: XLWriter) -> None:
-        def write_dimension(value: int, size_multiple_of_eight: bool) -> None:
-            if size_multiple_of_eight:
-                writer.write_bits(value // 8 - 1, 5)
-            else:
-                writer.write_u32(value, (1, 1, 1, 1), (9, 13, 18, 30))
-
-        size_multiple_of_eight = self.height % 8 == 0
-        # FIXME
-        writer.write_bool(size_multiple_of_eight)
-        write_dimension(self.width, size_multiple_of_eight)
-        write_dimension(self.height, size_multiple_of_eight)
-
-    @classmethod
-    def read(cls, reader: XLReader) -> "XLSize":
-        def read_dimension(size_multiple_of_eight: bool) -> int:
-            if size_multiple_of_eight:
-                return (1 + reader.read_bits(5)) * 8
-            else:
-                return reader.read_u32((1, 1, 1, 1), (9, 13, 18, 30))
-
-        size_multiple_of_eight = reader.read_bool()
-        height = read_dimension(size_multiple_of_eight)
-        ratio_index = reader.read_bits(3)
-        if ratio_index == 0:
-            width = read_dimension(size_multiple_of_eight)
-        else:
-            ratio_x = [1, 12, 4, 3, 16, 5, 2][ratio_index - 1]
-            ratio_y = [1, 10, 3, 2, 9, 4, 1][ratio_index - 1]
-            width = (height * ratio_x) // ratio_y
-        return cls(width, height)
-
-    def __repr__(self) -> str:
-        return f"XLSize({self.width}, {self.height})"
 
 
 class XLBitDepth:
@@ -764,8 +720,8 @@ class XLImageMetadata:
     def __init__(
         self,
         orientation: int = XLOrientation.IDENTITY,
-        intrinsic_size: XLSize | None = None,
-        preview_size: XLSize | None = None,
+        intrinsic_size: pyjpeg.xl_size.XLSize | None = None,
+        preview_size: pyjpeg.xl_size.XLSize | None = None,
         bit_depth: XLBitDepth = XLBitDepth(),
         modular_16bit_buffers: bool = True,
         extra_channels: list[XLExtraChannelInfo] = [],
@@ -824,8 +780,8 @@ class XLImageMetadata:
             return cls()
 
         orientation = XLOrientation.IDENTITY
-        intrinsic_size: XLSize | None = None
-        preview_size: XLSize | None = None
+        intrinsic_size: pyjpeg.xl_size.XLSize | None = None
+        preview_size: pyjpeg.xl_size.XLSize | None = None
         extra_fields = reader.read_bool()
         if extra_fields:
             orientation = XLOrientation.IDENTITY + reader.read_bits(3)
@@ -974,12 +930,12 @@ class XLIccProfile:
     ) -> None:
         pass
 
-    def write(self, writer: XLWriter) -> None:
+    def write(self, writer: pyjpeg.io.Writer) -> None:
         # FIXME
         writer.write_u64(0)
 
     @classmethod
-    def read(cls, reader: XLReader) -> "XLIccProfile":
+    def read(cls, reader: pyjpeg.xl_io.XLReader) -> "XLIccProfile":
         encoded_size = reader.read_u64()
         # FIXME: read entropy stream
         return cls()
@@ -991,7 +947,7 @@ class XLIccProfile:
 class XLHeader:
     def __init__(
         self,
-        size: XLSize,
+        size: pyjpeg.xl_size.XLSize,
         image_metadata: XLImageMetadata,
         custom_transform: XLCustomTransform,
         icc_profile: XLIccProfile | None = None,
@@ -1001,7 +957,7 @@ class XLHeader:
         self.custom_transform = custom_transform
         self.icc_profile = icc_profile
 
-    def write(self, writer: XLWriter) -> None:
+    def write(self, writer: pyjpeg.xl_io.XLWriter) -> None:
         self.size.write(writer)
         self.image_metadata.write(writer)
         self.custom_transform.write(writer)
@@ -1010,8 +966,8 @@ class XLHeader:
         writer.align()
 
     @classmethod
-    def read(cls, reader: XLReader) -> "XLHeader":
-        size = XLSize.read(reader)
+    def read(cls, reader: pyjpeg.xl_io.XLReader) -> "XLHeader":
+        size = pyjpeg.xl_size.XLSize.read(reader)
         image_metadata = XLImageMetadata.read(reader)
         custom_transform = XLCustomTransform.read(reader, image_metadata.xyb_encoded)
         if image_metadata.color_encoding.use_icc_profile:
