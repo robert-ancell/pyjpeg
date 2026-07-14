@@ -1,3 +1,4 @@
+import pyjpeg.xl_bit_depth
 import pyjpeg.xl_io
 import pyjpeg.xl_size
 
@@ -349,66 +350,11 @@ DEFAULT_UP8_WEIGHTS = [
 ]
 
 
-class XLBitDepth:
-    def __init__(
-        self,
-        uses_float_samples: bool = False,
-        bits_per_sample: int = 8,
-        exp_bits: int = 0,
-    ) -> None:
-        self.uses_float_samples = uses_float_samples
-        self.bits_per_sample = bits_per_sample
-        self.exp_bits = exp_bits
-
-    def write(self, writer: XLWriter) -> None:
-        writer.write_bool(self.uses_float_samples)
-        if self.uses_float_samples:
-            writer.write_u32(self.bits_per_sample, (32, 16, 24, 1), (0, 0, 0, 6))
-            writer.write_bits(self.exp_bits - 1, 4)
-        else:
-            writer.write_u32(self.bits_per_sample, (8, 10, 12, 1), (0, 0, 0, 6))
-            writer.write_bits(self.exp_bits, 4)
-
-    @classmethod
-    def read(cls, reader: XLReader) -> "XLBitDepth":
-        uses_float_samples = reader.read_bool()
-        if uses_float_samples:
-            bits_per_sample = reader.read_u32((32, 16, 24, 1), (0, 0, 0, 6))
-            exp_bits = 1 + reader.read_bits(4)
-        else:
-            bits_per_sample = reader.read_u32((8, 10, 12, 1), (0, 0, 0, 6))
-            exp_bits = 0
-
-        return cls(
-            uses_float_samples=uses_float_samples,
-            bits_per_sample=bits_per_sample,
-            exp_bits=exp_bits,
-        )
-
-    def __eq__(self, value: object) -> bool:
-        return (
-            isinstance(value, XLBitDepth)
-            and self.uses_float_samples == value.uses_float_samples
-            and self.bits_per_sample == value.bits_per_sample
-            and self.exp_bits == value.exp_bits
-        )
-
-    def __repr__(self) -> str:
-        args = []
-        if self.uses_float_samples:
-            args.append(f"uses_float_samples={self.uses_float_samples}")
-        if self.bits_per_sample != 8:
-            args.append(f"bits_per_sample={self.bits_per_sample}")
-        if self.exp_bits != 0:
-            args.append(f"exp_bits={self.exp_bits}")
-        return f"XLBitDepth({', '.join(args)})"
-
-
 class XLExtraChannelInfo:
     def __init__(
         self,
         type: int,
-        bit_depth: XLBitDepth = XLBitDepth(),
+        bit_depth: pyjpeg.xl_bit_depth.XLBitDepth = pyjpeg.xl_bit_depth.XLBitDepth(),
         dim_shift: int = 0,
         name: str = "",
         alpha_associated: bool = False,
@@ -423,7 +369,7 @@ class XLExtraChannelInfo:
         self.spot_color = spot_color
         self.cfa_index = cfa_index
 
-    def write(self, writer: XLWriter) -> None:
+    def write(self, writer: pyjpeg.xl_io.Writer) -> None:
         writer.write_bool(self.type == XLExtraChannelType.ALPHA)
         if self.type == XLExtraChannelType.ALPHA:
             return
@@ -444,13 +390,13 @@ class XLExtraChannelInfo:
             writer.write_u32(self.cfa_index, (1, 0, 3, 19), (0, 2, 4, 8))
 
     @classmethod
-    def read(cls, reader: XLReader) -> "XLExtraChannelInfo":
+    def read(cls, reader: pyjpeg.xl_io.XLReader) -> "XLExtraChannelInfo":
         if reader.read_bool():
             return cls(XLExtraChannelType.ALPHA)
 
         type = reader.read_enum()
         assert type <= XLExtraChannelType.NON_OPTIONAL
-        bit_depth = XLBitDepth.read(reader)
+        bit_depth = pyjpeg.xl_bit_depth.XLBitDepth.read(reader)
         dim_shift = reader.read_u32((0, 3, 4, 1), (0, 0, 0, 3))
         name_length = reader.read_u32((0, 0, 16, 48), (0, 4, 5, 10))
         name = reader.read_bytes(name_length).decode("utf-8")
@@ -485,7 +431,7 @@ class XLExtraChannelInfo:
         args = []
         if self.type != XLExtraChannelType.COLOR_FILTER_ARRAY:
             args.append(f"type={self.type}")
-        if self.bit_depth != XLBitDepth():
+        if self.bit_depth != pyjpeg.xl_bit_depth.XLBitDepth():
             args.append(f"bit_depth={self.bit_depth}")
         if self.dim_shift != 0:
             args.append(f"dim_shift={self.dim_shift}")
@@ -519,7 +465,7 @@ class XLColorEncoding:
         self.transfer_function = transfer_function
         self.rendering_intent = rendering_intent
 
-    def write(self, writer: XLWriter) -> None:
+    def write(self, writer: pyjpeg.xl_io.Writer) -> None:
         is_default = self == XLColorEncoding()
         writer.write_bool(is_default)
         if is_default:
@@ -722,7 +668,7 @@ class XLImageMetadata:
         orientation: int = XLOrientation.IDENTITY,
         intrinsic_size: pyjpeg.xl_size.XLSize | None = None,
         preview_size: pyjpeg.xl_size.XLSize | None = None,
-        bit_depth: XLBitDepth = XLBitDepth(),
+        bit_depth: pyjpeg.xl_bit_depth.XLBitDepth = pyjpeg.xl_bit_depth.XLBitDepth(),
         modular_16bit_buffers: bool = True,
         extra_channels: list[XLExtraChannelInfo] = [],
         xyb_encoded: bool = True,
@@ -792,7 +738,7 @@ class XLImageMetadata:
             if reader.read_bool():
                 pass  # FIXME: Read animation header
 
-        bit_depth = XLBitDepth.read(reader)
+        bit_depth = pyjpeg.xl_bit_depth.XLBitDepth.read(reader)
         modular_16bit_buffers = reader.read_bool()
         extra_channel_count = reader.read_u32((0, 1, 2, 1), (0, 0, 4, 12))
         extra_channels = []
@@ -840,7 +786,7 @@ class XLImageMetadata:
         args = []
         if self.orientation != 0:
             args.append(f"orientation={self.orientation}")
-        if self.bit_depth != XLBitDepth():
+        if self.bit_depth != pyjpeg.xl_bit_depth.XLBitDepth():
             args.append(f"bit_depth={self.bit_depth}")
         if self.modular_16bit_buffers:
             args.append(f"modular_16bit_buffers={self.modular_16bit_buffers}")
@@ -930,7 +876,7 @@ class XLIccProfile:
     ) -> None:
         pass
 
-    def write(self, writer: pyjpeg.io.Writer) -> None:
+    def write(self, writer: pyjpeg.xl_io.Writer) -> None:
         # FIXME
         writer.write_u64(0)
 
