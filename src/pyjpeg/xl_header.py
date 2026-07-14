@@ -1,27 +1,8 @@
 from pyjpeg.xl_custom_transform import XLCustomTransform
+from pyjpeg.xl_icc_profile import XLIccProfile
 from pyjpeg.xl_image_metadata import XLImageMetadata
 from pyjpeg.xl_io import XLReader, XLWriter
 from pyjpeg.xl_size import XLSize
-
-
-class XLIccProfile:
-    def __init__(
-        self,
-    ) -> None:
-        pass
-
-    def write(self, writer: XLWriter) -> None:
-        # FIXME
-        writer.write_u64(0)
-
-    @classmethod
-    def read(cls, reader: XLReader) -> "XLIccProfile":
-        encoded_size = reader.read_u64()
-        # FIXME: read entropy stream
-        return cls()
-
-    def __repr__(self) -> str:
-        return "XLIccProfile()"
 
 
 class XLHeader:
