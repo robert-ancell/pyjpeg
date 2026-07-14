@@ -352,7 +352,7 @@ DEFAULT_UP8_WEIGHTS = [
 ]
 
 
-class Writer:
+class XLWriter:
     def __init__(self, writer: pyjpeg.io.Writer) -> None:
         self.writer = writer
         self.data = 0
@@ -420,7 +420,7 @@ class Writer:
         for byte in data:
             self.write_u8(byte)
 
-    def flush(self, pad_bit: int = 0) -> None:
+    def align(self, pad_bit: int = 0) -> None:
         if self.bit_count == 0:
             return
         n_padding = 8 - self.bit_count
@@ -428,7 +428,7 @@ class Writer:
             self.write_bit(pad_bit)
 
 
-class Reader:
+class XLReader:
     def __init__(self, reader: pyjpeg.io.Reader) -> None:
         self.reader = reader
         self.data = 0
@@ -502,7 +502,7 @@ class XLSize:
         self.width = width
         self.height = height
 
-    def write(self, writer: Writer) -> None:
+    def write(self, writer: XLWriter) -> None:
         def write_dimension(value: int, size_multiple_of_eight: bool) -> None:
             if size_multiple_of_eight:
                 writer.write_bits(value // 8 - 1, 5)
@@ -516,7 +516,7 @@ class XLSize:
         write_dimension(self.height, size_multiple_of_eight)
 
     @classmethod
-    def read(cls, reader: Reader) -> "XLSize":
+    def read(cls, reader: XLReader) -> "XLSize":
         def read_dimension(size_multiple_of_eight: bool) -> int:
             if size_multiple_of_eight:
                 return (1 + reader.read_bits(5)) * 8
@@ -549,7 +549,7 @@ class XLBitDepth:
         self.bits_per_sample = bits_per_sample
         self.exp_bits = exp_bits
 
-    def write(self, writer: Writer) -> None:
+    def write(self, writer: XLWriter) -> None:
         writer.write_bool(self.uses_float_samples)
         if self.uses_float_samples:
             writer.write_u32(self.bits_per_sample, (32, 16, 24, 1), (0, 0, 0, 6))
@@ -559,7 +559,7 @@ class XLBitDepth:
             writer.write_bits(self.exp_bits, 4)
 
     @classmethod
-    def read(cls, reader: Reader) -> "XLBitDepth":
+    def read(cls, reader: XLReader) -> "XLBitDepth":
         uses_float_samples = reader.read_bool()
         if uses_float_samples:
             bits_per_sample = reader.read_u32((32, 16, 24, 1), (0, 0, 0, 6))
@@ -583,10 +583,14 @@ class XLBitDepth:
         )
 
     def __repr__(self) -> str:
-        if self == XLBitDepth():
-            return "XLBitDepth()"
-        else:
-            return f"XLBitDepth(uses_float_samples={self.uses_float_samples}, bits_per_sample={self.bits_per_sample}, exp_bits={self.exp_bits})"
+        args = []
+        if self.uses_float_samples:
+            args.append(f"uses_float_samples={self.uses_float_samples}")
+        if self.bits_per_sample != 8:
+            args.append(f"bits_per_sample={self.bits_per_sample}")
+        if self.exp_bits != 0:
+            args.append(f"exp_bits={self.exp_bits}")
+        return f"XLBitDepth({', '.join(args)})"
 
 
 class XLExtraChannelInfo:
@@ -608,7 +612,7 @@ class XLExtraChannelInfo:
         self.spot_color = spot_color
         self.cfa_index = cfa_index
 
-    def write(self, writer: Writer) -> None:
+    def write(self, writer: XLWriter) -> None:
         writer.write_bool(self.type == XLExtraChannelType.ALPHA)
         if self.type == XLExtraChannelType.ALPHA:
             return
@@ -629,7 +633,7 @@ class XLExtraChannelInfo:
             writer.write_u32(self.cfa_index, (1, 0, 3, 19), (0, 2, 4, 8))
 
     @classmethod
-    def read(cls, reader: Reader) -> "XLExtraChannelInfo":
+    def read(cls, reader: XLReader) -> "XLExtraChannelInfo":
         if reader.read_bool():
             return cls(XLExtraChannelType.ALPHA)
 
@@ -667,7 +671,22 @@ class XLExtraChannelInfo:
         )
 
     def __repr__(self) -> str:
-        return f"XLExtraChannelInfo({self.type}, bit_depth={self.bit_depth}, dim_shift={self.dim_shift}, name={self.name}, alpha_associated={self.alpha_associated})"
+        args = []
+        if self.type != XLExtraChannelType.COLOR_FILTER_ARRAY:
+            args.append(f"type={self.type}")
+        if self.bit_depth != XLBitDepth():
+            args.append(f"bit_depth={self.bit_depth}")
+        if self.dim_shift != 0:
+            args.append(f"dim_shift={self.dim_shift}")
+        if self.name:
+            args.append(f"name={self.name}")
+        if self.alpha_associated:
+            args.append(f"alpha_associated={self.alpha_associated}")
+        if self.spot_color is not None:
+            args.append(f"spot_color={self.spot_color}")
+        if self.cfa_index != 0:
+            args.append(f"cfa_index={self.cfa_index}")
+        return f"XLExtraChannelInfo({', '.join(args)})"
 
 
 class XLColorEncoding:
@@ -689,7 +708,7 @@ class XLColorEncoding:
         self.transfer_function = transfer_function
         self.rendering_intent = rendering_intent
 
-    def write(self, writer: Writer) -> None:
+    def write(self, writer: XLWriter) -> None:
         is_default = self == XLColorEncoding()
         writer.write_bool(is_default)
         if is_default:
@@ -764,10 +783,22 @@ class XLColorEncoding:
         )
 
     def __repr__(self) -> str:
-        if self == XLColorEncoding():
-            return "XLColorEncoding()"
-        else:
-            return f"XLColorEncoding(use_icc_profile={self.use_icc_profile}, color_encoding={self.color_encoding}, white_point={self.white_point}, primaries={self.primaries}, use_gamma={self.use_gamma}, transfer_function={self.transfer_function}, rendering_intent={self.rendering_intent})"
+        args = []
+        if self.use_icc_profile:
+            args.append(f"use_icc_profile={self.use_icc_profile}")
+        if self.color_encoding != XLColorSpace.RGB:
+            args.append(f"color_encoding={self.color_encoding}")
+        if self.white_point != XLWhitePoint.D65:
+            args.append(f"white_point={self.white_point}")
+        if self.primaries != XLPrimaries.SRGB:
+            args.append(f"primaries={self.primaries}")
+        if self.use_gamma:
+            args.append(f"use_gamma={self.use_gamma}")
+        if self.transfer_function != 0:
+            args.append(f"transfer_function={self.transfer_function}")
+        if self.rendering_intent != XLRenderingIntent.RELATIVE:
+            args.append(f"rendering_intent={self.rendering_intent}")
+        return f"XLColorEncoding({', '.join(args)})"
 
 
 class XLToneMapping:
@@ -783,7 +814,7 @@ class XLToneMapping:
         self.relative_to_max_display = relative_to_max_display
         self.linear_below = linear_below
 
-    def write(self, writer: Writer) -> None:
+    def write(self, writer: XLWriter) -> None:
         is_default = self == XLToneMapping()
         writer.write_bool(is_default)
         if is_default:
@@ -795,7 +826,7 @@ class XLToneMapping:
         writer.write_f16(self.linear_below)
 
     @classmethod
-    def read(cls, bit_reader: Reader) -> "XLToneMapping":
+    def read(cls, bit_reader: XLReader) -> "XLToneMapping":
         if bit_reader.read_bool():
             return cls()
 
@@ -822,10 +853,16 @@ class XLToneMapping:
         )
 
     def __repr__(self) -> str:
-        if self == XLToneMapping():
-            return "XLToneMapping()"
-        else:
-            return f"XLToneMapping(intensity_target={self.intensity_target}, min_nits={self.min_nits}, relative_to_max_display={self.relative_to_max_display}, linear_below={self.linear_below})"
+        args = []
+        if self.intensity_target != 255.0:
+            args.append(f"intensity_target={self.intensity_target}")
+        if self.min_nits != 0.0:
+            args.append(f"min_nits={self.min_nits}")
+        if self.relative_to_max_display:
+            args.append(f"relative_to_max_display={self.relative_to_max_display}")
+        if self.linear_below != 0.0:
+            args.append(f"linear_below={self.linear_below}")
+        return f"XLToneMapping({', '.join(args)})"
 
 
 class XLExtensions:
@@ -833,14 +870,14 @@ class XLExtensions:
         self.key = key
         self.payloads = payloads
 
-    def write(self, writer: Writer) -> None:
+    def write(self, writer: XLWriter) -> None:
         writer.write_u64(self.key)
         for payload in self.payloads:
             writer.write_u64(len(payload))
             writer.write_bytes(payload)
 
     @classmethod
-    def read(cls, reader: Reader) -> "XLExtensions":
+    def read(cls, reader: XLReader) -> "XLExtensions":
         key = reader.read_u64()
         lengths = []
         for i in range(64):
@@ -860,10 +897,12 @@ class XLExtensions:
         )
 
     def __repr__(self) -> str:
-        if self == XLExtensions():
-            return "XLExtensions()"
-        else:
-            return f"XLExtensions(key={self.key}, payloads={self.payloads})"
+        args = []
+        if self.key != 0:
+            args.append(f"key={self.key}")
+        if self.payloads:
+            args.append(f"payloads={self.payloads}")
+        return f"XLExtensions({', '.join(args)})"
 
 
 class XLImageMetadata:
@@ -891,7 +930,7 @@ class XLImageMetadata:
         self.tone_mapping = tone_mapping
         self.extensions = extensions
 
-    def write(self, writer: Writer) -> None:
+    def write(self, writer: XLWriter) -> None:
         is_default = self == XLImageMetadata()
         writer.write_bool(is_default)
         if is_default:
@@ -924,7 +963,7 @@ class XLImageMetadata:
         self.extensions.write(writer)
 
     @classmethod
-    def read(cls, reader: Reader) -> "XLImageMetadata":
+    def read(cls, reader: XLReader) -> "XLImageMetadata":
         # All defaults
         if reader.read_bool():
             return cls()
@@ -987,10 +1026,24 @@ class XLImageMetadata:
         )
 
     def __repr__(self) -> str:
-        if self == XLImageMetadata():
-            return "XLImageMetadata()"
-        else:
-            return f"XLImageMetadata(orientation={self.orientation}, bit_depth={self.bit_depth}, modular_16bit_buffers={self.modular_16bit_buffers}, extra_channels={self.extra_channels}, xyb_encoded={self.xyb_encoded}, color_encoding={self.color_encoding}, tone_mapping={self.tone_mapping}, extensions={self.extensions})"
+        args = []
+        if self.orientation != 0:
+            args.append(f"orientation={self.orientation}")
+        if self.bit_depth != XLBitDepth():
+            args.append(f"bit_depth={self.bit_depth}")
+        if self.modular_16bit_buffers:
+            args.append(f"modular_16bit_buffers={self.modular_16bit_buffers}")
+        if self.extra_channels:
+            args.append(f"extra_channels={self.extra_channels}")
+        if self.xyb_encoded:
+            args.append(f"xyb_encoded={self.xyb_encoded}")
+        if self.color_encoding != XLColorEncoding():
+            args.append(f"color_encoding={self.color_encoding}")
+        if self.tone_mapping is not None:
+            args.append(f"tone_mapping={self.tone_mapping}")
+        if self.extensions != XLExtensions():
+            args.append(f"extensions={self.extensions}")
+        return f"XLImageMetadata({', '.join(args)})"
 
 
 class XLCustomTransform:
@@ -1004,7 +1057,7 @@ class XLCustomTransform:
         self.up4_weights = up4_weights
         self.up8_weights = up8_weights
 
-    def write(self, writer: Writer) -> None:
+    def write(self, writer: XLWriter) -> None:
         is_default = self == XLCustomTransform()
         writer.write_bool(not is_default)
         if is_default:
@@ -1018,7 +1071,7 @@ class XLCustomTransform:
             writer.write_f16(value)
 
     @classmethod
-    def read(cls, reader: Reader, xyb_encoded: bool) -> "XLCustomTransform":
+    def read(cls, reader: XLReader, xyb_encoded: bool) -> "XLCustomTransform":
         if reader.read_bool():
             return cls()
 
@@ -1050,21 +1103,14 @@ class XLCustomTransform:
         )
 
     def __repr__(self) -> str:
-        if self == XLCustomTransform():
-            return "XLCustomTransform()"
-        if self.up2_weights == DEFAULT_UP2_WEIGHTS:
-            up2_weights_string = "DEFAULT_UP2_WEIGHTS"
-        else:
-            up2_weights_string = str(self.up2_weights)
-        if self.up4_weights == DEFAULT_UP4_WEIGHTS:
-            up4_weights_string = "DEFAULT_UP4_WEIGHTS"
-        else:
-            up4_weights_string = str(self.up4_weights)
-        if self.up8_weights == DEFAULT_UP8_WEIGHTS:
-            up8_weights_string = "DEFAULT_UP8_WEIGHTS"
-        else:
-            up8_weights_string = str(self.up8_weights)
-        return f"XLCustomTransform(up2_weights={up2_weights_string}, up4_weights={up4_weights_string}, up8_weights={up8_weights_string})"
+        args = []
+        if self.up2_weights != DEFAULT_UP2_WEIGHTS:
+            args.append(f"up2_weights={self.up2_weights}")
+        if self.up4_weights != DEFAULT_UP4_WEIGHTS:
+            args.append(f"up4_weights={self.up4_weights}")
+        if self.up8_weights != DEFAULT_UP8_WEIGHTS:
+            args.append(f"up8_weights={self.up8_weights}")
+        return f"XLCustomTransform({', '.join(args)})"
 
 
 class XLIccProfile:
@@ -1073,8 +1119,12 @@ class XLIccProfile:
     ) -> None:
         pass
 
+    def write(self, writer: XLWriter) -> None:
+        # FIXME
+        writer.write_u64(0)
+
     @classmethod
-    def read(cls, reader: Reader) -> "XLIccProfile":
+    def read(cls, reader: XLReader) -> "XLIccProfile":
         encoded_size = reader.read_u64()
         # FIXME: read entropy stream
         return cls()
@@ -1096,22 +1146,24 @@ class XLHeader:
         self.custom_transform = custom_transform
         self.icc_profile = icc_profile
 
-    def write(self, writer: pyjpeg.io.Writer) -> None:
-        pass  # bit_writer = Writer(writer)
+    def write(self, writer: XLWriter) -> None:
+        self.size.write(writer)
+        self.image_metadata.write(writer)
+        self.custom_transform.write(writer)
+        if self.icc_profile is not None:
+            self.icc_profile.write(writer)
+        writer.align()
 
     @classmethod
-    def read(cls, reader: pyjpeg.io.Reader) -> "XLHeader":
-        bit_reader = Reader(reader)
-        size = XLSize.read(bit_reader)
-        image_metadata = XLImageMetadata.read(bit_reader)
-        custom_transform = XLCustomTransform.read(
-            bit_reader, image_metadata.xyb_encoded
-        )
+    def read(cls, reader: XLReader) -> "XLHeader":
+        size = XLSize.read(reader)
+        image_metadata = XLImageMetadata.read(reader)
+        custom_transform = XLCustomTransform.read(reader, image_metadata.xyb_encoded)
         if image_metadata.color_encoding.use_icc_profile:
-            icc_profile = XLIccProfile.read(bit_reader)
+            icc_profile = XLIccProfile.read(reader)
         else:
             icc_profile = None
-        bit_reader.align()
+        reader.align()
 
         return cls(
             size,
@@ -1121,4 +1173,11 @@ class XLHeader:
         )
 
     def __repr__(self) -> str:
-        return f"XLHeader({self.size}, image_metadata={self.image_metadata}, custom_transform={self.custom_transform}, icc_profile={self.icc_profile})"
+        args = [f"size={self.size}"]
+        if self.image_metadata != XLImageMetadata():
+            args.append(f"image_metadata={self.image_metadata}")
+        if self.custom_transform != XLCustomTransform():
+            args.append(f"custom_transform={self.custom_transform}")
+        if self.icc_profile is not None:
+            args.append(f"icc_profile={self.icc_profile}")
+        return f"XLHeader({', '.join(args)})"
