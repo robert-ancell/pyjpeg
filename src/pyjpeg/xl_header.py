@@ -1,7 +1,3 @@
-from calendar import c
-from operator import is_
-from tempfile import SpooledTemporaryFile
-
 import pyjpeg.io
 
 
