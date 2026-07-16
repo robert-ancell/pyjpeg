@@ -76,6 +76,7 @@ from pyjpeg.sof import FrameComponent, FrameType, StartOfFrame
 from pyjpeg.soi import StartOfImage
 from pyjpeg.sos import ScanComponent, StartOfScan
 from pyjpeg.stream import Stream
+from pyjpeg.xl_frame_header import XLFrameHeader
 from pyjpeg.xl_header import XLHeader
 from pyjpeg.xl_io import XLReader, XLWriter
 
@@ -147,6 +148,7 @@ __all__ = [
     "Stream",
     "UnknownApplicationSpecificData",
     "Writer",
+    "XLFrameHeader",
     "XLHeader",
     "XLReader",
     "XLWriter",
