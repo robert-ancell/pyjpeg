@@ -5,7 +5,7 @@ from pyjpeg.xl_io import XLReader, XLWriter
 from pyjpeg.xl_size import XLSize
 
 
-class XLHeader:
+class XLImageHeader:
     def __init__(
         self,
         size: XLSize,
@@ -27,7 +27,7 @@ class XLHeader:
         writer.align()
 
     @classmethod
-    def read(cls, reader: XLReader) -> "XLHeader":
+    def read(cls, reader: XLReader) -> "XLImageHeader":
         size = XLSize.read(reader)
         image_metadata = XLImageMetadata.read(reader)
         custom_transform = XLCustomTransform.read(reader, image_metadata.xyb_encoded)
@@ -52,4 +52,4 @@ class XLHeader:
             args.append(f"custom_transform={self.custom_transform}")
         if self.icc_profile is not None:
             args.append(f"icc_profile={self.icc_profile}")
-        return f"XLHeader({', '.join(args)})"
+        return f"XLImageHeader({', '.join(args)})"
