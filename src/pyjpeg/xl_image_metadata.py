@@ -29,7 +29,7 @@ class XLExtraChannelType:
 class XLExtraChannelInfo:
     def __init__(
         self,
-        type: int,
+        type: int = XLExtraChannelType.ALPHA,
         bit_depth: XLBitDepth = XLBitDepth(),
         dim_shift: int = 0,
         name: str = "",
@@ -46,8 +46,9 @@ class XLExtraChannelInfo:
         self.cfa_index = cfa_index
 
     def write(self, writer: XLWriter) -> None:
-        writer.write_bool(self.type == XLExtraChannelType.ALPHA)
-        if self.type == XLExtraChannelType.ALPHA:
+        is_default = self.type == XLExtraChannelType.ALPHA
+        writer.write_bool(is_default)
+        if is_default:
             return
         writer.write_enum(self.type)
         self.bit_depth.write(writer)
@@ -68,7 +69,7 @@ class XLExtraChannelInfo:
     @classmethod
     def read(cls, reader: XLReader) -> "XLExtraChannelInfo":
         if reader.read_bool():
-            return cls(XLExtraChannelType.ALPHA)
+            return cls()
 
         type = reader.read_enum()
         assert type <= XLExtraChannelType.NON_OPTIONAL
@@ -101,6 +102,18 @@ class XLExtraChannelInfo:
             alpha_associated=alpha_associated,
             spot_color=spot_color,
             cfa_index=cfa_index,
+        )
+
+    def __eq__(self, value: object, /) -> bool:
+        return (
+            isinstance(value, XLExtraChannelInfo)
+            and self.type == value.type
+            and self.bit_depth == value.bit_depth
+            and self.dim_shift == value.dim_shift
+            and self.name == value.name
+            and self.alpha_associated == value.alpha_associated
+            and self.spot_color == value.spot_color
+            and self.cfa_index == value.cfa_index
         )
 
     def __repr__(self) -> str:
