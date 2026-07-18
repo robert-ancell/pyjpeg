@@ -1,3 +1,4 @@
+from pyjpeg.xl_extensions import XLExtensions
 from pyjpeg.xl_io import XLReader, XLWriter
 
 DEFAULT_EPF_ITERATIONS = 2
@@ -5,7 +6,7 @@ DEFAULT_GAB1_WEIGHTS = (0.115169525, 0.115169525, 0.115169525)
 DEFAULT_GAB2_WEIGHTS = (0.061248592, 0.061248592, 0.061248592)
 DEFAULT_EPF_SHARP_LUT = (0.0, 1 / 7, 2 / 7, 3 / 7, 4 / 7, 5 / 7, 6 / 7, 1)
 DEFAULT_EPF_CHANNEL_SCALE = (40.0, 5.0, 3.5)
-DEFAULT_EPF_QUANT_MUL = 0.46
+DEFAULT_EPF_QUANT_MULTIPLIER = 0.46
 
 
 class XLRestorationFilter:
@@ -19,6 +20,7 @@ class XLRestorationFilter:
             float, float, float, float, float, float, float, float
         ] = DEFAULT_EPF_SHARP_LUT,
         epf_channel_scale: tuple[float, float, float] = DEFAULT_EPF_CHANNEL_SCALE,
+        extensions: XLExtensions = XLExtensions(),
     ):
         if epf_iterations < 0 or epf_iterations > 3:
             raise ValueError("epf_iterations must be between 0 and 3")
@@ -28,6 +30,7 @@ class XLRestorationFilter:
         self.gab2_weights = gab2_weights
         self.epf_sharp_lut = epf_sharp_lut
         self.epf_channel_scale = epf_channel_scale
+        self.extensions = extensions
 
     def write(self, writer: XLWriter):
         is_default = self == XLRestorationFilter()
@@ -40,6 +43,7 @@ class XLRestorationFilter:
             # FIXME
             writer.write_bool(False)
         writer.write_bits(self.epf_iterations, 2)
+        # FIXME
 
     @classmethod
     def read(cls, reader: XLReader):
@@ -61,7 +65,7 @@ class XLRestorationFilter:
         epf_iterations = reader.read_bits(2)
         epf_sharp_lut = DEFAULT_EPF_SHARP_LUT
         epf_channel_scale = DEFAULT_EPF_CHANNEL_SCALE
-        epf_quant_mul = DEFAULT_EPF_QUANT_MUL
+        epf_quant_multiplier = DEFAULT_EPF_QUANT_MULTIPLIER
         if epf_iterations > 0:
             if encoding == VARDCT and reader.read_bool():
                 epf_sharp_lut = (
@@ -91,7 +95,7 @@ class XLRestorationFilter:
                 epf_sigma_for_modular = reader.read_f16()
             else:
                 epf_sigma_for_modular = 1.0
-        # FIXME Extensions
+        extensions = XLExtensions.read(reader)
 
         return cls(
             gab=gab,
@@ -100,11 +104,12 @@ class XLRestorationFilter:
             gab2_weights=gab2_weights,
             epf_sharp_lut=epf_sharp_lut,
             epf_channel_scale=epf_channel_scale,
-            epf_quant_mul=epf_quant_mul,
+            epf_quant_multiplier=epf_quant_multiplier,
             epf_pass0_sigma_scale=epf_pass0_sigma_scale,
             epf_pass2_sigma_scale=epf_pass2_sigma_scale,
             epf_border_sad_mul=epf_border_sad_mul,
             epf_sigma_for_modular=epf_sigma_for_modular,
+            extensions=extensions,
         )
 
     def __eq__(self, other):
@@ -116,6 +121,7 @@ class XLRestorationFilter:
             and self.gab2_weights == other.gab2_weights
             and self.epf_sharp_lut == other.epf_sharp_lut
             and self.epf_channel_scale == other.epf_channel_scale
+            and self.extensions == other.extensions
         )
 
     def __repr__(self):
@@ -132,4 +138,6 @@ class XLRestorationFilter:
             args.append(f"epf_sharp_lut={self.epf_sharp_lut}")
         if self.epf_channel_scale != DEFAULT_EPF_CHANNEL_SCALE:
             args.append(f"epf_channel_scale={self.epf_channel_scale}")
+        if self.extensions != XLExtensions():
+            args.append(f"extensions={self.extensions}")
         return "XLRestorationFilter(" + ", ".join(args) + ")"

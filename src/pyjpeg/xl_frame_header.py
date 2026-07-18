@@ -1,4 +1,5 @@
 from pyjpeg.io import ReadError
+from pyjpeg.xl_extensions import XLExtensions
 from pyjpeg.xl_image_metadata import XLImageMetadata
 from pyjpeg.xl_io import XLReader, XLWriter
 from pyjpeg.xl_restoration_filter import XLRestorationFilter
@@ -176,6 +177,7 @@ class XLFrameHeader:
         is_last: bool = False,
         name: str = "",
         restoration_filter: XLRestorationFilter = XLRestorationFilter(),
+        extensions: XLExtensions = XLExtensions(),
     ):
         if frame_type == XLFrameType.LF and crop_area is not None:
             raise ValueError("crop_area must be None for LF frames")
@@ -206,6 +208,7 @@ class XLFrameHeader:
         self.is_last = is_last
         self.name = name
         self.restoration_filter = restoration_filter
+        self.extensions = extensions
 
     def write(self, writer: XLWriter, image_metadata: XLImageMetadata):
         is_default = self == XLFrameHeader()
@@ -246,7 +249,7 @@ class XLFrameHeader:
         writer.write_u32(len(name_bytes), (0, 0, 16, 48), (0, 4, 5, 10))
         writer.write_bytes(name_bytes)
         self.restoration_filter.write(writer)
-        # FIXME: Extensions
+        self.extensions.write(writer)
 
     @classmethod
     def read(cls, reader: XLReader, image_metadata: XLImageMetadata):
@@ -313,6 +316,7 @@ class XLFrameHeader:
         name_length = reader.read_u32((0, 0, 16, 48), (0, 4, 5, 10))
         name = str(reader.read_bytes(name_length), "utf-8")
         restoration_filter = XLRestorationFilter.read(reader)
+        extensions = XLExtensions.read(reader)
 
         return cls(
             frame_type=frame_type,
@@ -331,6 +335,7 @@ class XLFrameHeader:
             is_last=is_last,
             name=name,
             restoration_filter=restoration_filter,
+            extensions=extensions,
         )
 
     def __eq__(self, other: object) -> bool:
@@ -351,6 +356,7 @@ class XLFrameHeader:
             and self.is_last == other.is_last
             and self.name == other.name
             and self.restoration_filter == other.restoration_filter
+            and self.extensions == other.extensions
         )
 
     def __repr__(self) -> str:
@@ -387,4 +393,6 @@ class XLFrameHeader:
             args.append(f"name={self.name}")
         if self.restoration_filter != XLRestorationFilter():
             args.append(f"restoration_filter={self.restoration_filter}")
+        if self.extensions != XLExtensions():
+            args.append(f"extensions={self.extensions}")
         return f"XLFrameHeader({', '.join(args)})"
