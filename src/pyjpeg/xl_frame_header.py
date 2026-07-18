@@ -362,9 +362,19 @@ class XLFrameHeader:
     def __repr__(self) -> str:
         args = []
         if self.frame_type != XLFrameType.REGULAR:
-            args.append(f"frame_type={self.frame_type}")
+            frame_type_str = {
+                XLFrameType.REGULAR: "REGULAR",
+                XLFrameType.LF: "LF",
+                XLFrameType.REFERENCE_ONLY: "REFERENCE_ONLY",
+                XLFrameType.SKIP_PROGRESSIVE: "SKIP_PROGRESSIVE",
+            }
+            args.append(f"frame_type=XLFrameType.{frame_type_str[self.frame_type]}")
         if self.encoding != XLFrameEncoding.VARDCT:
-            args.append(f"encoding={self.encoding}")
+            encoding_str = {
+                XLFrameEncoding.VARDCT: "VARDCT",
+                XLFrameEncoding.MODULAR: "MODULAR",
+            }
+            args.append(f"encoding=XLFrameEncoding.{encoding_str[self.encoding]}")
         if self.flags != 0:
             args.append(f"flags={self.flags}")
         if self.do_ycbcr:
