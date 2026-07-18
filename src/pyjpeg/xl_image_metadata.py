@@ -1,3 +1,4 @@
+from pyjpeg.xl_animation_header import XLAnimationHeader
 from pyjpeg.xl_bit_depth import XLBitDepth
 from pyjpeg.xl_color_encoding import XLColorEncoding
 from pyjpeg.xl_extensions import XLExtensions
@@ -152,6 +153,7 @@ class XLImageMetadata:
         orientation: int = XLOrientation.IDENTITY,
         intrinsic_size: XLSize | None = None,
         preview_size: XLSize | None = None,
+        animation_header: XLAnimationHeader | None = None,
         bit_depth: XLBitDepth = XLBitDepth(),
         modular_16bit_buffers: bool = True,
         extra_channels: list[XLExtraChannelInfo] = [],
@@ -163,6 +165,7 @@ class XLImageMetadata:
         self.orientation = orientation
         self.intrinsic_size = intrinsic_size
         self.preview_size = preview_size
+        self.animation_header = animation_header
         self.bit_depth = bit_depth
         self.modular_16bit_buffers = modular_16bit_buffers
         self.extra_channels = extra_channels
@@ -211,6 +214,7 @@ class XLImageMetadata:
         orientation = XLOrientation.IDENTITY
         intrinsic_size: XLSize | None = None
         preview_size: XLSize | None = None
+        animation_header: XLAnimationHeader | None = None
         extra_fields = reader.read_bool()
         if extra_fields:
             orientation = XLOrientation.IDENTITY + reader.read_bits(3)
@@ -219,7 +223,7 @@ class XLImageMetadata:
             if reader.read_bool():
                 preview_size = XLSize.read(reader)
             if reader.read_bool():
-                pass  # FIXME: Read animation header
+                animation_header = XLAnimationHeader.read(reader)
 
         bit_depth = XLBitDepth.read(reader)
         modular_16bit_buffers = reader.read_bool()
@@ -241,6 +245,7 @@ class XLImageMetadata:
             orientation=orientation,
             intrinsic_size=intrinsic_size,
             preview_size=preview_size,
+            animation_header=animation_header,
             bit_depth=bit_depth,
             modular_16bit_buffers=modular_16bit_buffers,
             extra_channels=extra_channels,
@@ -256,6 +261,7 @@ class XLImageMetadata:
             and self.orientation == value.orientation
             and self.intrinsic_size == value.intrinsic_size
             and self.preview_size == value.preview_size
+            and self.animation_header == value.animation_header
             and self.bit_depth == value.bit_depth
             and self.modular_16bit_buffers == value.modular_16bit_buffers
             and self.extra_channels == value.extra_channels
@@ -269,6 +275,12 @@ class XLImageMetadata:
         args = []
         if self.orientation != 0:
             args.append(f"orientation={self.orientation}")
+        if self.intrinsic_size is not None:
+            args.append(f"intrinsic_size={self.intrinsic_size}")
+        if self.preview_size is not None:
+            args.append(f"preview_size={self.preview_size}")
+        if self.animation_header is not None:
+            args.append(f"animation_header={self.animation_header}")
         if self.bit_depth != XLBitDepth():
             args.append(f"bit_depth={self.bit_depth}")
         if self.modular_16bit_buffers:

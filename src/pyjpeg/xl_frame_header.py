@@ -1,4 +1,5 @@
 import pyjpeg.io
+import pyjpeg.xl_image_metadata
 import pyjpeg.xl_io
 
 
@@ -125,10 +126,26 @@ class XLAnimationHeader:
     def __init__(
         self,
         duration: int = 0,
-        timecode: int = 0,
+        timecode: int | None = None,
     ):
         self.duration = duration
         self.timecode = timecode
+
+    def write(self, writer: pyjpeg.xl_io.XLWriter) -> None:
+        writer.write_u32(self.duration, (0, 1, 0, 0), (0, 0, 8, 32))
+        if self.timecode is not None:
+            writer.write_bits(self.timecode, 32)
+
+    @classmethod
+    def read(
+        cls, reader: pyjpeg.xl_io.XLReader, image_metadata: ImageMetadata
+    ) -> "XLAnimationHeader":
+        duration = reader.read_u32((0, 1, 0, 0), (0, 0, 8, 32))
+        if image_metadata.animation_header.have_timecodes:
+            timecode = reader.read_bits(32)
+        else:
+            timecode = None
+        return cls(duration=duration, timecode=timecode)
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, XLAnimationHeader) and (
@@ -144,7 +161,6 @@ class XLFrameHeader:
         self,
         frame_type: int = XLFrameType.REGULAR,
         encoding: int = XLFrameEncoding.VARDCT,
-        is_xyb_encoded: bool = False,
         flags: int = 0,
         do_ycbcr: bool = False,
         upsampling_mode: tuple[int, int, int] = (0, 0, 0),
@@ -167,11 +183,13 @@ class XLFrameHeader:
             XLFrameType.REGULAR,
             XLFrameType.SKIP_PROGRESSIVE,
         )
-        if not is_normal_frame and is_last:
-            raise ValueError("is_last must be False for non-normal frames")
+        if not is_normal_frame:
+            if animation_header is not None:
+                raise ValueError("animation_header only allowed for normal frames")
+            if is_last:
+                raise ValueError("is_last can only be True for normal frames")
         self.frame_type = frame_type
         self.encoding = encoding
-        self.is_xyb_encoded = is_xyb_encoded
         self.flags = flags
         self.do_ycbcr = do_ycbcr
         self.upsampling_mode = upsampling_mode
@@ -186,7 +204,11 @@ class XLFrameHeader:
         self.is_last = is_last
         self.name = name
 
-    def write(self, writer: pyjpeg.xl_io.XLWriter):
+    def write(
+        self,
+        writer: pyjpeg.xl_io.XLWriter,
+        image_metadata: pyjpeg.xl_image_metadata.XLImageMetadata,
+    ):
         is_default = self == XLFrameHeader()
         writer.write_bool(is_default)
         if is_default:
@@ -195,14 +217,14 @@ class XLFrameHeader:
         writer.write_bits(self.frame_type, 2)
         writer.write_bits(self.encoding, 1)
         writer.write_u64(self.flags)
-        if not self.is_xyb_encoded:
+        if not image_metadata.xyb_encoded:
             writer.write_bool(self.do_ycbcr)
             if self.do_ycbcr and (self.flags & XLFrameFlag.USE_LF_FRAME) == 0:
                 for mode in self.upsampling_mode:
                     writer.write_bits(mode, 2)
         if self.encoding == XLFrameEncoding.MODULAR:
             writer.write_bits(self.group_size_shift, 2)
-        if self.is_xyb_encoded and self.encoding == XLFrameEncoding.VARDCT:
+        if image_metadata.xyb_encoded and self.encoding == XLFrameEncoding.VARDCT:
             writer.write_bits(self.x_qm_scale, 3)
             writer.write_bits(self.b_qm_scale, 3)
         if self.frame_type != XLFrameType.REFERENCE_ONLY:
@@ -213,11 +235,12 @@ class XLFrameHeader:
             writer.write_bool(self.crop_area is not None)
             if self.crop_area is not None:
                 self.crop_area.write(writer, self.frame_type)
-        is_normal_frame = self.frame_type in (
+        if self.animation_header is not None:
+            self.animation_header.write(writer)
+        if self.frame_type in (
             XLFrameType.REGULAR,
             XLFrameType.SKIP_PROGRESSIVE,
-        )
-        if is_normal_frame:
+        ):
             writer.write_bool(self.is_last)
         name_bytes = str.encode(self.name, "utf-8")
         writer.write_u32(len(name_bytes), (0, 0, 16, 48), (0, 4, 5, 10))
@@ -227,10 +250,7 @@ class XLFrameHeader:
     def read(
         cls,
         reader: pyjpeg.xl_io.XLReader,
-        is_xyb_encoded: bool = False,
-        extra_channels_count: int = 0,
-        have_animation_header: bool = False,
-        have_timecodes: bool = False,
+        image_metadata: pyjpeg.xl_image_metadata.XLImageMetadata,
     ):
         if reader.read_bool():
             return cls()
@@ -238,7 +258,7 @@ class XLFrameHeader:
         frame_type = reader.read_bits(2)
         encoding = reader.read_bits(1)
         flags = reader.read_u64()
-        if not is_xyb_encoded:
+        if not image_metadata.xyb_encoded:
             do_ycbcr = reader.read_bool()
         else:
             do_ycbcr = False
@@ -252,7 +272,7 @@ class XLFrameHeader:
             upsampling_mode = (0, 0, 0)
         if (flags & XLFrameFlag.USE_LF_FRAME) == 0:
             upsampling = []
-            for i in range(extra_channels_count + 1):
+            for i in range(1 + len(image_metadata.extra_channels)):
                 upsampling.append(reader.read_bits(2))
         else:
             upsampling = [0]
@@ -260,7 +280,7 @@ class XLFrameHeader:
             group_size_shift = reader.read_bits(2)
         else:
             group_size_shift = 1
-        if is_xyb_encoded and encoding == XLFrameEncoding.VARDCT:
+        if image_metadata.xyb_encoded and encoding == XLFrameEncoding.VARDCT:
             x_qm_scale = reader.read_bits(3)
             b_qm_scale = reader.read_bits(3)
         else:
@@ -284,13 +304,8 @@ class XLFrameHeader:
             XLFrameType.REGULAR,
             XLFrameType.SKIP_PROGRESSIVE,
         )
-        if is_normal_frame and have_animation_header:
-            duration = reader.read_u32((0, 1, 0, 0), (0, 0, 8, 32))
-            if have_timecodes:
-                timecode = reader.read_bits(32)
-            else:
-                timecode = 0
-            animation_header = XLAnimationHeader(duration=duration, timecode=timecode)
+        if is_normal_frame and image_metadata.animation_header is not None:
+            animation_header = XLAnimationHeader.read(reader, image_metadata)
         else:
             animation_header = None
         if is_normal_frame:
@@ -303,7 +318,6 @@ class XLFrameHeader:
         return cls(
             frame_type=frame_type,
             encoding=encoding,
-            is_xyb_encoded=is_xyb_encoded,
             flags=flags,
             do_ycbcr=do_ycbcr,
             upsampling_mode=upsampling_mode,
@@ -323,7 +337,6 @@ class XLFrameHeader:
         return isinstance(other, XLFrameHeader) and (
             self.frame_type == other.frame_type
             and self.encoding == other.encoding
-            and self.is_xyb_encoded == other.is_xyb_encoded
             and self.flags == other.flags
             and self.do_ycbcr == other.do_ycbcr
             and self.upsampling_mode == other.upsampling_mode
