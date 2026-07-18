@@ -23,7 +23,6 @@ class XLFrameFlag:
 
 
 class XLPasses:
-    # FIXME: Combine down_samples and last_pass as they are the same length
     def __init__(
         self, shift: list[int] = [0], down_samples: list[tuple[int, int]] = [(1, 0)]
     ):
@@ -149,6 +148,7 @@ class XLFrameHeader:
         flags: int = 0,
         do_ycbcr: bool = False,
         upsampling_mode: tuple[int, int, int] = (0, 0, 0),
+        upsampling: list[int] = [0],
         group_size_shift: int = 1,
         x_qm_scale: int = 0,
         b_qm_scale: int = 0,
@@ -175,6 +175,7 @@ class XLFrameHeader:
         self.flags = flags
         self.do_ycbcr = do_ycbcr
         self.upsampling_mode = upsampling_mode
+        self.upsampling = upsampling
         self.group_size_shift = group_size_shift
         self.x_qm_scale = x_qm_scale
         self.b_qm_scale = b_qm_scale
@@ -227,7 +228,7 @@ class XLFrameHeader:
         cls,
         reader: pyjpeg.xl_io.XLReader,
         is_xyb_encoded: bool = False,
-        channel_count: int = 1,
+        extra_channels_count: int = 0,
         have_animation_header: bool = False,
         have_timecodes: bool = False,
     ):
@@ -251,10 +252,10 @@ class XLFrameHeader:
             upsampling_mode = (0, 0, 0)
         if (flags & XLFrameFlag.USE_LF_FRAME) == 0:
             upsampling = []
-            for i in range(channel_count):
-                upsampling.append(1 << reader.read_bits(2))
+            for i in range(extra_channels_count + 1):
+                upsampling.append(reader.read_bits(2))
         else:
-            upsampling = [1]
+            upsampling = [0]
         if encoding == XLFrameEncoding.MODULAR:
             group_size_shift = reader.read_bits(2)
         else:
@@ -306,6 +307,7 @@ class XLFrameHeader:
             flags=flags,
             do_ycbcr=do_ycbcr,
             upsampling_mode=upsampling_mode,
+            upsampling=upsampling,
             group_size_shift=group_size_shift,
             x_qm_scale=x_qm_scale,
             b_qm_scale=b_qm_scale,
@@ -325,6 +327,7 @@ class XLFrameHeader:
             and self.flags == other.flags
             and self.do_ycbcr == other.do_ycbcr
             and self.upsampling_mode == other.upsampling_mode
+            and self.upsampling == other.upsampling
             and self.group_size_shift == other.group_size_shift
             and self.x_qm_scale == other.x_qm_scale
             and self.b_qm_scale == other.b_qm_scale
@@ -348,6 +351,8 @@ class XLFrameHeader:
             args.append(f"do_ycbcr={self.do_ycbcr}")
         if self.upsampling_mode != (0, 0, 0):
             args.append(f"upsampling_mode={self.upsampling_mode}")
+        if self.upsampling != [0]:
+            args.append(f"upsampling={self.upsampling}")
         if self.group_size_shift != 1:
             args.append(f"group_size_shift={self.group_size_shift}")
         if self.x_qm_scale != 0:
