@@ -1,6 +1,7 @@
-import pyjpeg.io
-import pyjpeg.xl_image_metadata
-import pyjpeg.xl_io
+from pyjpeg.io import ReadError
+from pyjpeg.xl_image_metadata import XLImageMetadata
+from pyjpeg.xl_io import XLReader, XLWriter
+from pyjpeg.xl_restoration_filter import XLRestorationFilter
 
 
 class XLFrameType:
@@ -38,7 +39,7 @@ class XLPasses:
         self.shift = shift
         self.down_samples = down_samples
 
-    def write(self, writer: pyjpeg.xl_io.XLWriter) -> None:
+    def write(self, writer: XLWriter) -> None:
         writer.write_u32(len(self.shift) - 1, (1, 2, 3, 4), (0, 0, 0, 3))
         for shift in self.shift[:-1]:
             writer.write_bits(shift, 2)
@@ -48,11 +49,11 @@ class XLPasses:
             writer.write_u32(last_pass, (0, 1, 2, 0), (0, 0, 0, 3))
 
     @classmethod
-    def read(cls, reader: pyjpeg.xl_io.XLReader) -> "XLPasses":
+    def read(cls, reader: XLReader) -> "XLPasses":
         number = reader.read_u32((1, 2, 3, 4), (0, 0, 0, 3))
         number_down_sample = reader.read_u32((0, 1, 2, 3), (0, 0, 0, 1))
         if number_down_sample >= number:
-            raise pyjpeg.io.ReadError("Invalid number of down samples")
+            raise ReadError("Invalid number of down samples")
         shift = []
         for _ in range(number - 1):
             shift.append(reader.read_bits(2))
@@ -91,7 +92,7 @@ class XLCropArea:
         self.width = width
         self.height = height
 
-    def write(self, writer: pyjpeg.xl_io.XLWriter, frame_type: int) -> None:
+    def write(self, writer: XLWriter, frame_type: int) -> None:
         if frame_type != XLFrameType.REFERENCE_ONLY:
             writer.write_u32(self.x, (0, 256, 2304, 18688), (8, 11, 14, 30))
             writer.write_u32(self.y, (0, 256, 2304, 18688), (8, 11, 14, 30))
@@ -99,7 +100,7 @@ class XLCropArea:
         writer.write_u32(self.height, (0, 256, 2304, 18688), (8, 11, 14, 30))
 
     @classmethod
-    def read(cls, reader: pyjpeg.xl_io.XLReader, frame_type: int) -> "XLCropArea":
+    def read(cls, reader: XLReader, frame_type: int) -> "XLCropArea":
         if frame_type != XLFrameType.REFERENCE_ONLY:
             x = reader.read_u32((0, 256, 2304, 18688), (8, 11, 14, 30))
             y = reader.read_u32((0, 256, 2304, 18688), (8, 11, 14, 30))
@@ -131,14 +132,14 @@ class XLAnimationHeader:
         self.duration = duration
         self.timecode = timecode
 
-    def write(self, writer: pyjpeg.xl_io.XLWriter) -> None:
+    def write(self, writer: XLWriter) -> None:
         writer.write_u32(self.duration, (0, 1, 0, 0), (0, 0, 8, 32))
         if self.timecode is not None:
             writer.write_bits(self.timecode, 32)
 
     @classmethod
     def read(
-        cls, reader: pyjpeg.xl_io.XLReader, image_metadata: ImageMetadata
+        cls, reader: XLReader, image_metadata: ImageMetadata
     ) -> "XLAnimationHeader":
         duration = reader.read_u32((0, 1, 0, 0), (0, 0, 8, 32))
         if image_metadata.animation_header.have_timecodes:
@@ -174,6 +175,7 @@ class XLFrameHeader:
         animation_header: XLAnimationHeader | None = None,
         is_last: bool = False,
         name: str = "",
+        restoration_filter: XLRestorationFilter = XLRestorationFilter(),
     ):
         if frame_type == XLFrameType.LF and crop_area is not None:
             raise ValueError("crop_area must be None for LF frames")
@@ -203,12 +205,9 @@ class XLFrameHeader:
         self.animation_header = animation_header
         self.is_last = is_last
         self.name = name
+        self.restoration_filter = restoration_filter
 
-    def write(
-        self,
-        writer: pyjpeg.xl_io.XLWriter,
-        image_metadata: pyjpeg.xl_image_metadata.XLImageMetadata,
-    ):
+    def write(self, writer: XLWriter, image_metadata: XLImageMetadata):
         is_default = self == XLFrameHeader()
         writer.write_bool(is_default)
         if is_default:
@@ -235,6 +234,7 @@ class XLFrameHeader:
             writer.write_bool(self.crop_area is not None)
             if self.crop_area is not None:
                 self.crop_area.write(writer, self.frame_type)
+        # FIXME: Blending
         if self.animation_header is not None:
             self.animation_header.write(writer)
         if self.frame_type in (
@@ -245,13 +245,11 @@ class XLFrameHeader:
         name_bytes = str.encode(self.name, "utf-8")
         writer.write_u32(len(name_bytes), (0, 0, 16, 48), (0, 4, 5, 10))
         writer.write_bytes(name_bytes)
+        self.restoration_filter.write(writer)
+        # FIXME: Extensions
 
     @classmethod
-    def read(
-        cls,
-        reader: pyjpeg.xl_io.XLReader,
-        image_metadata: pyjpeg.xl_image_metadata.XLImageMetadata,
-    ):
+    def read(cls, reader: XLReader, image_metadata: XLImageMetadata):
         if reader.read_bool():
             return cls()
 
@@ -314,6 +312,7 @@ class XLFrameHeader:
             is_last = False
         name_length = reader.read_u32((0, 0, 16, 48), (0, 4, 5, 10))
         name = str(reader.read_bytes(name_length), "utf-8")
+        restoration_filter = XLRestorationFilter.read(reader)
 
         return cls(
             frame_type=frame_type,
@@ -331,6 +330,7 @@ class XLFrameHeader:
             animation_header=animation_header,
             is_last=is_last,
             name=name,
+            restoration_filter=restoration_filter,
         )
 
     def __eq__(self, other: object) -> bool:
@@ -350,6 +350,7 @@ class XLFrameHeader:
             and self.animation_header == other.animation_header
             and self.is_last == other.is_last
             and self.name == other.name
+            and self.restoration_filter == other.restoration_filter
         )
 
     def __repr__(self) -> str:
@@ -384,4 +385,6 @@ class XLFrameHeader:
             args.append(f"is_last={self.is_last}")
         if self.name:
             args.append(f"name={self.name}")
+        if self.restoration_filter != XLRestorationFilter():
+            args.append(f"restoration_filter={self.restoration_filter}")
         return f"XLFrameHeader({', '.join(args)})"
