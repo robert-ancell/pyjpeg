@@ -127,15 +127,43 @@ class XLColorEncoding:
         if self.use_icc_profile:
             args.append(f"use_icc_profile={self.use_icc_profile}")
         if self.color_encoding != XLColorSpace.RGB:
-            args.append(f"color_encoding={self.color_encoding}")
+            color_encoding_str = {
+                XLColorSpace.RGB: "RGB",
+                XLColorSpace.GRAY: "GRAY",
+                XLColorSpace.XYB: "XYB",
+                XLColorSpace.UNKNOWN: "UNKNOWN",
+            }
+            args.append(
+                f"color_encoding=XLColorSpace.{color_encoding_str[self.color_encoding]}"
+            )
         if self.white_point != XLWhitePoint.D65:
-            args.append(f"white_point={self.white_point}")
+            white_point_str = {
+                XLWhitePoint.D65: "D65",
+                XLWhitePoint.CUSTOM: "CUSTOM",
+                XLWhitePoint.E: "E",
+                XLWhitePoint.DCI: "DCI",
+            }
+            args.append(f"white_point=XLWhitePoint.{white_point_str[self.white_point]}")
         if self.primaries != XLPrimaries.SRGB:
-            args.append(f"primaries={self.primaries}")
+            primaries_str = {
+                XLPrimaries.SRGB: "SRGB",
+                XLPrimaries.CUSTOM: "CUSTOM",
+                XLPrimaries._2100: "_2100",
+                XLPrimaries.P3: "P3",
+            }
+            args.append(f"primaries=XLPrimaries.{primaries_str[self.primaries]}")
         if self.use_gamma:
             args.append(f"use_gamma={self.use_gamma}")
         if self.transfer_function != 0:
             args.append(f"transfer_function={self.transfer_function}")
         if self.rendering_intent != XLRenderingIntent.RELATIVE:
-            args.append(f"rendering_intent={self.rendering_intent}")
+            rendering_intent_str = {
+                XLRenderingIntent.PERCEPTUAL: "PERCEPTUAL",
+                XLRenderingIntent.RELATIVE: "RELATIVE",
+                XLRenderingIntent.SATURATION: "SATURATION",
+                XLRenderingIntent.ABSOLUTE: "ABSOLUTE",
+            }
+            args.append(
+                f"rendering_intent=XLRenderingIntent.{rendering_intent_str[self.rendering_intent]}"
+            )
         return f"XLColorEncoding({', '.join(args)})"
