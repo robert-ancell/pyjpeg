@@ -315,7 +315,9 @@ class XLFrameHeader:
             is_last = False
         name_length = reader.read_u32((0, 0, 16, 48), (0, 4, 5, 10))
         name = str(reader.read_bytes(name_length), "utf-8")
-        restoration_filter = XLRestorationFilter.read(reader)
+        restoration_filter = XLRestorationFilter.read(
+            reader, is_modular=encoding == XLFrameEncoding.MODULAR
+        )
         extensions = XLExtensions.read(reader)
 
         return cls(
