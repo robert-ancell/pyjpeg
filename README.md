@@ -77,11 +77,6 @@ writer = pyjpeg.FileWriter(open('test_out.jpg', 'wb'))
 out_image.write(writer)
 ```
 
-## Command line tools
-
-The package installs a `jpeg` command line tool for inspecting and converting
-JPEG files. Run `jpeg --help` for usage.
-
 ## Contributing
 
 PyJPEG is an open source project with an [LGPL-3.0](LICENSE) license. It is
