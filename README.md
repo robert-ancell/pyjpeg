@@ -43,6 +43,10 @@ Supported JPEG coding processes:
 - **Obscure marker support** — including rarely-implemented markers like DNL
   (define number of lines), which most libraries skip
 
+Also reads and writes the metadata formats JPEG files are commonly wrapped
+in, including JFIF (with thumbnails), Exif, SPIFF, and the Adobe APP14
+marker used to signal color space (RGB/CMYK, YCbCr, or YCCK).
+
 ## Installation
 
 Install from [PyPI](https://pypi.org/project/pyjpeg/):
