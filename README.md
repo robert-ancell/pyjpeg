@@ -31,6 +31,9 @@ Supported JPEG coding processes:
   can be displayed at low quality before the full file has loaded
 - **Lossless coding** — a predictive coding mode that reconstructs the exact
   original pixel values, with no loss of image quality
+- **12-bit precision** — supports 12-bit sample precision as well as the
+  standard 8-bit, which many other JPEG libraries don't support or make
+  difficult to use
 - **Arithmetic coding** — an alternative entropy coder to Huffman, supported
   across all modes
 - **JPEG-LS** — the separate lossless/near-lossless standard (ITU-T T.87),
