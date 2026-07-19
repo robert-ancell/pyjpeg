@@ -1,5 +1,7 @@
 # PyJPEG
 
+[![PyPI](https://img.shields.io/pypi/v/pyjpeg)](https://pypi.org/project/pyjpeg/)
+
 A pure Python encoder and decoder for the [JPEG](https://jpeg.org/jpeg/) image
 format, aiming to be a **complete implementation of all the JPEG standards
 still in active use** — including processes that most libraries skip, such
