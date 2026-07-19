@@ -12,11 +12,6 @@ class XLFrameType:
     SKIP_PROGRESSIVE = 3
 
 
-class XLFrameEncoding:
-    VARDCT = 0
-    MODULAR = 1
-
-
 class XLFrameFlag:
     NOISE = 1 << 0
     PATCHES = 1 << 1
@@ -162,7 +157,7 @@ class XLFrameHeader:
     def __init__(
         self,
         frame_type: int = XLFrameType.REGULAR,
-        encoding: int = XLFrameEncoding.VARDCT,
+        is_modular: bool = False,
         flags: int = 0,
         do_ycbcr: bool = False,
         upsampling_mode: tuple[int, int, int] = (0, 0, 0),
@@ -181,7 +176,7 @@ class XLFrameHeader:
     ):
         if frame_type == XLFrameType.LF and crop_area is not None:
             raise ValueError("crop_area must be None for LF frames")
-        if encoding != XLFrameEncoding.MODULAR and group_size_shift != 1:
+        if not is_modular and group_size_shift != 1:
             raise ValueError("group_size_shift must be 1 for non-MODULAR frames")
         is_normal_frame = frame_type in (
             XLFrameType.REGULAR,
@@ -193,7 +188,7 @@ class XLFrameHeader:
             if is_last:
                 raise ValueError("is_last can only be True for normal frames")
         self.frame_type = frame_type
-        self.encoding = encoding
+        self.is_modular = is_modular
         self.flags = flags
         self.do_ycbcr = do_ycbcr
         self.upsampling_mode = upsampling_mode
@@ -217,16 +212,16 @@ class XLFrameHeader:
             return
 
         writer.write_bits(self.frame_type, 2)
-        writer.write_bits(self.encoding, 1)
+        writer.write_bool(self.is_modular)
         writer.write_u64(self.flags)
         if not image_metadata.xyb_encoded:
             writer.write_bool(self.do_ycbcr)
             if self.do_ycbcr and (self.flags & XLFrameFlag.USE_LF_FRAME) == 0:
                 for mode in self.upsampling_mode:
                     writer.write_bits(mode, 2)
-        if self.encoding == XLFrameEncoding.MODULAR:
+        if self.is_modular:
             writer.write_bits(self.group_size_shift, 2)
-        if image_metadata.xyb_encoded and self.encoding == XLFrameEncoding.VARDCT:
+        if image_metadata.xyb_encoded and not self.is_modular:
             writer.write_bits(self.x_qm_scale, 3)
             writer.write_bits(self.b_qm_scale, 3)
         if self.frame_type != XLFrameType.REFERENCE_ONLY:
@@ -257,7 +252,7 @@ class XLFrameHeader:
             return cls()
 
         frame_type = reader.read_bits(2)
-        encoding = reader.read_bits(1)
+        is_modular = reader.read_bool()
         flags = reader.read_u64()
         if not image_metadata.xyb_encoded:
             do_ycbcr = reader.read_bool()
@@ -277,11 +272,11 @@ class XLFrameHeader:
                 upsampling.append(reader.read_bits(2))
         else:
             upsampling = [0]
-        if encoding == XLFrameEncoding.MODULAR:
+        if is_modular:
             group_size_shift = reader.read_bits(2)
         else:
             group_size_shift = 1
-        if image_metadata.xyb_encoded and encoding == XLFrameEncoding.VARDCT:
+        if image_metadata.xyb_encoded and not is_modular:
             x_qm_scale = reader.read_bits(3)
             b_qm_scale = reader.read_bits(3)
         else:
@@ -317,14 +312,12 @@ class XLFrameHeader:
             is_last = False
         name_length = reader.read_u32((0, 0, 16, 48), (0, 4, 5, 10))
         name = str(reader.read_bytes(name_length), "utf-8")
-        restoration_filter = XLRestorationFilter.read(
-            reader, is_modular=encoding == XLFrameEncoding.MODULAR
-        )
+        restoration_filter = XLRestorationFilter.read(reader, is_modular=is_modular)
         extensions = XLExtensions.read(reader)
 
         return cls(
             frame_type=frame_type,
-            encoding=encoding,
+            is_modular=is_modular,
             flags=flags,
             do_ycbcr=do_ycbcr,
             upsampling_mode=upsampling_mode,
@@ -345,7 +338,7 @@ class XLFrameHeader:
     def __eq__(self, other: object) -> bool:
         return isinstance(other, XLFrameHeader) and (
             self.frame_type == other.frame_type
-            and self.encoding == other.encoding
+            and self.is_modular == other.is_modular
             and self.flags == other.flags
             and self.do_ycbcr == other.do_ycbcr
             and self.upsampling_mode == other.upsampling_mode
@@ -373,16 +366,12 @@ class XLFrameHeader:
                 XLFrameType.SKIP_PROGRESSIVE: "SKIP_PROGRESSIVE",
             }
             args.append(f"frame_type=XLFrameType.{frame_type_str[self.frame_type]}")
-        if self.encoding != XLFrameEncoding.VARDCT:
-            encoding_str = {
-                XLFrameEncoding.VARDCT: "VARDCT",
-                XLFrameEncoding.MODULAR: "MODULAR",
-            }
-            args.append(f"encoding=XLFrameEncoding.{encoding_str[self.encoding]}")
+        if self.is_modular:
+            args.append("is_modular=True")
         if self.flags != 0:
             args.append(f"flags={self.flags}")
         if self.do_ycbcr:
-            args.append(f"do_ycbcr={self.do_ycbcr}")
+            args.append("do_ycbcr=True")
         if self.upsampling_mode != (0, 0, 0):
             args.append(f"upsampling_mode={self.upsampling_mode}")
         if self.upsampling != [0]:
@@ -402,7 +391,7 @@ class XLFrameHeader:
         if self.animation_header is not None:
             args.append(f"animation_header={self.animation_header}")
         if self.is_last:
-            args.append(f"is_last={self.is_last}")
+            args.append("is_last=True")
         if self.name:
             args.append(f"name={self.name}")
         if self.restoration_filter != XLRestorationFilter():
