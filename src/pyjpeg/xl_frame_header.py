@@ -140,10 +140,10 @@ class XLAnimationHeader:
 
     @classmethod
     def read(
-        cls, reader: XLReader, image_metadata: ImageMetadata
+        cls, reader: XLReader, have_timecodes: bool = False
     ) -> "XLAnimationHeader":
         duration = reader.read_u32((0, 1, 0, 0), (0, 0, 8, 32))
-        if image_metadata.animation_header.have_timecodes:
+        if have_timecodes:
             timecode = reader.read_bits(32)
         else:
             timecode = None
@@ -306,7 +306,9 @@ class XLFrameHeader:
             XLFrameType.SKIP_PROGRESSIVE,
         )
         if is_normal_frame and image_metadata.animation_header is not None:
-            animation_header = XLAnimationHeader.read(reader, image_metadata)
+            animation_header = XLAnimationHeader.read(
+                reader, have_timecodes=image_metadata.animation_header.have_timecodes
+            )
         else:
             animation_header = None
         if is_normal_frame:
