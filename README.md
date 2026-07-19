@@ -26,15 +26,19 @@ at the bitstream/segment level in plain, readable Python.
 Supported JPEG coding processes:
 
 - **Baseline sequential DCT** — the standard JPEG process used by most `.jpg` files
-- **Progressive DCT** — both Huffman and arithmetic coded, including successive
-  approximation (AC and DC) scans
-- **Lossless coding** — both Huffman and arithmetic coded predictive lossless mode
+- **Progressive DCT** — encodes images in multiple passes of increasing
+  detail, including successive approximation scans, so images
+  can be displayed at low quality before the full file has loaded
+- **Lossless coding** — a predictive coding mode that reconstructs the exact
+  original pixel values, with no loss of image quality
 - **Arithmetic coding** — an alternative entropy coder to Huffman, supported
-  across DCT, progressive, and lossless modes
+  across all modes
 - **JPEG-LS** — the separate lossless/near-lossless standard (ITU-T T.87),
-  including Golomb-Rice coding and LSE (JPEG-LS preset parameters) support
+  including LSE (JPEG-LS preset parameters) support
 - **Huffman table optimization** — generate optimized Huffman tables rather
   than using the standard/default ones
+- **Obscure marker support** — including rarely-implemented markers like DNL
+  (define number of lines), which most libraries skip
 
 ## Installation
 
