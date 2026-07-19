@@ -46,7 +46,7 @@ class XLRestorationFilter:
         # FIXME
 
     @classmethod
-    def read(cls, reader: XLReader):
+    def read(cls, reader: XLReader, is_modular: bool = False):
         if reader.read_bool():
             return cls()
 
@@ -67,7 +67,7 @@ class XLRestorationFilter:
         epf_channel_scale = DEFAULT_EPF_CHANNEL_SCALE
         epf_quant_multiplier = DEFAULT_EPF_QUANT_MULTIPLIER
         if epf_iterations > 0:
-            if encoding == VARDCT and reader.read_bool():
+            if not is_modular and reader.read_bool():
                 epf_sharp_lut = (
                     reader.read_f16(),
                     reader.read_f16(),
@@ -86,12 +86,12 @@ class XLRestorationFilter:
                 )
                 reader.read_bits(32)  # FIXME ?
             if reader.read_bool():
-                if encoding == VARDCT:
-                    epf_quant_mul = reader.read_f16()
+                if not is_modular:
+                    epf_quant_multiplier = reader.read_f16()
                 epf_pass0_sigma_scale = reader.read_f16()
                 epf_pass2_sigma_scale = reader.read_f16()
                 epf_border_sad_mul = reader.read_f16()
-            if encoding == MODULAR:
+            if is_modular:
                 epf_sigma_for_modular = reader.read_f16()
             else:
                 epf_sigma_for_modular = 1.0
@@ -104,11 +104,6 @@ class XLRestorationFilter:
             gab2_weights=gab2_weights,
             epf_sharp_lut=epf_sharp_lut,
             epf_channel_scale=epf_channel_scale,
-            epf_quant_multiplier=epf_quant_multiplier,
-            epf_pass0_sigma_scale=epf_pass0_sigma_scale,
-            epf_pass2_sigma_scale=epf_pass2_sigma_scale,
-            epf_border_sad_mul=epf_border_sad_mul,
-            epf_sigma_for_modular=epf_sigma_for_modular,
             extensions=extensions,
         )
 
