@@ -43,11 +43,6 @@ class DefineNumberOfLines(pyjpeg.segment.Segment):
         self.number_of_bytes = number_of_bytes
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
-        """Write this DNL segment.
-
-        Args:
-            writer: The `pyjpeg.io.Writer` to write to.
-        """
         writer.write_marker(pyjpeg.marker.Marker.DNL)
         writer.write_u16(2 + self.number_of_bytes)
         writer.write_unsigned(self.number_of_lines, self.number_of_bytes)

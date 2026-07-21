@@ -21,11 +21,6 @@ class Comment(pyjpeg.segment.Segment):
         self.data = data
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
-        """Write this comment segment.
-
-        Args:
-            writer: The `pyjpeg.io.Writer` to write to.
-        """
         writer.write_marker(pyjpeg.marker.Marker.COM)
         writer.write_u16(2 + len(self.data))
         writer.write(self.data)

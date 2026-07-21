@@ -29,11 +29,6 @@ class Restart(pyjpeg.segment.Segment):
         self.index = index
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
-        """Write this restart marker.
-
-        Args:
-            writer: The `pyjpeg.io.Writer` to write to.
-        """
         writer.write_marker(pyjpeg.marker.Marker.RST0 + self.index)
 
     @classmethod

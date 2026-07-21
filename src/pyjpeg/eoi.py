@@ -15,11 +15,6 @@ class EndOfImage(pyjpeg.segment.Segment):
         pass
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
-        """Write the EOI marker.
-
-        Args:
-            writer: The `pyjpeg.io.Writer` to write to.
-        """
         writer.write_marker(pyjpeg.marker.Marker.EOI)
 
     @classmethod
