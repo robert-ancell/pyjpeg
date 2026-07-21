@@ -296,6 +296,7 @@ class XLFrameHeader:
                 crop_area = XLCropArea.read(reader, frame_type)
             else:
                 crop_area = None
+        # FIXME: Blending
         is_normal_frame = frame_type in (
             XLFrameType.REGULAR,
             XLFrameType.SKIP_PROGRESSIVE,
