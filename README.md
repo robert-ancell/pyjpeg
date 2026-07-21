@@ -57,6 +57,8 @@ pip install pyjpeg
 
 ## Usage
 
+See [API documentation](https://robert-ancell.github.io/pyjpeg) for details.
+
 ### Reading a JPEG
 
 ```python
