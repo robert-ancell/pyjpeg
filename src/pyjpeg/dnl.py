@@ -1,10 +1,37 @@
+"""Define Number of Lines (DNL) segment."""
+
 import pyjpeg.io
 import pyjpeg.marker
 import pyjpeg.segment
 
 
 class DefineNumberOfLines(pyjpeg.segment.Segment):
+    """Specifies the number of lines in a frame.
+
+    Used when the number of lines is not known when the frame header
+    (SOF) is written — for example, when encoding from a stream, or
+    for frame types allowing an oversized image whose line count is
+    given here instead. The line count is stored as an unsigned
+    integer using `number_of_bytes` bytes, which is normally 2 but can
+    be up to 4 for formats permitting a variable-length DNL segment
+    (see the `variable_length` argument to `read`).
+    """
+
     def __init__(self, number_of_lines: int, number_of_bytes: int = 2) -> None:
+        """Create a DNL segment.
+
+        Args:
+            number_of_lines: The number of lines in the frame. Must be
+                at least 1 and representable in `number_of_bytes`
+                bytes.
+            number_of_bytes: The number of bytes used to store
+                `number_of_lines`, between 1 and 4.
+
+        Raises:
+            ValueError: If `number_of_bytes` is not between 1 and 4,
+                or if `number_of_lines` is out of range for the given
+                `number_of_bytes`.
+        """
         if number_of_bytes < 1 or number_of_bytes > 4:
             raise ValueError("Number of bytes must be between 1 and 4")
         max_number_of_lines = 2 ** (8 * number_of_bytes) - 1
@@ -16,6 +43,11 @@ class DefineNumberOfLines(pyjpeg.segment.Segment):
         self.number_of_bytes = number_of_bytes
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
+        """Write this DNL segment.
+
+        Args:
+            writer: The `pyjpeg.io.Writer` to write to.
+        """
         writer.write_marker(pyjpeg.marker.Marker.DNL)
         writer.write_u16(2 + self.number_of_bytes)
         writer.write_unsigned(self.number_of_lines, self.number_of_bytes)
@@ -24,6 +56,22 @@ class DefineNumberOfLines(pyjpeg.segment.Segment):
     def read(
         cls, reader: pyjpeg.io.Reader, variable_length: bool = False
     ) -> "DefineNumberOfLines":
+        """Read a DNL segment.
+
+        Args:
+            reader: The `pyjpeg.io.Reader` to read from.
+            variable_length: If `True`, allow the segment length to be
+                anywhere from 4 to 6 bytes (as used by formats such as
+                JPEG-LS, where the line count may be stored in more
+                than 2 bytes). If `False`, only the standard 4-byte
+                length (a 2-byte line count) is accepted.
+
+        Raises:
+            MarkerError: If the marker is not DNL.
+            LengthError: If the segment length is invalid for the
+                given `variable_length` setting.
+            ReadError: If the number of lines read is zero.
+        """
         marker = reader.read_marker()
         if marker != pyjpeg.marker.Marker.DNL:
             raise pyjpeg.io.MarkerError("Invalid DNL marker")
