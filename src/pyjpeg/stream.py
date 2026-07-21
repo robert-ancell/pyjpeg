@@ -1,3 +1,12 @@
+"""Parses and serializes a complete JPEG bitstream as a sequence of segments.
+
+This module ties together the various per-marker segment types (SOF,
+SOS, DHT, DQT, scan data, etc.) into a single `Stream` that can be
+read from or written to a JPEG file, dispatching on marker code and
+carrying forward the frame- and table-level state each segment type
+needs to interpret the segments that follow it.
+"""
+
 import pyjpeg.app
 import pyjpeg.arithmetic_dct_scan
 import pyjpeg.arithmetic_lossless_scan
@@ -23,10 +32,28 @@ from pyjpeg.marker import Marker
 
 
 class Stream:
+    """A parsed JPEG file: an ordered sequence of `pyjpeg.segment.Segment` objects.
+
+    A `Stream` mirrors the on-disk structure of a JPEG file — markers
+    such as SOI, APPn, DQT, SOF, DHT, and SOS (each scan marker
+    followed by its entropy-coded scan data), ending in EOI — in the
+    order they appear in the file.
+    """
+
     def __init__(self, segments: list[pyjpeg.segment.Segment]) -> None:
+        """Create a stream from an already-parsed list of segments.
+
+        Args:
+            segments: The segments making up the stream, in file order.
+        """
         self.segments = segments
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
+        """Serialize every segment in the stream, in order.
+
+        Args:
+            writer: The `pyjpeg.io.Writer` to write to.
+        """
         for segment in self.segments:
             segment.write(writer)
 
@@ -34,6 +61,18 @@ class Stream:
     # FIXME: Use list for tables instead of object
     @classmethod
     def read(cls, reader: pyjpeg.io.Reader) -> "Stream":
+        """Parse a complete JPEG bitstream into a `Stream`.
+
+        Args:
+            reader: The `pyjpeg.io.Reader` to read from.
+
+        Returns:
+            The parsed `Stream`, containing every segment found up to
+            and including EOI.
+
+        Raises:
+            Exception: If an unrecognized marker is encountered.
+        """
         quantization_tables = [[1] * 64, [1] * 64, [1] * 64, [1] * 64]
         dc_arithmetic_conditioning_bounds = [(0, 1), (0, 1), (0, 1), (0, 1)]
         ac_arithmetic_kx = [5, 5, 5, 5]
