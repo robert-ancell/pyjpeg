@@ -411,6 +411,11 @@ class UnknownApplicationSpecificData(ApplicationSpecificData):
         super().__init__(n)
         self.data = data
 
+    def write(self, writer: pyjpeg.io.Writer) -> None:
+        writer.write_marker(self.n)
+        writer.write_u16(2 + len(self.data))
+        writer.write(self.data)
+
     def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, UnknownApplicationSpecificData)
