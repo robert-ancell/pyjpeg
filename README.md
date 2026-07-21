@@ -101,7 +101,7 @@ to get started.
 If you just need fast, general-purpose JPEG reading/writing in Python (not a
 pure-Python implementation, and not full standards coverage), consider:
 
-- [Pillow](https://python-pillow.org/) — the standard general-purpose Python
+- [Pillow](https://python-pillow.github.io) — the standard general-purpose Python
   imaging library, backed by libjpeg
 - [pylibjpeg](https://github.com/pydicom/pylibjpeg) — a Python framework
   for JPEG decoding built on compiled plugins, with a focus on DICOM use cases
