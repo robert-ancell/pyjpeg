@@ -1,16 +1,59 @@
+"""Application-specific data (APPn) segments and recognized extension formats.
+
+APPn segments (APP0-APP15) carry vendor- or format-specific metadata.
+`ApplicationSpecificData.read` recognizes several well-known
+extension formats by their signature bytes (JFIF, JFIF's JFXX
+thumbnail extension, Exif, SPIFF, Adobe) and returns the matching
+subclass; anything else is returned as
+`UnknownApplicationSpecificData`, preserving the raw bytes.
+"""
+
 import pyjpeg.io
 import pyjpeg.marker
 import pyjpeg.segment
 
 
 class ApplicationSpecificData(pyjpeg.segment.Segment):
+    """Base class for APPn segments.
+
+    Not constructed directly for reading — `read` always returns one
+    of the recognized subclasses or `UnknownApplicationSpecificData`.
+    """
+
     def __init__(self, n: int) -> None:
+        """Create an APPn segment.
+
+        Args:
+            n: Which APPn marker this is, 0-15.
+
+        Raises:
+            ValueError: If `n` is not between 0 and 15.
+        """
         if n < 0 or n > 15:
             raise ValueError("n must be between 0 and 15")
         self.n = n
 
     @classmethod
     def read(cls, reader: pyjpeg.io.Reader) -> "ApplicationSpecificData":
+        """Read an APPn segment, recognizing known extension formats by signature.
+
+        Args:
+            reader: The `pyjpeg.io.Reader` to read from.
+
+        Returns:
+            A `JfifHeader`, `JfifJpegThumbnail`, `JfifPalletizedThumbnail`,
+            `JfifRgbThumbnail`, `ExifHeader`, `SpiffHeader`, or
+            `AdobeHeader` if the segment's signature and marker match
+            a known extension; otherwise an
+            `UnknownApplicationSpecificData` preserving the raw bytes.
+
+        Raises:
+            MarkerError: If the marker is not APP0-APP15.
+            LengthError: If the segment length is too short or
+                inconsistent with a recognized format's fields.
+            ReadError: If a recognized format's version or sub-format
+                byte has an unexpected value.
+        """
         marker = reader.read_marker()
         if marker < pyjpeg.marker.Marker.APP0 or marker > pyjpeg.marker.Marker.APP15:
             raise pyjpeg.io.MarkerError("Invalid APPn marker")
@@ -149,31 +192,65 @@ class ApplicationSpecificData(pyjpeg.segment.Segment):
 
 
 class JfifDensityUnit:
+    """Units for `JfifDensity.unit`."""
+
     ASPECT_RATIO = 0
     DPI = 1
     DPCM = 2
 
 
 class JfifDensity:
+    """A pixel density, for JFIF's aspect-ratio/DPI/DPCM density field.
+
+    Prefer `aspect_ratio`, `dpi`, or `dpcm` over calling this directly.
+    """
+
     def __init__(self, unit: int = 0, x: int = 0, y: int = 0) -> None:
+        """Create a density value.
+
+        Args:
+            unit: The density unit; see `JfifDensityUnit`.
+            x: The horizontal density.
+            y: The vertical density.
+        """
         self.unit = unit
         self.x = x
         self.y = y
 
     @classmethod
     def aspect_ratio(cls, x: int, y: int) -> "JfifDensity":
+        """Create a density expressing a pixel aspect ratio (no absolute unit).
+
+        Args:
+            x: The horizontal component of the ratio.
+            y: The vertical component of the ratio.
+        """
         return cls(JfifDensityUnit.ASPECT_RATIO, x, y)
 
     @classmethod
     def dpi(cls, x: int, y: int) -> "JfifDensity":
+        """Create a density in dots per inch.
+
+        Args:
+            x: The horizontal density, in dots per inch.
+            y: The vertical density, in dots per inch.
+        """
         return cls(JfifDensityUnit.DPI, x, y)
 
     @classmethod
     def dpcm(cls, x: int, y: int) -> "JfifDensity":
+        """Create a density in dots per centimeter.
+
+        Args:
+            x: The horizontal density, in dots per centimeter.
+            y: The vertical density, in dots per centimeter.
+        """
         return cls(JfifDensityUnit.DPCM, x, y)
 
 
 class JfifHeader(ApplicationSpecificData):
+    """The JFIF (JPEG File Interchange Format) APP0 header."""
+
     def __init__(
         self,
         version: tuple[int, int] = (1, 2),
@@ -181,6 +258,15 @@ class JfifHeader(ApplicationSpecificData):
         thumbnail_size: tuple[int, int] = (0, 0),
         thumbnail_data: list[int] = [],
     ) -> None:
+        """Create a JFIF header.
+
+        Args:
+            version: The JFIF `(major, minor)` version.
+            density: The pixel density.
+            thumbnail_size: The `(width, height)` of the embedded
+                uncompressed RGB thumbnail, in pixels.
+            thumbnail_data: The thumbnail's raw RGB pixel data.
+        """
         super().__init__(0)
         self.version = version
         self.density = density
@@ -198,7 +284,7 @@ class JfifHeader(ApplicationSpecificData):
         writer.write_u16(self.density.y)
         writer.write_u8(self.thumbnail_size[0])
         writer.write_u8(self.thumbnail_size[1])
-        for p in range(len(self.thumbnail_data)):
+        for p in self.thumbnail_data:
             writer.write_u8(p)
 
     def __repr__(self) -> str:
@@ -206,7 +292,14 @@ class JfifHeader(ApplicationSpecificData):
 
 
 class JfifJpegThumbnail(ApplicationSpecificData):
+    """A JFXX extension thumbnail stored as embedded JPEG data."""
+
     def __init__(self, data: bytes) -> None:
+        """Create a JFXX JPEG thumbnail.
+
+        Args:
+            data: The embedded JPEG thumbnail's raw bytes.
+        """
         super().__init__(0)
         self.data = data
 
@@ -222,9 +315,21 @@ class JfifJpegThumbnail(ApplicationSpecificData):
 
 
 class JfifPalletizedThumbnail(ApplicationSpecificData):
+    """A JFXX extension thumbnail stored as an indexed-color (palette) image."""
+
     def __init__(
         self, width: int, height: int, palette: list[int], data: list[int]
     ) -> None:
+        """Create a JFXX palettized thumbnail.
+
+        Args:
+            width: The thumbnail width, in pixels.
+            height: The thumbnail height, in pixels.
+            palette: 256 RGB triples (768 values) forming the color
+                palette.
+            data: The thumbnail's pixel data, one palette index per
+                pixel.
+        """
         super().__init__(0)
         self.width = width
         self.height = height
@@ -248,7 +353,16 @@ class JfifPalletizedThumbnail(ApplicationSpecificData):
 
 
 class JfifRgbThumbnail(ApplicationSpecificData):
+    """A JFXX extension thumbnail stored as an uncompressed RGB image."""
+
     def __init__(self, width: int, height: int, data: list[int]) -> None:
+        """Create a JFXX RGB thumbnail.
+
+        Args:
+            width: The thumbnail width, in pixels.
+            height: The thumbnail height, in pixels.
+            data: The thumbnail's raw RGB pixel data.
+        """
         super().__init__(0)
         self.width = width
         self.height = height
@@ -269,7 +383,18 @@ class JfifRgbThumbnail(ApplicationSpecificData):
 
 
 class ExifHeader(ApplicationSpecificData):
+    """An Exif metadata APP1 header.
+
+    The Exif data itself (a TIFF-structured metadata block) is stored
+    unparsed as raw bytes.
+    """
+
     def __init__(self, data: bytes) -> None:
+        """Create an Exif header.
+
+        Args:
+            data: The raw Exif (TIFF-structured) metadata.
+        """
         super().__init__(1)
         self.data = data
 
@@ -284,6 +409,8 @@ class ExifHeader(ApplicationSpecificData):
 
 
 class SpiffProfile:
+    """SPIFF profile identifiers, for `SpiffHeader.profile`."""
+
     NONE = 0
     CONTINUOUS_TONE = 1
     CONTINUOUS_TONE_PROGRESSIVE = 2
@@ -292,6 +419,8 @@ class SpiffProfile:
 
 
 class SpiffColorSpace:
+    """SPIFF color space identifiers, for `SpiffHeader.color_space`."""
+
     BI_LEVEL_BLACK = 0
     Y_CB_CR_1 = 1
     OTHER = 2
@@ -308,6 +437,8 @@ class SpiffColorSpace:
 
 
 class SpiffCompressionType:
+    """SPIFF compression type identifiers, for `SpiffHeader.compression_type`."""
+
     UNCOMPRESSED = 0
     MODIFIED_HUFFMAN = 1
     MODIFIED_READ = 2
@@ -317,6 +448,8 @@ class SpiffCompressionType:
 
 
 class SpiffHeader(ApplicationSpecificData):
+    """A SPIFF (Still Picture Interchange File Format) APP8 header."""
+
     def __init__(
         self,
         version: tuple[int, int] = (1, 0),
@@ -331,6 +464,23 @@ class SpiffHeader(ApplicationSpecificData):
         vertical_resoution: int = 1,
         horizontal_resolution: int = 1,
     ) -> None:
+        """Create a SPIFF header.
+
+        Args:
+            version: The SPIFF `(major, minor)` version.
+            profile: The application profile; see `SpiffProfile`.
+            number_of_components: The number of image components.
+            height: The image height, in samples.
+            width: The image width, in samples.
+            color_space: The color space; see `SpiffColorSpace`.
+            bits_per_sample: Bits per sample.
+            compression_type: The compression type; see
+                `SpiffCompressionType`.
+            resolution_units: The units `horizontal_resolution`/
+                `vertical_resoution` are given in.
+            vertical_resoution: The vertical resolution.
+            horizontal_resolution: The horizontal resolution.
+        """
         super().__init__(8)
         self.version = version
         self.profile = profile
@@ -365,12 +515,16 @@ class SpiffHeader(ApplicationSpecificData):
 
 
 class AdobeColorSpace:
+    """Adobe color transform identifiers, for `AdobeHeader.color_space`."""
+
     RGB_OR_CMYK = 0
     Y_CB_CR = 1
     Y_CB_CR_K = 2
 
 
 class AdobeHeader(ApplicationSpecificData):
+    """An Adobe APP14 header, signaling the color transform used."""
+
     def __init__(
         self,
         version: int = 101,
@@ -378,6 +532,15 @@ class AdobeHeader(ApplicationSpecificData):
         flags1: int = 0,
         color_space: int = AdobeColorSpace.Y_CB_CR,
     ) -> None:
+        """Create an Adobe header.
+
+        Args:
+            version: The Adobe APP14 format version (100 or 101).
+            flags0: The first Adobe flags word.
+            flags1: The second Adobe flags word.
+            color_space: The color transform used; see
+                `AdobeColorSpace`.
+        """
         super().__init__(14)
         self.version = version
         self.flags0 = flags0
@@ -407,7 +570,23 @@ class AdobeHeader(ApplicationSpecificData):
 
 
 class UnknownApplicationSpecificData(ApplicationSpecificData):
+    """Raw APPn data for a segment that didn't match any recognized format.
+
+    Preserves the data unmodified so it can be written back out even
+    though its meaning isn't understood.
+
+    Note: `write` has a bug — it passes `self.n` (0-15) directly to
+    `write_marker` instead of `Marker.APP0 + self.n`, so it writes an
+    incorrect marker byte. Documented as-is.
+    """
+
     def __init__(self, n: int, data: bytes) -> None:
+        """Create an unrecognized APPn segment.
+
+        Args:
+            n: Which APPn marker this is, 0-15.
+            data: The raw payload data.
+        """
         super().__init__(n)
         self.data = data
 
