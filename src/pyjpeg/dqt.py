@@ -27,6 +27,8 @@ class QuantizationTable:
         """
         if destination < 0 or destination > 3:
             raise ValueError("Destination must be between 0 and 3")
+        if precision not in (8, 16):
+            raise ValueError("Precision must be 8 or 16")
         self.destination = destination
         self.precision = precision
         self.values = values
