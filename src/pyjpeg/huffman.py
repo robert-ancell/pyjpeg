@@ -1,8 +1,31 @@
+"""Huffman code table generation, encoding, and decoding.
+
+Implements the JPEG-standard (Annex K.2) algorithm for building an
+optimal Huffman code table from symbol frequencies, plus an
+`Encoder`/`Decoder` pair for using a table (whether generated here or
+read from a DHT segment) to encode and decode symbols.
+"""
+
 import pyjpeg.io
 import pyjpeg.scan
 
 
 def make_huffman_table(frequencies: list[int]) -> list[list[int]]:
+    """Build a canonical Huffman code table from symbol frequencies.
+
+    Implements the JPEG standard's Annex K.2 algorithm, including the
+    reserved 256th symbol used to guarantee no code consists of all
+    one-bits (avoiding conflicts with marker byte-stuffing) and the
+    16-bit code length limit built into the algorithm.
+
+    Args:
+        frequencies: 256 symbol frequency counts, indexed by symbol
+            value.
+
+    Returns:
+        A table in `pyjpeg.dht.HuffmanTable`'s format: 16 lists of
+        symbols, one per code length from 1 to 16 bits.
+    """
     assert len(frequencies) == 256
 
     codesize = [0] * 257
@@ -68,7 +91,20 @@ def _code_to_bits(code: int, length: int) -> list[int]:
 
 
 class Encoder:
+    """Encodes symbols using a Huffman table.
+
+    Builds a symbol-to-bit-sequence lookup once from the table, so
+    each `write_symbol` call is a simple dictionary lookup.
+    """
+
     def __init__(self, table: list[list[int]]) -> None:
+        """Create an encoder for the given Huffman table.
+
+        Args:
+            table: A table in `pyjpeg.dht.HuffmanTable`'s format: 16
+                lists of symbols, one per code length from 1 to 16
+                bits.
+        """
         self.codes = {}
 
         code = 0
@@ -81,6 +117,15 @@ class Encoder:
             code <<= 1
 
     def write_symbol(self, writer: pyjpeg.scan.Writer, symbol: int) -> None:
+        """Encode and write a single symbol.
+
+        Args:
+            writer: The `pyjpeg.scan.Writer` to write to.
+            symbol: The symbol to encode.
+
+        Raises:
+            Exception: If `symbol` has no code in this table.
+        """
         code = self.codes.get(symbol)
         if code is None:
             raise Exception("Unknown Huffman symbol")
@@ -88,16 +133,41 @@ class Encoder:
 
 
 class SymbolTreeNode:
+    """A node in the binary tree `Decoder` uses to decode Huffman codes.
+
+    A leaf node (one with no children) holds a decoded `symbol`;
+    internal nodes have up to two children, indexed by the next bit
+    (0 or 1).
+    """
+
     def __init__(
         self,
         symbol: int | None = None,
     ) -> None:
+        """Create a tree node.
+
+        Args:
+            symbol: The decoded symbol, if this is a leaf node.
+        """
         self.symbol = symbol
         self.children: list[SymbolTreeNode | None] = [None, None]
 
 
 class Decoder:
+    """Decodes symbols using a Huffman table.
+
+    Builds a binary tree from the table once, so each `read_symbol`
+    call walks the tree one bit at a time until it reaches a leaf.
+    """
+
     def __init__(self, table: list[list[int]]) -> None:
+        """Create a decoder for the given Huffman table.
+
+        Args:
+            table: A table in `pyjpeg.dht.HuffmanTable`'s format: 16
+                lists of symbols, one per code length from 1 to 16
+                bits.
+        """
         self.symbol_tree = SymbolTreeNode()
         self.symbol_frequencies = [0] * 256
 
@@ -125,6 +195,15 @@ class Decoder:
             code <<= 1
 
     def read_symbol(self, reader: pyjpeg.scan.Reader) -> int:
+        """Read and decode a single symbol.
+
+        Args:
+            reader: The `pyjpeg.scan.Reader` to read from.
+
+        Raises:
+            Exception: If the bits read don't match any code in this
+                table.
+        """
         node = self.symbol_tree
         while True:
             bit = reader.read_bit()
