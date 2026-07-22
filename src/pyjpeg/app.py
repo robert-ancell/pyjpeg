@@ -83,9 +83,7 @@ class ApplicationSpecificData(pyjpeg.segment.Segment):
             thumbnail_length = thumbnail_width * thumbnail_height * 3
             if length != 16 + thumbnail_length:
                 raise pyjpeg.io.LengthError("Invalid APP0 JFIF length")
-            thumbnail_data = []
-            for _ in range(thumbnail_length):
-                thumbnail_data.append(reader.read_u8())
+            thumbnail_data = reader.read(thumbnail_length)
             return JfifHeader(
                 version=(version_major, version_minor),
                 density=JfifDensity(density_unit, density_x, density_y),
@@ -112,9 +110,7 @@ class ApplicationSpecificData(pyjpeg.segment.Segment):
                 thumbnail_length = thumbnail_width * thumbnail_height
                 if length != 778 + thumbnail_length:
                     raise pyjpeg.io.LengthError("Invalid APP0 JFXX length")
-                thumbnail_data = []
-                for _ in range(thumbnail_length):
-                    thumbnail_data.append(reader.read_u8())
+                thumbnail_data = reader.read(thumbnail_length)
                 return JfifPalletizedThumbnail(
                     thumbnail_width,
                     thumbnail_height,
@@ -129,9 +125,7 @@ class ApplicationSpecificData(pyjpeg.segment.Segment):
                 thumbnail_length = thumbnail_width * thumbnail_height * 3
                 if length != 10 + thumbnail_length:
                     raise pyjpeg.io.LengthError("Invalid APP0 JFXX length")
-                thumbnail_data = []
-                for _ in range(thumbnail_length):
-                    thumbnail_data.append(reader.read_u8())
+                thumbnail_data = reader.read(thumbnail_length)
                 return JfifRgbThumbnail(
                     thumbnail_width,
                     thumbnail_height,
@@ -256,7 +250,7 @@ class JfifHeader(ApplicationSpecificData):
         version: tuple[int, int] = (1, 2),
         density: JfifDensity = JfifDensity.aspect_ratio(1, 1),
         thumbnail_size: tuple[int, int] = (0, 0),
-        thumbnail_data: list[int] = [],
+        thumbnail_data: bytes = b"",
     ) -> None:
         """Create a JFIF header.
 
@@ -284,8 +278,7 @@ class JfifHeader(ApplicationSpecificData):
         writer.write_u16(self.density.y)
         writer.write_u8(self.thumbnail_size[0])
         writer.write_u8(self.thumbnail_size[1])
-        for p in self.thumbnail_data:
-            writer.write_u8(p)
+        writer.write(self.thumbnail_data)
 
     def __repr__(self) -> str:
         return f"JfifHeader(version={self.version}, density={self.density}, thumbnail_size={self.thumbnail_size}, thumbnail_data={self.thumbnail_data!r})"
@@ -318,7 +311,7 @@ class JfifPalletizedThumbnail(ApplicationSpecificData):
     """A JFXX extension thumbnail stored as an indexed-color (palette) image."""
 
     def __init__(
-        self, width: int, height: int, palette: list[int], data: list[int]
+        self, width: int, height: int, palette: list[int], data: bytes
     ) -> None:
         """Create a JFXX palettized thumbnail.
 
@@ -345,17 +338,16 @@ class JfifPalletizedThumbnail(ApplicationSpecificData):
         writer.write_u8(self.height)
         for c in self.palette:
             writer.write_u8(c)
-        for p in self.data:
-            writer.write_u8(p)
+        writer.write(self.data)
 
     def __repr__(self) -> str:
-        return f"JfifPalletizedThumbnail({self.width}, {self.height}, {self.data})"
+        return f"JfifPalletizedThumbnail({self.width}, {self.height}, {self.data!r})"
 
 
 class JfifRgbThumbnail(ApplicationSpecificData):
     """A JFXX extension thumbnail stored as an uncompressed RGB image."""
 
-    def __init__(self, width: int, height: int, data: list[int]) -> None:
+    def __init__(self, width: int, height: int, data: bytes) -> None:
         """Create a JFXX RGB thumbnail.
 
         Args:
@@ -375,11 +367,10 @@ class JfifRgbThumbnail(ApplicationSpecificData):
         writer.write_u8(0x12)
         writer.write_u8(self.width)
         writer.write_u8(self.height)
-        for p in self.data:
-            writer.write_u8(p)
+        writer.write(self.data)
 
     def __repr__(self) -> str:
-        return f"JfifRgbThumbnail({self.width}, {self.height}, {self.data})"
+        return f"JfifRgbThumbnail({self.width}, {self.height}, {self.data!r})"
 
 
 class ExifHeader(ApplicationSpecificData):
