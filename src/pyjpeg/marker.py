@@ -1,4 +1,14 @@
+"""JPEG marker code constants."""
+
+
 class Marker:
+    """Byte values for JPEG markers.
+
+    Each marker in a JPEG file is preceded by a `0xFF` prefix; these
+    are the marker code that follows it. See `pyjpeg.io.Reader.read_marker`
+    and `pyjpeg.io.Writer.write_marker`.
+    """
+
     SOF0 = 0xC0
     SOF1 = 0xC1
     SOF2 = 0xC2
