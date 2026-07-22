@@ -5,18 +5,6 @@ import pyjpeg.marker
 import pyjpeg.segment
 
 
-class LSInterleaveMode:
-    """JPEG-LS interleave mode constants.
-
-    Note: unused within this module — the interleave mode actually
-    read/written for JPEG-LS scans is `pyjpeg.ls_scan.LSInterleaveMode`.
-    """
-
-    NONE = 0
-    LINE = 1
-    SAMPLE = 2
-
-
 class ScanComponent:
     """A single component's entropy-coding configuration within a scan.
 
