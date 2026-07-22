@@ -1,3 +1,5 @@
+"""Arithmetic-coded lossless scan data."""
+
 import pyjpeg.arithmetic
 import pyjpeg.arithmetic_scan
 import pyjpeg.io
@@ -6,7 +8,15 @@ import pyjpeg.segment
 
 
 class ArithmeticLosslessScanComponent:
+    """A single component's arithmetic coding conditioning for a lossless scan."""
+
     def __init__(self, conditioning_bounds: tuple[int, int] = (0, 1)) -> None:
+        """Create a lossless scan component.
+
+        Args:
+            conditioning_bounds: The arithmetic conditioning
+                `(lower, upper)` bounds.
+        """
         self.conditioning_bounds = conditioning_bounds
 
     def __eq__(self, other: object) -> bool:
@@ -20,6 +30,14 @@ class ArithmeticLosslessScanComponent:
 
 
 class ArithmeticLosslessScan(pyjpeg.segment.Segment):
+    """Arithmetic-coded lossless scan entropy-coded data.
+
+    Each sample is predicted from its already-decoded neighbors (see
+    `pyjpeg.lossless`); the resulting difference is arithmetic-coded,
+    conditioned on the previous line's and previous sample's
+    differences.
+    """
+
     def __init__(
         self,
         samples_per_line: int,
@@ -28,6 +46,17 @@ class ArithmeticLosslessScan(pyjpeg.segment.Segment):
         precision: int = 8,
         predictor: int = 1,
     ) -> None:
+        """Create a lossless scan.
+
+        Args:
+            samples_per_line: The image width, in samples.
+            samples: The decoded samples, interleaved across
+                components, in raster order.
+            components: The scan's components.
+            precision: Bits per sample.
+            predictor: Which of the seven lossless predictors (1-7)
+                to use.
+        """
         self.samples_per_line = samples_per_line
         self.samples = samples
         self.components = components
@@ -35,6 +64,11 @@ class ArithmeticLosslessScan(pyjpeg.segment.Segment):
         self.predictor = predictor
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
+        """Write this scan's entropy-coded data.
+
+        Args:
+            writer: The `pyjpeg.io.Writer` to write to.
+        """
         scan_writer = Writer(writer)
 
         previous_line = [0] * self.samples_per_line * len(self.components)
@@ -90,6 +124,18 @@ class ArithmeticLosslessScan(pyjpeg.segment.Segment):
         precision: int = 8,
         predictor: int = 1,
     ) -> "ArithmeticLosslessScan":
+        """Read a lossless scan's entropy-coded data.
+
+        Args:
+            reader: The `pyjpeg.io.Reader` to read from.
+            samples_per_line: The image width, in samples.
+            number_of_samples: The total number of samples to decode,
+                across all interleaved components.
+            components: The scan's components.
+            precision: Bits per sample.
+            predictor: Which of the seven lossless predictors (1-7)
+                to use.
+        """
         samples = []
         scan_reader = Reader(reader)
         samples = [0] * number_of_samples
@@ -155,7 +201,20 @@ class ArithmeticLosslessScan(pyjpeg.segment.Segment):
 
 
 class Writer:
+    """Writes a sequence of lossless-coded sample differences.
+
+    Holds the full set of arithmetic conditioning `State`s needed
+    across the scan (indexed by a combination of the left and above
+    neighbors' classifications), so state persists correctly across
+    the whole scan.
+    """
+
     def __init__(self, writer: pyjpeg.io.Writer) -> None:
+        """Create a data unit writer.
+
+        Args:
+            writer: The underlying byte-oriented writer to write to.
+        """
         self.writer = pyjpeg.arithmetic_scan.Writer(writer)
 
         def make_states(count: int) -> list[pyjpeg.arithmetic.State]:
@@ -177,6 +236,17 @@ class Writer:
         above_data_unit: int = 0,
         conditioning_bounds: tuple[int, int] = (0, 1),
     ) -> None:
+        """Write one sample's difference.
+
+        Args:
+            data_unit: The sample difference to write.
+            left_data_unit: The left neighbor's difference, used for
+                conditioning.
+            above_data_unit: The above neighbor's difference, used
+                for conditioning.
+            conditioning_bounds: The arithmetic conditioning
+                `(lower, upper)` bounds.
+        """
         ca = pyjpeg.arithmetic_scan.classify_dc(conditioning_bounds, left_data_unit)
         cb = pyjpeg.arithmetic_scan.classify_dc(conditioning_bounds, above_data_unit)
         c = ca * 5 + cb
@@ -200,11 +270,23 @@ class Writer:
         )
 
     def flush(self) -> None:
+        """Flush any remaining encoded data to the underlying writer."""
         self.writer.flush()
 
 
 class Reader:
+    """Reads a sequence of lossless-coded sample differences.
+
+    Holds the full set of arithmetic conditioning `State`s needed
+    across the scan, mirroring `Writer`.
+    """
+
     def __init__(self, reader: pyjpeg.io.Reader):
+        """Create a data unit reader.
+
+        Args:
+            reader: The underlying byte-oriented reader to read from.
+        """
         self.reader = pyjpeg.arithmetic_scan.Reader(reader)
 
         def make_states(count: int) -> list[pyjpeg.arithmetic.State]:
@@ -225,6 +307,16 @@ class Reader:
         above_data_unit: int = 0,
         conditioning_bounds: tuple[int, int] = (0, 1),
     ) -> int:
+        """Read one sample's difference.
+
+        Args:
+            left_data_unit: The left neighbor's difference, used for
+                conditioning.
+            above_data_unit: The above neighbor's difference, used
+                for conditioning.
+            conditioning_bounds: The arithmetic conditioning
+                `(lower, upper)` bounds.
+        """
         ca = pyjpeg.arithmetic_scan.classify_dc(conditioning_bounds, left_data_unit)
         cb = pyjpeg.arithmetic_scan.classify_dc(conditioning_bounds, above_data_unit)
         c = ca * 5 + cb

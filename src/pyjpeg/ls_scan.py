@@ -1,3 +1,19 @@
+"""JPEG-LS (ISO/IEC 14495-1) entropy-coded scan data.
+
+Implements JPEG-LS's context-modeled predictive coding: each sample is
+predicted from its causal neighbors, classified into a context based
+on the local gradient, and the prediction error is Golomb-Rice coded
+(see `pyjpeg.golomb_scan`) with per-context adaptive parameters. Runs
+of identical samples are coded separately ("run mode") for efficiency.
+This closely follows the algorithm in ISO/IEC 14495-1 Annex A; the
+class and variable names largely mirror the spec's own terminology.
+
+Most of the finer-grained private helper methods on `RegularContext`,
+`RunInterruptContext`, and the error-mapping/bias-update logic are not
+individually documented — they implement specific numbered steps of
+the Annex A algorithm and are best read alongside the spec itself.
+"""
+
 import math
 
 import pyjpeg.golomb_scan
@@ -11,13 +27,23 @@ run_widths = [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 5, 5, 6, 6, 
 
 
 class LSInterleaveMode:
+    """How components are interleaved within a JPEG-LS scan."""
+
     NONE = 0
     LINE = 1
     SAMPLE = 2
 
 
 class LSScanComponent:
+    """A single component's configuration within a JPEG-LS scan."""
+
     def __init__(self, sampling_factor: tuple[int, int] = (1, 1)) -> None:
+        """Create a JPEG-LS scan component.
+
+        Args:
+            sampling_factor: The `(horizontal, vertical)` sampling
+                factor.
+        """
         self.sampling_factor = sampling_factor
 
     def __eq__(self, other: object) -> bool:
@@ -31,6 +57,14 @@ class LSScanComponent:
 
 
 class CodingParameters:
+    """Resolved JPEG-LS coding parameters for a scan.
+
+    Fills in spec-defined default gradient thresholds (via
+    `_generate_gradient_thresholds`) where the caller passed `0`, and
+    derives the additional parameters (`range`, `qbpp`, `limit`)
+    needed by the entropy coder.
+    """
+
     def __init__(
         self,
         difference_bound: int = 0,
@@ -38,6 +72,22 @@ class CodingParameters:
         gradient_thresholds: tuple[int, int, int] = (0, 0, 0),
         reset: int = 0,
     ) -> None:
+        """Create resolved coding parameters.
+
+        Args:
+            difference_bound: The near-lossless difference bound
+                (NEAR).
+            maxval: The maximum sample value.
+            gradient_thresholds: The `(T1, T2, T3)` gradient
+                thresholds. Any entry that is `0` is replaced with
+                its spec-defined default.
+            reset: The context reset threshold. `0` is replaced with
+                the spec default of 64.
+
+        Raises:
+            ValueError: If the resolved gradient thresholds are not
+                in non-decreasing order.
+        """
         self.difference_bound = difference_bound
         self.maxval = maxval
         self.gradient_thresholds = _generate_gradient_thresholds(
@@ -59,6 +109,12 @@ class CodingParameters:
         self.limit = 2 * (bpp + max(8, bpp))
 
     def classify(self, d: int) -> int:
+        """Classify a local gradient value into one of nine buckets (-4 to 4).
+
+        Args:
+            d: The gradient value (difference between two neighboring
+                samples) to classify.
+        """
         if d <= -self.gradient_thresholds[2]:
             return -4
         elif d <= -self.gradient_thresholds[1]:
@@ -79,6 +135,15 @@ class CodingParameters:
             return 4
 
     def quantize_error(self, errval: int) -> int:
+        """Quantize a prediction error for near-lossless coding.
+
+        Reduces the error to one representative value per
+        `difference_bound`-sized bucket, then wraps it into the
+        canonical range used for entropy coding.
+
+        Args:
+            errval: The raw (unquantized) prediction error.
+        """
         if self.difference_bound > 0:
             delta = 2 * self.difference_bound + 1
             if errval > 0:
@@ -96,6 +161,15 @@ class CodingParameters:
         return errval
 
     def reconstruct(self, predicted_sample: int, errval: int) -> int:
+        """Reconstruct a sample from a predicted value and quantized error.
+
+        The inverse of `quantize_error` combined with the predictor:
+        reverses the modulo wrapping and clamps to `[0, maxval]`.
+
+        Args:
+            predicted_sample: The predicted sample value.
+            errval: The quantized prediction error.
+        """
         delta = 2 * self.difference_bound + 1
         sample = predicted_sample + errval * delta
 
@@ -113,6 +187,13 @@ class CodingParameters:
 
 
 class LSScan(pyjpeg.segment.Segment):
+    """JPEG-LS entropy-coded scan data.
+
+    Encodes/decodes a scan's samples via `Writer`/`Reader`, which
+    implement the actual per-sample prediction, context modeling, and
+    Golomb-Rice coding.
+    """
+
     def __init__(
         self,
         width: int,
@@ -124,6 +205,29 @@ class LSScan(pyjpeg.segment.Segment):
         gradient_thresholds: tuple[int, int, int] = (0, 0, 0),
         reset: int = 0,
     ) -> None:
+        """Create a JPEG-LS scan.
+
+        Args:
+            width: The image width, in samples.
+            samples: The decoded samples, interleaved across
+                components according to `interleave_mode`.
+            components: The scan's components.
+            interleave_mode: How components are interleaved; see
+                `LSInterleaveMode`.
+            difference_bound: The near-lossless difference bound
+                (NEAR).
+            maxval: The maximum sample value.
+            gradient_thresholds: The `(T1, T2, T3)` gradient
+                thresholds; `0` entries use the spec-defined default.
+            reset: The context reset threshold; `0` uses the spec
+                default.
+
+        Raises:
+            ValueError: If `components` is empty, `interleave_mode`
+                is invalid, or the number of components doesn't match
+                what `interleave_mode` requires (exactly 1 for
+                `NONE`, at least 2 for `LINE`/`SAMPLE`).
+        """
         if len(components) == 0:
             raise ValueError("No components")
         if interleave_mode not in [
@@ -155,6 +259,11 @@ class LSScan(pyjpeg.segment.Segment):
         self.reset = reset
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
+        """Write this scan's entropy-coded data.
+
+        Args:
+            writer: The `pyjpeg.io.Writer` to write to.
+        """
         scan_writer = Writer(
             writer,
             self.width,
@@ -183,6 +292,26 @@ class LSScan(pyjpeg.segment.Segment):
         gradient_thresholds: tuple[int, int, int] = (0, 0, 0),
         reset: int = 0,
     ) -> "LSScan":
+        """Read a JPEG-LS scan's entropy-coded data.
+
+        Args:
+            reader: The `pyjpeg.io.Reader` to read from.
+            width: The image width, in samples.
+            number_of_samples: The total number of samples to decode.
+            components: The scan's components.
+            interleave_mode: How components are interleaved; see
+                `LSInterleaveMode`.
+            difference_bound: The near-lossless difference bound
+                (NEAR).
+            maxval: The maximum sample value.
+            gradient_thresholds: The `(T1, T2, T3)` gradient
+                thresholds; `0` entries use the spec-defined default.
+            reset: The context reset threshold; `0` uses the spec
+                default.
+
+        Raises:
+            ValueError: If `components` is empty.
+        """
         if len(components) == 0:
             raise ValueError("No components")
         scan_reader = Reader(
@@ -230,6 +359,21 @@ class LSScan(pyjpeg.segment.Segment):
 def _get_neighbours(
     width: int, samples: list[int], n_components: int, index: int
 ) -> tuple[int, int, int, int]:
+    """Return the four causal neighbor samples (a, b, c, d) used for prediction.
+
+    Handles edge cases at the top row and left/right edges per the
+    JPEG-LS spec's boundary conventions.
+
+    Args:
+        width: The image width, in samples.
+        samples: All samples decoded/available so far.
+        n_components: The number of interleaved components.
+        index: The flat index of the sample being predicted.
+
+    Returns:
+        The `(a, b, c, d)` neighbor samples: left, above, above-left,
+        and above-right, respectively.
+    """
     line_size = width * n_components
 
     # Top row
@@ -261,7 +405,23 @@ def _get_neighbours(
 
 
 class RegularContext:
+    """Per-context adaptive state for regular-mode (non-run) sample coding.
+
+    One `RegularContext` exists per gradient-classified context (405
+    total, indexed via `Codec.get_regular_context`); each tracks its
+    own running statistics (accumulated error magnitude, bias,
+    prediction correction) used to adapt the predictor and the
+    Golomb-Rice parameter as coding proceeds, per ISO/IEC 14495-1
+    Annex A.
+    """
+
     def __init__(self, accumulated_prediction_error_magnitude: int) -> None:
+        """Create a regular context with the given initial error magnitude.
+
+        Args:
+            accumulated_prediction_error_magnitude: The initial value
+                of the accumulated prediction error magnitude (A).
+        """
         self.accumulated_prediction_error_magnitude = (
             accumulated_prediction_error_magnitude
         )
@@ -279,6 +439,19 @@ class RegularContext:
         b: int,
         c: int,
     ) -> None:
+        """Predict, quantize, and Golomb-Rice encode one sample.
+
+        Args:
+            writer: The `pyjpeg.golomb_scan.Writer` to write to.
+            parameters: The scan's coding parameters.
+            sign: `+1` or `-1`, from `Codec.get_regular_context`,
+                indicating whether this context's gradients were sign
+                flipped for symmetry.
+            sample: The actual sample value.
+            a: The left neighbor.
+            b: The above neighbor.
+            c: The above-left neighbor.
+        """
         predicted_sample = self._predict(parameters, sign, a, b, c)
         errval = sign * (sample - predicted_sample)
         errval = parameters.quantize_error(errval)
@@ -298,6 +471,16 @@ class RegularContext:
         b: int,
         c: int,
     ) -> int:
+        """Predict and Golomb-Rice decode one sample.
+
+        Args:
+            reader: The `pyjpeg.golomb_scan.Reader` to read from.
+            parameters: The scan's coding parameters.
+            sign: `+1` or `-1`, from `Codec.get_regular_context`.
+            a: The left neighbor.
+            b: The above neighbor.
+            c: The above-left neighbor.
+        """
         predicted_sample = self._predict(parameters, sign, a, b, c)
         k = self._get_golomb_size()
         mapped_errval = reader.read_value(k, self._get_limit(parameters))
@@ -397,7 +580,22 @@ class RegularContext:
 
 
 class RunInterruptContext:
+    """Adaptive state for coding the sample that interrupts a run.
+
+    There are two instances (near/non-near, per `Codec`), rather than
+    one per gradient context, since a run interruption doesn't have a
+    meaningful local gradient the way regular-mode samples do.
+    """
+
     def __init__(self, a: int, near: bool) -> None:
+        """Create a run-interrupt context.
+
+        Args:
+            a: The initial accumulated prediction error magnitude.
+            near: Whether this context is for the "near" case (where
+                the left and above neighbors differ by no more than
+                the difference bound).
+        """
         self.accumulated_prediction_error_magnitude = a
         self.near = near
         self.frequency_of_occurence = 1
@@ -412,6 +610,17 @@ class RunInterruptContext:
         a: int,
         b: int,
     ) -> None:
+        """Predict, quantize, and Golomb-Rice encode a run-interrupting sample.
+
+        Args:
+            writer: The `pyjpeg.golomb_scan.Writer` to write to.
+            parameters: The scan's coding parameters.
+            run_index: The current run length index, affecting the
+                Golomb-Rice limit.
+            sample: The actual sample value.
+            a: The left neighbor.
+            b: The above neighbor.
+        """
         if self.near:
             errval = sample - a
         else:
@@ -432,6 +641,16 @@ class RunInterruptContext:
         a: int,
         b: int,
     ) -> int:
+        """Predict and Golomb-Rice decode a run-interrupting sample.
+
+        Args:
+            reader: The `pyjpeg.golomb_scan.Reader` to read from.
+            parameters: The scan's coding parameters.
+            run_index: The current run length index, affecting the
+                Golomb-Rice limit.
+            a: The left neighbor.
+            b: The above neighbor.
+        """
         k = self._get_golomb_size()
         mapped_errval = reader.read_value(k, self._get_limit(parameters, run_index))
         errval = self._unmap_error(mapped_errval, k)
@@ -512,6 +731,15 @@ class RunInterruptContext:
 
 
 class Codec:
+    """Shared state and context-selection logic for JPEG-LS `Writer`/`Reader`.
+
+    Holds the 405 `RegularContext`s (one per gradient classification
+    combination) and the two `RunInterruptContext`s, and provides the
+    logic to select the right context/mode for a given sample
+    position. `Writer` and `Reader` subclass this and add the
+    direction-specific (encode/decode) traversal and Golomb-Rice I/O.
+    """
+
     def __init__(
         self,
         width: int,
@@ -520,6 +748,17 @@ class Codec:
         interleave_mode: int,
         parameters: CodingParameters,
     ) -> None:
+        """Create a codec.
+
+        Args:
+            width: The image width, in samples.
+            samples: The sample buffer (to be filled when decoding, or
+                already filled when encoding).
+            components: The scan's components.
+            interleave_mode: How components are interleaved; see
+                `LSInterleaveMode`.
+            parameters: The scan's coding parameters.
+        """
         self.width = width
         self.samples = samples
         self.components = components
@@ -542,6 +781,22 @@ class Codec:
     def is_run_mode(
         self, sample_index: int, n_components: int
     ) -> tuple[bool, list[int]]:
+        """Determine whether the sample at `sample_index` starts a run.
+
+        A run starts when the left, above, above-left, and
+        above-right neighbors are all within `difference_bound` of
+        each other, for every interleaved component.
+
+        Args:
+            sample_index: The flat index of the sample to check.
+            n_components: How many components to check (1 for
+                non-interleaved/line-interleaved, or the full
+                component count for sample-interleaved).
+
+        Returns:
+            A `(in_run, run_sample)` pair: whether run mode applies,
+            and if so, the run's constant sample value per component.
+        """
         run_sample = [0] * n_components
         for component_index in range(n_components):
             (a, b, c, d) = _get_neighbours(
@@ -563,6 +818,12 @@ class Codec:
         return True, run_sample
 
     def get_interrupt_context(self, sample_index: int) -> RunInterruptContext:
+        """Select the near/non-near `RunInterruptContext` for a run interruption.
+
+        Args:
+            sample_index: The flat index of the run-interrupting
+                sample.
+        """
         (a, b, _, _) = _get_neighbours(
             self.width,
             self.samples,
@@ -577,6 +838,20 @@ class Codec:
     def get_regular_context(
         self, a: int, b: int, c: int, d: int
     ) -> tuple[int, RegularContext]:
+        """Classify the local gradients and select the matching `RegularContext`.
+
+        Args:
+            a: The left neighbor.
+            b: The above neighbor.
+            c: The above-left neighbor.
+            d: The above-right neighbor.
+
+        Returns:
+            A `(sign, context)` pair: `sign` is `-1` if the gradient
+            triple was flipped to its canonical (symmetric) form and
+            `1` otherwise, and `context` is the matching
+            `RegularContext`.
+        """
         q1 = self.parameters.classify(d - b)
         q2 = self.parameters.classify(b - c)
         q3 = self.parameters.classify(c - a)
@@ -594,6 +869,8 @@ class Codec:
 
 
 class Writer(Codec):
+    """Encodes a JPEG-LS scan's samples."""
+
     def __init__(
         self,
         writer: pyjpeg.io.Writer,
@@ -603,10 +880,22 @@ class Writer(Codec):
         interleave_mode: int,
         parameters: CodingParameters,
     ) -> None:
+        """Create a scan writer.
+
+        Args:
+            writer: The underlying byte-oriented writer to write to.
+            width: The image width, in samples.
+            samples: The samples to encode.
+            components: The scan's components.
+            interleave_mode: How components are interleaved; see
+                `LSInterleaveMode`.
+            parameters: The scan's coding parameters.
+        """
         super().__init__(width, samples, components, interleave_mode, parameters)
         self.writer = pyjpeg.golomb_scan.Writer(writer, qbpp=self.parameters.qbpp)
 
     def write(self) -> None:
+        """Encode all samples according to `interleave_mode` and flush."""
         if self.interleave_mode == LSInterleaveMode.NONE:
             self.write_non_interleaved()
         elif self.interleave_mode == LSInterleaveMode.LINE:
@@ -616,12 +905,14 @@ class Writer(Codec):
         self.writer.flush()
 
     def write_non_interleaved(self) -> None:
+        """Encode samples for `LSInterleaveMode.NONE` (one component at a time)."""
         run_index = 0
         sample_index = 0
         while sample_index < len(self.samples):
             sample_index, run_index = self.write_sample(sample_index, 1, run_index)
 
     def write_line_interleaved(self) -> None:
+        """Encode samples for `LSInterleaveMode.LINE` (one component per line, in turn)."""
         run_indexes = [0] * len(self.components)
         line_size = self.width * len(self.components)
         for line_start_index in range(0, len(self.samples), line_size):
@@ -636,6 +927,7 @@ class Writer(Codec):
                 run_indexes[component_index] = run_index
 
     def write_sample_interleaved(self) -> None:
+        """Encode samples for `LSInterleaveMode.SAMPLE` (all components per pixel)."""
         sample_index = 0
         run_index = 0
         while sample_index < len(self.samples):
@@ -646,6 +938,17 @@ class Writer(Codec):
     def write_sample(
         self, sample_index: int, n_components: int, run_index: int
     ) -> tuple[int, int]:
+        """Encode the sample(s) at `sample_index`, in run or regular mode as appropriate.
+
+        Args:
+            sample_index: The flat index to start at.
+            n_components: How many interleaved components to encode
+                at this position.
+            run_index: The current run length index.
+
+        Returns:
+            The updated `(sample_index, run_index)` after encoding.
+        """
         in_run, run_sample = self.is_run_mode(sample_index, n_components)
         if in_run:
             sample_index, run_index = self.write_run(
@@ -659,6 +962,16 @@ class Writer(Codec):
     def write_run(
         self, sample_index: int, run_sample: list[int], run_index: int
     ) -> tuple[int, int]:
+        """Encode a run of identical samples, followed by its interrupting sample.
+
+        Args:
+            sample_index: The flat index the run starts at.
+            run_sample: The run's constant sample value per component.
+            run_index: The current run length index.
+
+        Returns:
+            The updated `(sample_index, run_index)` after encoding.
+        """
         run_counter = 0
         while self.in_run(sample_index, run_sample):
             sample_index += len(self.components)
@@ -708,6 +1021,12 @@ class Writer(Codec):
         return sample_index, run_index
 
     def in_run(self, sample_index: int, run_sample: list[int]) -> bool:
+        """Return whether the sample(s) at `sample_index` still match the run.
+
+        Args:
+            sample_index: The flat index to check.
+            run_sample: The run's constant sample value per component.
+        """
         for component_index, sample in enumerate(run_sample):
             if (
                 abs(
@@ -720,6 +1039,15 @@ class Writer(Codec):
         return True
 
     def write_regular(self, sample_index: int, n_components: int) -> int:
+        """Encode the sample(s) at `sample_index` in regular (non-run) mode.
+
+        Args:
+            sample_index: The flat index to encode.
+            n_components: How many interleaved components to encode.
+
+        Returns:
+            The updated `sample_index` after encoding.
+        """
         for component_index in range(n_components):
             (a, b, c, d) = _get_neighbours(
                 self.width,
@@ -741,6 +1069,8 @@ class Writer(Codec):
 
 
 class Reader(Codec):
+    """Decodes a JPEG-LS scan's samples."""
+
     def __init__(
         self,
         reader: pyjpeg.io.Reader,
@@ -750,12 +1080,28 @@ class Reader(Codec):
         interleave_mode: int,
         parameters: CodingParameters,
     ) -> None:
+        """Create a scan reader.
+
+        Args:
+            reader: The underlying byte-oriented reader to read from.
+            width: The image width, in samples.
+            number_of_samples: The total number of samples to decode.
+            components: The scan's components.
+            interleave_mode: How components are interleaved; see
+                `LSInterleaveMode`.
+            parameters: The scan's coding parameters.
+        """
         super().__init__(
             width, [0] * number_of_samples, components, interleave_mode, parameters
         )
         self.reader = pyjpeg.golomb_scan.Reader(reader, qbpp=self.parameters.qbpp)
 
     def read(self) -> list[int]:
+        """Decode all samples according to `interleave_mode`.
+
+        Returns:
+            The decoded samples.
+        """
         if self.interleave_mode == LSInterleaveMode.NONE:
             self.read_non_interleaved()
         elif self.interleave_mode == LSInterleaveMode.LINE:
@@ -765,12 +1111,14 @@ class Reader(Codec):
         return self.samples
 
     def read_non_interleaved(self) -> None:
+        """Decode samples for `LSInterleaveMode.NONE` (one component at a time)."""
         sample_index = 0
         run_index = 0
         while sample_index < len(self.samples):
             sample_index, run_index = self.read_sample(sample_index, 1, run_index)
 
     def read_line_interleaved(self) -> None:
+        """Decode samples for `LSInterleaveMode.LINE` (one component per line, in turn)."""
         run_indexes = [0] * len(self.components)
         line_size = self.width * len(self.components)
         for line_start_index in range(0, len(self.samples), line_size):
@@ -785,6 +1133,7 @@ class Reader(Codec):
                 run_indexes[component_index] = run_index
 
     def read_sample_interleaved(self) -> None:
+        """Decode samples for `LSInterleaveMode.SAMPLE` (all components per pixel)."""
         sample_index = 0
         run_index = 0
         while sample_index < len(self.samples):
@@ -795,6 +1144,17 @@ class Reader(Codec):
     def read_sample(
         self, sample_index: int, n_components: int, run_index: int
     ) -> tuple[int, int]:
+        """Decode the sample(s) at `sample_index`, in run or regular mode as appropriate.
+
+        Args:
+            sample_index: The flat index to start at.
+            n_components: How many interleaved components to decode
+                at this position.
+            run_index: The current run length index.
+
+        Returns:
+            The updated `(sample_index, run_index)` after decoding.
+        """
         in_run, run_sample = self.is_run_mode(sample_index, n_components)
         if in_run:
             sample_index, run_index = self.read_run(sample_index, run_sample, run_index)
@@ -806,6 +1166,16 @@ class Reader(Codec):
     def read_run(
         self, sample_index: int, run_sample: list[int], run_index: int
     ) -> tuple[int, int]:
+        """Decode a run of identical samples, followed by its interrupting sample.
+
+        Args:
+            sample_index: The flat index the run starts at.
+            run_sample: The run's constant sample value per component.
+            run_index: The current run length index.
+
+        Returns:
+            The updated `(sample_index, run_index)` after decoding.
+        """
         while self.reader.read_bit() == 1:
             run_width = 1 << run_widths[run_index]
             line_size = self.width * len(self.components)
@@ -857,6 +1227,15 @@ class Reader(Codec):
         return sample_index, run_index
 
     def read_regular(self, sample_index: int, n_components: int) -> int:
+        """Decode the sample(s) at `sample_index` in regular (non-run) mode.
+
+        Args:
+            sample_index: The flat index to decode.
+            n_components: How many interleaved components to decode.
+
+        Returns:
+            The updated `sample_index` after decoding.
+        """
         for component_index in range(n_components):
             (a, b, c, d) = _get_neighbours(
                 self.width,
@@ -873,6 +1252,21 @@ class Reader(Codec):
 def _generate_gradient_thresholds(
     difference_bound: int, maxval: int, gradient_thresholds: tuple[int, int, int]
 ) -> tuple[int, int, int]:
+    """Fill in default gradient thresholds (T1, T2, T3) per ISO/IEC 14495-1 C.2.4.1.
+
+    Any entry in `gradient_thresholds` that is `0` is replaced with
+    its spec-defined default, scaled for `maxval`; non-zero entries
+    are passed through as given by the caller.
+
+    Args:
+        difference_bound: The near-lossless difference bound (NEAR).
+        maxval: The maximum sample value.
+        gradient_thresholds: The caller-supplied `(T1, T2, T3)`
+            thresholds, with `0` meaning "use the default".
+
+    Returns:
+        The resolved `(T1, T2, T3)` thresholds.
+    """
     def clamp(i: int, j: int) -> int:
         if i > maxval or i < j:
             return j

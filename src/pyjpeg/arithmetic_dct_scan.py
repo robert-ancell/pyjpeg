@@ -1,3 +1,5 @@
+"""Arithmetic-coded DCT scan data (single, non-progressive scans)."""
+
 import pyjpeg.arithmetic
 import pyjpeg.arithmetic_scan
 import pyjpeg.dct
@@ -6,12 +8,23 @@ import pyjpeg.segment
 
 
 class ArithmeticDCTScanComponent:
+    """A single component's arithmetic coding conditioning and sampling factor within a DCT scan."""
+
     def __init__(
         self,
         sampling_factor: tuple[int, int] = (1, 1),
         conditioning_bounds: tuple[int, int] = (0, 1),
         kx: int = 5,
     ):
+        """Create a DCT scan component.
+
+        Args:
+            sampling_factor: The `(horizontal, vertical)` sampling
+                factor, matching `pyjpeg.sof.FrameComponent`.
+            conditioning_bounds: The DC arithmetic conditioning
+                `(lower, upper)` bounds.
+            kx: The AC arithmetic coding Kx parameter.
+        """
         self.sampling_factor = sampling_factor
         self.conditioning_bounds = conditioning_bounds
         self.kx = kx
@@ -29,6 +42,15 @@ class ArithmeticDCTScanComponent:
 
 
 class ArithmeticDCTScan(pyjpeg.segment.Segment):
+    """Arithmetic-coded DCT scan entropy-coded data, covering a full data-unit sequence.
+
+    Handles a single, complete scan: for each data unit, coding the DC
+    coefficient (conditioned on the previous data unit's DC
+    difference) and the AC coefficients within `spectral_selection`,
+    interleaving components in MCU order according to their sampling
+    factors.
+    """
+
     def __init__(
         self,
         data_units: list[list[int]],
@@ -36,6 +58,18 @@ class ArithmeticDCTScan(pyjpeg.segment.Segment):
         spectral_selection: tuple[int, int] = (0, 63),
         point_transform: int = 0,
     ) -> None:
+        """Create a DCT scan.
+
+        Args:
+            data_units: The scan's data units, each 64 coefficients
+                in zigzag order, interleaved across components in
+                MCU order.
+            components: The scan's components.
+            spectral_selection: The `(Ss, Se)` band of coefficients
+                this scan covers.
+            point_transform: The point transform (Al) shift applied
+                before coding.
+        """
         self.data_units = data_units
         self.components = components
         self.spectral_selection = spectral_selection
@@ -83,6 +117,26 @@ class ArithmeticDCTScan(pyjpeg.segment.Segment):
         spectral_selection: tuple[int, int] = (0, 63),
         point_transform: int = 0,
     ) -> "ArithmeticDCTScan":
+        """Read a DCT scan's entropy-coded data.
+
+        Note: unlike `write`, the point transform is not currently
+        applied to the DC coefficient while reading (see the `# FIXME:
+        point transform` comment below) — documented as-is.
+
+        Args:
+            reader: The `pyjpeg.io.Reader` to read from.
+            number_of_data_units: The total number of data units to
+                decode, across all interleaved components.
+            components: The scan's components.
+            spectral_selection: The `(Ss, Se)` band of coefficients
+                this scan covers.
+            point_transform: The point transform (Al) shift applied
+                when coding.
+
+        Raises:
+            ReadError: If more data units are encountered than
+                `number_of_data_units`.
+        """
         scan_reader = Reader(
             reader,
             spectral_selection=spectral_selection,
@@ -134,12 +188,28 @@ class ArithmeticDCTScan(pyjpeg.segment.Segment):
 
 
 class Writer:
+    """Writes a sequence of DCT data units within a given spectral selection.
+
+    Holds the full set of arithmetic conditioning `State`s needed
+    across the scan (one set per DC classification bucket, and one
+    per AC coefficient position), so state persists correctly across
+    the whole scan rather than being local to a single data unit.
+    """
+
     def __init__(
         self,
         writer: pyjpeg.io.Writer,
         spectral_selection: tuple[int, int] = (0, 63),
         point_transform: int = 0,
     ) -> None:
+        """Create a data unit writer.
+
+        Args:
+            writer: The underlying byte-oriented writer to write to.
+            spectral_selection: The `(Ss, Se)` band of coefficients to
+                write for each data unit.
+            point_transform: The point transform (Al) shift to apply.
+        """
         self.writer = pyjpeg.arithmetic_scan.Writer(writer)
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
@@ -169,6 +239,18 @@ class Writer:
         conditioning_bounds: tuple[int, int] = (0, 1),
         kx: int = 5,
     ) -> None:
+        """Write one data unit's coefficients within the spectral selection.
+
+        Args:
+            data_unit: 64 coefficients, in zigzag order.
+            prev_dc: The previous data unit's (transformed) DC
+                coefficient, used to compute the DC difference.
+            prev_dc_diff: The DC difference from two data units ago,
+                used to classify (condition) this DC difference.
+            conditioning_bounds: The DC arithmetic conditioning
+                `(lower, upper)` bounds.
+            kx: The AC arithmetic coding Kx parameter.
+        """
         k = self.spectral_selection[0]
 
         # Write DC coefficient
@@ -220,16 +302,32 @@ class Writer:
             k += 1
 
     def flush(self) -> None:
+        """Flush any remaining encoded data to the underlying writer."""
         self.writer.flush()
 
 
 class Reader:
+    """Reads a sequence of DCT data units within a given spectral selection.
+
+    Holds the full set of arithmetic conditioning `State`s needed
+    across the scan, mirroring `Writer`.
+    """
+
     def __init__(
         self,
         reader: pyjpeg.io.Reader,
         spectral_selection: tuple[int, int] = (0, 63),
         point_transform: int = 0,
     ) -> None:
+        """Create a data unit reader.
+
+        Args:
+            reader: The underlying byte-oriented reader to read from.
+            spectral_selection: The `(Ss, Se)` band of coefficients to
+                read for each data unit.
+            point_transform: The point transform (Al) shift that was
+                applied when coding.
+        """
         self.reader = pyjpeg.arithmetic_scan.Reader(reader)
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
@@ -258,6 +356,17 @@ class Reader:
         conditioning_bounds: tuple[int, int] = (0, 1),
         kx: int = 5,
     ) -> list[int]:
+        """Read one data unit's coefficients within the spectral selection.
+
+        Args:
+            prev_dc: The previous data unit's DC coefficient, added to
+                the decoded difference.
+            prev_dc_diff: The DC difference from two data units ago,
+                used to classify (condition) this DC difference.
+            conditioning_bounds: The DC arithmetic conditioning
+                `(lower, upper)` bounds.
+            kx: The AC arithmetic coding Kx parameter.
+        """
         data_unit = [0] * 64
         k = self.spectral_selection[0]
 

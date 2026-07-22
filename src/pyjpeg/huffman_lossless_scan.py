@@ -1,3 +1,5 @@
+"""Huffman-coded lossless scan data."""
+
 import pyjpeg.huffman
 import pyjpeg.huffman_scan
 import pyjpeg.io
@@ -6,7 +8,15 @@ import pyjpeg.segment
 
 
 class HuffmanLosslessScanComponent:
+    """A single component's Huffman table for a lossless scan."""
+
     def __init__(self, table: list[list[int]]) -> None:
+        """Create a lossless scan component.
+
+        Args:
+            table: The component's Huffman table, in
+                `pyjpeg.dht.HuffmanTable`'s format.
+        """
         self.table = table
 
     def __eq__(self, other: object) -> bool:
@@ -20,6 +30,13 @@ class HuffmanLosslessScanComponent:
 
 
 class HuffmanLosslessScan(pyjpeg.segment.Segment):
+    """Huffman-coded lossless scan entropy-coded data.
+
+    Each sample is predicted from its already-decoded neighbors (see
+    `pyjpeg.lossless`) and the difference is Huffman-coded, rather
+    than transforming samples via DCT.
+    """
+
     def __init__(
         self,
         samples_per_line: int,
@@ -28,6 +45,17 @@ class HuffmanLosslessScan(pyjpeg.segment.Segment):
         precision: int = 8,
         predictor: int = 1,
     ) -> None:
+        """Create a lossless scan.
+
+        Args:
+            samples_per_line: The image width, in samples.
+            samples: The decoded samples, interleaved across
+                components, in raster order.
+            components: The scan's components.
+            precision: Bits per sample.
+            predictor: Which of the seven lossless predictors (1-7)
+                to use.
+        """
         self.samples_per_line = samples_per_line
         self.samples = samples
         self.components = components
@@ -39,6 +67,15 @@ class HuffmanLosslessScan(pyjpeg.segment.Segment):
         writer: pyjpeg.io.Writer,
         symbol_frequencies: list[list[int]] | None = None,
     ) -> None:
+        """Write this scan's entropy-coded data.
+
+        Args:
+            writer: The `pyjpeg.io.Writer` to write to.
+            symbol_frequencies: If given, one list of 256 counters per
+                component, incremented as symbols are written (used by
+                `pyjpeg.huffman_optimize.optimize` to gather
+                frequencies without producing real output).
+        """
         scan_writer = pyjpeg.huffman_scan.Writer(writer)
 
         dc_encoders = []
@@ -85,6 +122,23 @@ class HuffmanLosslessScan(pyjpeg.segment.Segment):
         precision: int = 8,
         predictor: int = 1,
     ) -> "HuffmanLosslessScan":
+        """Read a lossless scan's entropy-coded data.
+
+        Note: the returned scan's `precision` is always the default
+        (8), regardless of the `precision` argument passed in — it's
+        used while decoding samples but not carried through to the
+        constructed `HuffmanLosslessScan`. Documented as-is.
+
+        Args:
+            reader: The `pyjpeg.io.Reader` to read from.
+            samples_per_line: The image width, in samples.
+            number_of_samples: The total number of samples to decode,
+                across all interleaved components.
+            components: The scan's components.
+            precision: Bits per sample.
+            predictor: Which of the seven lossless predictors (1-7)
+                to use.
+        """
         scan_reader = pyjpeg.huffman_scan.Reader(reader)
         dc_decoders = []
         for scan_component in components:

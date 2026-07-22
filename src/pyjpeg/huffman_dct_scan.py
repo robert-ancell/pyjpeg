@@ -1,3 +1,5 @@
+"""Huffman-coded DCT scan data (baseline, extended, and non-successive progressive)."""
+
 import pyjpeg.dct
 import pyjpeg.huffman
 import pyjpeg.huffman_scan
@@ -6,6 +8,8 @@ import pyjpeg.segment
 
 
 class HuffmanDCTScanComponent:
+    """A single component's Huffman tables and sampling factor within a DCT scan."""
+
     # FIXME: Default to zero for tables
     def __init__(
         self,
@@ -13,6 +17,15 @@ class HuffmanDCTScanComponent:
         ac_table: list[list[int]],
         sampling_factor: tuple[int, int] = (1, 1),
     ):
+        """Create a DCT scan component.
+
+        Args:
+            dc_table: The component's DC Huffman table, in
+                `pyjpeg.dht.HuffmanTable`'s format.
+            ac_table: The component's AC Huffman table.
+            sampling_factor: The `(horizontal, vertical)` sampling
+                factor, matching `pyjpeg.sof.FrameComponent`.
+        """
         self.dc_table = dc_table
         self.ac_table = ac_table
         self.sampling_factor = sampling_factor
@@ -30,6 +43,14 @@ class HuffmanDCTScanComponent:
 
 
 class HuffmanDCTScan(pyjpeg.segment.Segment):
+    """Huffman-coded DCT scan entropy-coded data, covering a full data-unit sequence.
+
+    Handles a single, complete scan: for each data unit, coding the DC
+    coefficient (as a difference from the previous data unit's DC) and
+    the AC coefficients within `spectral_selection`, interleaving
+    components in MCU order according to their sampling factors.
+    """
+
     def __init__(
         self,
         data_units: list[list[int]],
@@ -37,6 +58,21 @@ class HuffmanDCTScan(pyjpeg.segment.Segment):
         spectral_selection: tuple[int, int] = (0, 63),
         point_transform: int = 0,
     ) -> None:
+        """Create a DCT scan.
+
+        Args:
+            data_units: The scan's data units, each 64 coefficients
+                in zigzag order, interleaved across components in
+                MCU order.
+            components: The scan's components.
+            spectral_selection: The `(Ss, Se)` band of coefficients
+                this scan covers.
+            point_transform: The point transform (Al) shift applied
+                before coding.
+
+        Raises:
+            ValueError: If `components` is empty.
+        """
         if len(components) == 0:
             raise ValueError("components must not be empty")
 
@@ -51,6 +87,15 @@ class HuffmanDCTScan(pyjpeg.segment.Segment):
         dc_symbol_frequencies: list[list[int]] | None = None,
         ac_symbol_frequencies: list[list[int]] | None = None,
     ) -> None:
+        """Write this scan's entropy-coded data.
+
+        Args:
+            writer: The `pyjpeg.io.Writer` to write to.
+            dc_symbol_frequencies: If given, one list of 256 counters
+                per component, incremented as DC symbols are written
+                (used by `pyjpeg.huffman_optimize.optimize`).
+            ac_symbol_frequencies: Likewise, for AC symbols.
+        """
         scan_writer = Writer(
             writer,
             spectral_selection=self.spectral_selection,
@@ -101,6 +146,23 @@ class HuffmanDCTScan(pyjpeg.segment.Segment):
         spectral_selection: tuple[int, int] = (0, 63),
         point_transform: int = 0,
     ) -> "HuffmanDCTScan":
+        """Read a DCT scan's entropy-coded data.
+
+        Args:
+            reader: The `pyjpeg.io.Reader` to read from.
+            number_of_data_units: The total number of data units to
+                decode, across all interleaved components.
+            components: The scan's components.
+            spectral_selection: The `(Ss, Se)` band of coefficients
+                this scan covers.
+            point_transform: The point transform (Al) shift applied
+                when coding.
+
+        Raises:
+            ValueError: If `components` is empty.
+            ReadError: If more data units are encountered than
+                `number_of_data_units`.
+        """
         if len(components) == 0:
             raise ValueError("components must not be empty")
 
@@ -155,12 +217,22 @@ class HuffmanDCTScan(pyjpeg.segment.Segment):
 
 
 class Writer:
+    """Writes a sequence of DCT data units within a given spectral selection."""
+
     def __init__(
         self,
         writer: pyjpeg.io.Writer,
         spectral_selection: tuple[int, int] = (0, 63),
         point_transform: int = 0,
     ) -> None:
+        """Create a data unit writer.
+
+        Args:
+            writer: The underlying byte-oriented writer to write to.
+            spectral_selection: The `(Ss, Se)` band of coefficients to
+                write for each data unit.
+            point_transform: The point transform (Al) shift to apply.
+        """
         self.writer = pyjpeg.huffman_scan.Writer(writer)
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
@@ -174,6 +246,19 @@ class Writer:
         dc_symbol_frequencies: list[int] | None = None,
         ac_symbol_frequencies: list[int] | None = None,
     ) -> None:
+        """Write one data unit's coefficients within the spectral selection.
+
+        Args:
+            data_unit: 64 coefficients, in zigzag order.
+            dc_encoder: The DC Huffman encoder to use.
+            ac_encoder: The AC Huffman encoder to use.
+            prev_dc: The previous data unit's (untransformed) DC
+                coefficient, used to compute the DC difference.
+            dc_symbol_frequencies: If given, incremented as the DC
+                symbol is written.
+            ac_symbol_frequencies: If given, incremented as AC
+                symbols are written.
+        """
         k = self.spectral_selection[0]
 
         # Write DC coefficient
@@ -221,16 +306,28 @@ class Writer:
                 k += 1
 
     def flush(self) -> None:
+        """Flush any remaining encoded data to the underlying writer."""
         self.writer.flush()
 
 
 class Reader:
+    """Reads a sequence of DCT data units within a given spectral selection."""
+
     def __init__(
         self,
         reader: pyjpeg.io.Reader,
         spectral_selection: tuple[int, int] = (0, 63),
         point_transform: int = 0,
     ) -> None:
+        """Create a data unit reader.
+
+        Args:
+            reader: The underlying byte-oriented reader to read from.
+            spectral_selection: The `(Ss, Se)` band of coefficients to
+                read for each data unit.
+            point_transform: The point transform (Al) shift that was
+                applied when coding.
+        """
         self.reader = pyjpeg.huffman_scan.Reader(reader)
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
@@ -241,6 +338,19 @@ class Reader:
         ac_decoder: pyjpeg.huffman.Decoder,
         prev_dc: int = 0,
     ) -> list[int]:
+        """Read one data unit's coefficients within the spectral selection.
+
+        Args:
+            dc_decoder: The DC Huffman decoder to use.
+            ac_decoder: The AC Huffman decoder to use.
+            prev_dc: The previous data unit's DC coefficient, added to
+                the decoded difference.
+
+        Raises:
+            ReadError: If a decoded AC run length would exceed
+                `spectral_selection`, or an EOBn symbol is
+                encountered (not currently supported).
+        """
         data_unit = [0] * 64
 
         k = self.spectral_selection[0]
