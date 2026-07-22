@@ -1,3 +1,13 @@
+"""Rebuilds Huffman tables to be optimal for the data already encoded.
+
+Since encoding scan data requires already knowing the Huffman tables,
+this works in two passes: first re-running each scan's `write` in a
+"dry run" mode against a `NullWriter` to gather symbol frequencies,
+then rebuilding each DHT segment's tables from those frequencies and
+patching the (already-created) scan segments to reference the new
+tables.
+"""
+
 import pyjpeg.dht
 import pyjpeg.huffman
 import pyjpeg.huffman_dct_ac_successive_scan
@@ -14,6 +24,23 @@ class NullWriter(pyjpeg.io.Writer):
 
 
 def optimize(segments: list[pyjpeg.segment.Segment]) -> list[pyjpeg.segment.Segment]:
+    """Replace each DHT segment's tables with ones optimized for the given scans.
+
+    Mutates the DHT and scan segments in `segments` in place (and also
+    returns them): each Huffman table gets rebuilt from the actual
+    symbol frequencies seen in the scans that reference it, and each
+    scan's Huffman table references are updated to point at the
+    rebuilt tables.
+
+    Args:
+        segments: A complete list of stream segments (as produced by
+            `pyjpeg.stream.Stream.read` or assembled for writing),
+            including their DHT and scan segments.
+
+    Returns:
+        The same `segments` list, with DHT tables and scan table
+        references updated in place.
+    """
     dc_huffman_table_indexes = [-1, -1, -1, -1]
     ac_huffman_table_indexes = [-1, -1, -1, -1]
     symbol_frequencies: list[list[int]] = []
