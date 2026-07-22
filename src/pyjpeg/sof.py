@@ -1,9 +1,18 @@
+"""Start Of Frame (SOFn) segment."""
+
 import pyjpeg.io
 import pyjpeg.marker
 import pyjpeg.segment
 
 
 class FrameType:
+    """Frame type constants, matching the SOF marker's offset from SOF0.
+
+    Each value is the `n` such that the frame's marker is `SOF0 + n`
+    (e.g. a progressive Huffman frame uses marker `SOF2`, so
+    `PROGRESSIVE_HUFFMAN = 2`). `StartOfFrame.n` holds this value.
+    """
+
     BASELINE = 0
     EXTENDED_HUFFMAN = 1
     PROGRESSIVE_HUFFMAN = 2
@@ -22,9 +31,28 @@ class FrameType:
 
 
 class FrameComponent:
+    """A single component's configuration within a frame.
+
+    Use `dct`, `lossless`, or `ls` to construct one rather than
+    calling this directly.
+    """
+
     def __init__(
         self, id: int, sampling_factor: tuple[int, int], quantization_table_index: int
     ) -> None:
+        """Create a frame component.
+
+        Prefer `dct`, `lossless`, or `ls` over calling this directly.
+
+        Args:
+            id: The component identifier, referenced by scan
+                components (`ScanComponent.component_selector`).
+            sampling_factor: The `(horizontal, vertical)` sampling
+                factor.
+            quantization_table_index: Which quantization table
+                destination this component uses. Unused for lossless
+                and JPEG-LS frames.
+        """
         self.id = id
         self.sampling_factor = sampling_factor
         self.quantization_table_index = quantization_table_index
@@ -36,16 +64,39 @@ class FrameComponent:
         sampling_factor: tuple[int, int] = (1, 1),
         quantization_table_index: int = 0,
     ) -> "FrameComponent":
+        """Create a frame component for a DCT-based frame.
+
+        Args:
+            id: The component identifier.
+            sampling_factor: The `(horizontal, vertical)` sampling
+                factor.
+            quantization_table_index: Which quantization table
+                destination this component uses.
+        """
         return cls(id, sampling_factor, quantization_table_index)
 
     @classmethod
     def lossless(
         cls, id: int, sampling_factor: tuple[int, int] = (1, 1)
     ) -> "FrameComponent":
+        """Create a frame component for a lossless frame.
+
+        Args:
+            id: The component identifier.
+            sampling_factor: The `(horizontal, vertical)` sampling
+                factor.
+        """
         return cls(id, sampling_factor, 0)
 
     @classmethod
     def ls(cls, id: int, sampling_factor: tuple[int, int] = (1, 1)) -> "FrameComponent":
+        """Create a frame component for a JPEG-LS frame.
+
+        Args:
+            id: The component identifier.
+            sampling_factor: The `(horizontal, vertical)` sampling
+                factor.
+        """
         return cls(id, sampling_factor, 0)
 
     def __eq__(self, other: object) -> bool:
@@ -61,6 +112,15 @@ class FrameComponent:
 
 
 class StartOfFrame(pyjpeg.segment.Segment):
+    """Describes the frame that follows (SOFn segment).
+
+    Declares the coding mode (via the marker itself, see `FrameType`),
+    sample precision, image dimensions, and per-component
+    configuration. Use `baseline`, `extended`, `progressive`,
+    `lossless`, or `ls` to construct one rather than calling this
+    directly.
+    """
+
     def __init__(
         self,
         n: int,
@@ -69,6 +129,19 @@ class StartOfFrame(pyjpeg.segment.Segment):
         samples_per_line: int,
         components: list[FrameComponent],
     ) -> None:
+        """Create an SOF segment.
+
+        Prefer `baseline`, `extended`, `progressive`, `lossless`, or
+        `ls` over calling this directly.
+
+        Args:
+            n: The frame type; see `FrameType`.
+            precision: Bits per sample.
+            number_of_lines: The image height in samples. `0` if not
+                yet known (see `pyjpeg.dnl.DefineNumberOfLines`).
+            samples_per_line: The image width in samples.
+            components: The frame's components.
+        """
         self.n = n
         self.precision = precision
         self.number_of_lines = number_of_lines
@@ -82,6 +155,13 @@ class StartOfFrame(pyjpeg.segment.Segment):
         samples_per_line: int,
         components: list[FrameComponent],
     ) -> "StartOfFrame":
+        """Create an SOF segment for a baseline sequential DCT frame.
+
+        Args:
+            number_of_lines: The image height in samples.
+            samples_per_line: The image width in samples.
+            components: The frame's components.
+        """
         return cls(FrameType.BASELINE, 8, number_of_lines, samples_per_line, components)
 
     @classmethod
@@ -93,6 +173,16 @@ class StartOfFrame(pyjpeg.segment.Segment):
         precision: int = 8,
         arithmetic: bool = False,
     ) -> "StartOfFrame":
+        """Create an SOF segment for an extended sequential DCT frame.
+
+        Args:
+            number_of_lines: The image height in samples.
+            samples_per_line: The image width in samples.
+            components: The frame's components.
+            precision: Bits per sample.
+            arithmetic: Whether this frame uses arithmetic coding
+                rather than Huffman coding.
+        """
         if arithmetic:
             n = FrameType.EXTENDED_ARITHMETIC
         else:
@@ -108,6 +198,16 @@ class StartOfFrame(pyjpeg.segment.Segment):
         precision: int = 8,
         arithmetic: bool = False,
     ) -> "StartOfFrame":
+        """Create an SOF segment for a progressive DCT frame.
+
+        Args:
+            number_of_lines: The image height in samples.
+            samples_per_line: The image width in samples.
+            components: The frame's components.
+            precision: Bits per sample.
+            arithmetic: Whether this frame uses arithmetic coding
+                rather than Huffman coding.
+        """
         if arithmetic:
             n = FrameType.PROGRESSIVE_ARITHMETIC
         else:
@@ -123,6 +223,16 @@ class StartOfFrame(pyjpeg.segment.Segment):
         precision: int = 8,
         arithmetic: bool = False,
     ) -> "StartOfFrame":
+        """Create an SOF segment for a lossless frame.
+
+        Args:
+            number_of_lines: The image height in samples.
+            samples_per_line: The image width in samples.
+            components: The frame's components.
+            precision: Bits per sample.
+            arithmetic: Whether this frame uses arithmetic coding
+                rather than Huffman coding.
+        """
         if arithmetic:
             n = FrameType.LOSSLESS_ARITHMETIC
         else:
@@ -137,11 +247,20 @@ class StartOfFrame(pyjpeg.segment.Segment):
         components: list[FrameComponent],
         precision: int = 8,
     ) -> "StartOfFrame":
+        """Create an SOF segment for a JPEG-LS frame.
+
+        Args:
+            number_of_lines: The image height in samples.
+            samples_per_line: The image width in samples.
+            components: The frame's components.
+            precision: Bits per sample.
+        """
         return cls(
             FrameType.LS, precision, number_of_lines, samples_per_line, components
         )
 
     def is_arithmetic(self) -> bool:
+        """Return whether this frame uses arithmetic entropy coding."""
         return self.n in (
             FrameType.EXTENDED_ARITHMETIC,
             FrameType.PROGRESSIVE_ARITHMETIC,
@@ -152,12 +271,22 @@ class StartOfFrame(pyjpeg.segment.Segment):
         )
 
     def is_lossless(self) -> bool:
+        """Return whether this frame uses lossless (predictive) coding."""
         return self.n in (FrameType.LOSSLESS_HUFFMAN, FrameType.LOSSLESS_ARITHMETIC)
 
     def is_ls(self) -> bool:
+        """Return whether this is a JPEG-LS frame."""
         return self.n == FrameType.LS
 
     def get_component(self, component_id: int) -> FrameComponent:
+        """Look up a frame component by its id.
+
+        Args:
+            component_id: The component identifier to look up.
+
+        Raises:
+            KeyError: If no component with the given id exists.
+        """
         for component in self.components:
             if component.id == component_id:
                 return component
@@ -179,6 +308,16 @@ class StartOfFrame(pyjpeg.segment.Segment):
 
     @classmethod
     def read(cls, reader: pyjpeg.io.Reader) -> "StartOfFrame":
+        """Read an SOF segment.
+
+        Args:
+            reader: The `pyjpeg.io.Reader` to read from.
+
+        Raises:
+            MarkerError: If the marker is not a recognized SOF marker.
+            LengthError: If the declared segment length is too short
+                or doesn't match the number of components declared.
+        """
         marker = reader.read_marker()
         if marker not in (
             pyjpeg.marker.Marker.SOF0,
