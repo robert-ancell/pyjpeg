@@ -150,7 +150,7 @@ class LSMappingTableContinuation(LSPresetParameters):
     def write(self, writer: pyjpeg.io.Writer) -> None:
         writer.write_marker(pyjpeg.marker.Marker.LSE)
         writer.write_u16(5 + len(self.table))
-        writer.write_u8(LSPresetParametersId.MAPPING_TABLE)
+        writer.write_u8(LSPresetParametersId.MAPPING_TABLE_CONTINUATION)
         writer.write_u8(self.table_id)
         writer.write_u8(self.weight)
         for e in self.table:
