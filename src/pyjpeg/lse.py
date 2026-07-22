@@ -1,9 +1,21 @@
+"""JPEG-LS Preset Parameters (LSE) segment and its variants.
+
+LSE carries one of several kinds of preset parameter data,
+distinguished by an id byte: custom coding thresholds
+(`LSCodingParameters`), sample mapping tables (`LSMappingTable`/
+`LSMappingTableContinuation`), or oversize image dimensions
+(`LSOversizeImageDimensions`). `LSPresetParameters.read` parses the id
+and dispatches to construct the right subclass.
+"""
+
 import pyjpeg.io
 import pyjpeg.marker
 import pyjpeg.segment
 
 
 class LSPresetParametersId:
+    """The `id` byte values identifying which kind of LSE data follows."""
+
     CODING_PARAMETERS = 1
     MAPPING_TABLE = 2
     MAPPING_TABLE_CONTINUATION = 3
@@ -11,11 +23,43 @@ class LSPresetParametersId:
 
 
 class LSPresetParameters(pyjpeg.segment.Segment):
+    """Base class for JPEG-LS preset parameters (LSE segment).
+
+    Not constructed directly for reading — `read` always returns one
+    of the concrete subclasses (`LSCodingParameters`,
+    `LSMappingTable`, `LSMappingTableContinuation`,
+    `LSOversizeImageDimensions`, or `LSUnknownPresetParameters` for an
+    unrecognized id).
+    """
+
     def __init__(self, id: int) -> None:
+        """Create a preset parameters segment.
+
+        Args:
+            id: Which kind of preset parameters this is; see
+                `LSPresetParametersId`.
+        """
         self.id = id
 
     @classmethod
     def read(cls, reader: pyjpeg.io.Reader) -> "LSPresetParameters":
+        """Read an LSE segment, dispatching to the appropriate subclass.
+
+        Args:
+            reader: The `pyjpeg.io.Reader` to read from.
+
+        Returns:
+            An `LSCodingParameters`, `LSMappingTable`,
+            `LSMappingTableContinuation`, `LSOversizeImageDimensions`,
+            or (for an unrecognized id) `LSUnknownPresetParameters`.
+
+        Raises:
+            MarkerError: If the marker is not LSE.
+            LengthError: If the segment length is too short, or
+                doesn't match what's expected for the parsed id.
+            ReadError: If oversize image dimensions declare zero
+                samples per line.
+        """
         marker = reader.read_marker()
         if marker != pyjpeg.marker.Marker.LSE:
             raise pyjpeg.io.MarkerError("Invalid LSE marker")
@@ -69,12 +113,27 @@ class LSPresetParameters(pyjpeg.segment.Segment):
 
 
 class LSCodingParameters(LSPresetParameters):
+    """Custom JPEG-LS coding parameters (Ti gradient thresholds, MAXVAL, RESET).
+
+    Overrides the spec-defined default thresholds used to bucket
+    gradients into JPEG-LS's context modeling.
+    """
+
     def __init__(
         self,
         maxval: int = 0,
         gradient_thresholds: tuple[int, int, int] = (0, 0, 0),
         reset: int = 0,
     ) -> None:
+        """Create a JPEG-LS coding parameters segment.
+
+        Args:
+            maxval: The maximum sample value. `0` means derive it
+                from the frame's precision.
+            gradient_thresholds: The `(T1, T2, T3)` gradient
+                thresholds.
+            reset: The value at which context counters reset.
+        """
         super().__init__(LSPresetParametersId.CODING_PARAMETERS)
         self.maxval = maxval
         self.gradient_thresholds = gradient_thresholds
@@ -103,12 +162,27 @@ class LSCodingParameters(LSPresetParameters):
 
 
 class LSMappingTable(LSPresetParameters):
+    """A JPEG-LS sample mapping table.
+
+    Maps coded sample values to their actual (decoded) values,
+    referenced by index from a scan component (see
+    `pyjpeg.sos.ScanComponent.ls`/`get_mapping_table`).
+    """
+
     def __init__(
         self,
         table_id: int,
         table: bytes,
         weight: int = 1,
     ) -> None:
+        """Create a mapping table.
+
+        Args:
+            table_id: The table's index, referenced by scan
+                components.
+            table: The mapping table entries.
+            weight: The table's weight/precedence.
+        """
         super().__init__(LSPresetParametersId.MAPPING_TABLE)
         self.table_id = table_id
         self.table = table
@@ -136,12 +210,22 @@ class LSMappingTable(LSPresetParameters):
 
 
 class LSMappingTableContinuation(LSPresetParameters):
+    """Continuation data for a mapping table too large for one LSE segment."""
+
     def __init__(
         self,
         table_id: int,
         table: bytes,
         weight: int = 1,
     ) -> None:
+        """Create a mapping table continuation.
+
+        Args:
+            table_id: The table's index, matching the
+                `LSMappingTable` this continues.
+            table: The additional mapping table entries.
+            weight: The table's weight/precedence.
+        """
         super().__init__(LSPresetParametersId.MAPPING_TABLE_CONTINUATION)
         self.table_id = table_id
         self.table = table
@@ -168,9 +252,28 @@ class LSMappingTableContinuation(LSPresetParameters):
 
 
 class LSOversizeImageDimensions(LSPresetParameters):
+    """Image dimensions too large to fit in the SOF segment's fields.
+
+    Used when the image is bigger than SOF's 16-bit dimension fields
+    can represent; overrides `pyjpeg.sof.StartOfFrame`'s
+    `number_of_lines`/`samples_per_line` for JPEG-LS frames.
+    """
+
     def __init__(
         self, number_of_lines: int, samples_per_line: int, number_of_bytes: int = 2
     ) -> None:
+        """Create an oversize image dimensions segment.
+
+        Args:
+            number_of_lines: The image height, in samples.
+            samples_per_line: The image width, in samples.
+            number_of_bytes: The number of bytes used to store each
+                dimension, between 2 and 4.
+
+        Raises:
+            ValueError: If `number_of_bytes`, `number_of_lines`, or
+                `samples_per_line` is out of range.
+        """
         super().__init__(LSPresetParametersId.OVERSIZE_IMAGE_DIMENSION)
         if number_of_bytes < 2 or number_of_bytes > 4:
             raise ValueError("Invalid LSE number of bytes")
@@ -203,7 +306,19 @@ class LSOversizeImageDimensions(LSPresetParameters):
 
 
 class LSUnknownPresetParameters(LSPresetParameters):
+    """Raw preset parameters data for an unrecognized `id`.
+
+    Preserves the data unmodified so it can be written back out even
+    though its meaning isn't understood.
+    """
+
     def __init__(self, id: int, data: bytes) -> None:
+        """Create an unknown preset parameters segment.
+
+        Args:
+            id: The unrecognized preset parameters id.
+            data: The raw payload data.
+        """
         super().__init__(id)
         self.data = data
 
