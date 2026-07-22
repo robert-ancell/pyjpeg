@@ -1,10 +1,30 @@
+"""Define Quantization Table (DQT) segment and quantization table representation."""
+
 import pyjpeg.io
 import pyjpeg.marker
 import pyjpeg.segment
 
 
 class QuantizationTable:
-    def __init__(self, destination: int, values: list[int], precision: int = 8) -> None:
+    """A single quantization table, used to scale DCT coefficients.
+
+    Holds one divisor per DCT coefficient position, in zigzag order.
+    """
+
+    def __init__(
+        self, destination: int, values: list[int], precision: int = 8
+    ) -> None:
+        """Create a quantization table.
+
+        Args:
+            destination: Which of the four table slots (0-3) this
+                table occupies.
+            values: The 64 quantization values, in zigzag order.
+            precision: Bits per value, either 8 or 16.
+
+        Raises:
+            ValueError: If `destination` is out of range.
+        """
         if destination < 0 or destination > 3:
             raise ValueError("Destination must be between 0 and 3")
         self.destination = destination
@@ -24,7 +44,18 @@ class QuantizationTable:
 
 
 class DefineQuantizationTables(pyjpeg.segment.Segment):
+    """Defines one or more quantization tables (DQT segment).
+
+    A single DQT segment can carry multiple `QuantizationTable`s, each
+    identified by its own destination slot.
+    """
+
     def __init__(self, tables: list[QuantizationTable]) -> None:
+        """Create a DQT segment.
+
+        Args:
+            tables: The quantization tables this segment defines.
+        """
         self.tables = tables
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
@@ -47,6 +78,18 @@ class DefineQuantizationTables(pyjpeg.segment.Segment):
 
     @classmethod
     def read(cls, reader: pyjpeg.io.Reader) -> "DefineQuantizationTables":
+        """Read a DQT segment, parsing all tables it defines.
+
+        Args:
+            reader: The `pyjpeg.io.Reader` to read from.
+
+        Raises:
+            MarkerError: If the marker is not DQT.
+            LengthError: If the declared segment length is too short,
+                or the tables read don't add up to the declared length.
+            KeyError: If a table's precision nibble is neither 0 (8-bit)
+                nor 1 (16-bit).
+        """
         marker = reader.read_marker()
         if marker != pyjpeg.marker.Marker.DQT:
             raise pyjpeg.io.MarkerError("Invalid DQT marker")
