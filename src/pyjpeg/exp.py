@@ -1,10 +1,27 @@
+"""Expand Reference Components (EXP) segment."""
+
 import pyjpeg.io
 import pyjpeg.marker
 import pyjpeg.segment
 
 
 class ExpandReferenceComponents(pyjpeg.segment.Segment):
+    """Signals that reference components should be expanded before a hierarchical scan.
+
+    Used in hierarchical JPEG to double the horizontal and/or vertical
+    resolution of previously decoded reference components before they
+    are used to predict the next, higher-resolution frame.
+    """
+
     def __init__(self, expand_horizontal: bool, expand_vertical: bool) -> None:
+        """Create an EXP segment.
+
+        Args:
+            expand_horizontal: Whether to double the horizontal
+                resolution of the reference components.
+            expand_vertical: Whether to double the vertical resolution
+                of the reference components.
+        """
         self.expand_horizontal = expand_horizontal
         self.expand_vertical = expand_vertical
 
@@ -20,6 +37,17 @@ class ExpandReferenceComponents(pyjpeg.segment.Segment):
 
     @classmethod
     def read(cls, reader: pyjpeg.io.Reader) -> "ExpandReferenceComponents":
+        """Read an EXP segment.
+
+        Args:
+            reader: The `pyjpeg.io.Reader` to read from.
+
+        Raises:
+            MarkerError: If the marker is not EXP.
+            LengthError: If the segment length is not 3.
+            ReadError: If the horizontal or vertical expand flag is
+                not 0 or 1.
+        """
         marker = reader.read_marker()
         if marker != pyjpeg.marker.Marker.EXP:
             raise pyjpeg.io.MarkerError("Invalid EXP marker")
