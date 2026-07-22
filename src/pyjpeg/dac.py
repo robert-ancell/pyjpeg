@@ -1,10 +1,36 @@
+"""Define Arithmetic Coding Conditioning (DAC) segment."""
+
 import pyjpeg.io
 import pyjpeg.marker
 import pyjpeg.segment
 
 
 class ArithmeticConditioning:
+    """A single arithmetic coding conditioning entry, for DC or AC coefficients.
+
+    DC entries carry a pair of conditioning bounds packed into one
+    byte; AC entries carry a single Kx parameter. Use `dc` or `ac`
+    rather than constructing this directly, since they handle the
+    packing and unpacking of `value` for you.
+    """
+
     def __init__(self, table_class: int, destination: int, value: int) -> None:
+        """Create an arithmetic conditioning entry.
+
+        Prefer `dc` or `ac` over calling this directly.
+
+        Args:
+            table_class: 0 for a DC entry, 1 for an AC entry.
+            destination: Which of the four table slots (0-3) this
+                entry conditions.
+            value: The raw conditioning byte — for DC entries, the
+                lower and upper bounds packed as `upper << 4 | lower`;
+                for AC entries, the Kx parameter directly.
+
+        Raises:
+            ValueError: If `table_class`, `destination`, or `value` is
+                out of range.
+        """
         if table_class < 0 or table_class > 3:
             raise ValueError("Table class must be between 0 and 3")
         if destination < 0 or destination > 3:
@@ -17,10 +43,24 @@ class ArithmeticConditioning:
 
     @classmethod
     def dc(cls, destination: int, bounds: tuple[int, int]) -> "ArithmeticConditioning":
+        """Create a DC arithmetic conditioning entry.
+
+        Args:
+            destination: Which of the four table slots (0-3) this
+                entry conditions.
+            bounds: The `(lower, upper)` conditioning bounds.
+        """
         return cls(0, destination, bounds[1] << 4 | bounds[0])
 
     @classmethod
     def ac(cls, destination: int, kx: int) -> "ArithmeticConditioning":
+        """Create an AC arithmetic conditioning entry.
+
+        Args:
+            destination: Which of the four table slots (0-3) this
+                entry conditions.
+            kx: The Kx conditioning parameter.
+        """
         return cls(1, destination, kx)
 
     def __eq__(self, other: object) -> bool:
@@ -39,7 +79,19 @@ class ArithmeticConditioning:
 
 
 class DefineArithmeticConditioning(pyjpeg.segment.Segment):
+    """Defines one or more arithmetic conditioning entries (DAC segment).
+
+    A single DAC segment can carry multiple `ArithmeticConditioning`
+    entries, each identified by its own class (DC/AC) and destination
+    slot.
+    """
+
     def __init__(self, tables: list[ArithmeticConditioning]) -> None:
+        """Create a DAC segment.
+
+        Args:
+            tables: The conditioning entries this segment defines.
+        """
         self.tables = tables
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
@@ -51,6 +103,16 @@ class DefineArithmeticConditioning(pyjpeg.segment.Segment):
 
     @classmethod
     def read(cls, reader: pyjpeg.io.Reader) -> "DefineArithmeticConditioning":
+        """Read a DAC segment, parsing all conditioning entries it defines.
+
+        Args:
+            reader: The `pyjpeg.io.Reader` to read from.
+
+        Raises:
+            MarkerError: If the marker is not DAC.
+            LengthError: If the declared segment length is too short
+                or not a valid whole number of entries.
+        """
         marker = reader.read_marker()
         if marker != pyjpeg.marker.Marker.DAC:
             raise pyjpeg.io.MarkerError("Invalid DAC marker")
