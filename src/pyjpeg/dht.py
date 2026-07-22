@@ -1,12 +1,37 @@
+"""Define Huffman Table (DHT) segment and Huffman table representation."""
+
 import pyjpeg.io
 import pyjpeg.marker
 import pyjpeg.segment
 
 
 class HuffmanTable:
+    """A single Huffman table, for either DC or AC coefficients.
+
+    Represents a canonical Huffman code as symbols grouped by code
+    length, following the JPEG DHT segment's own encoding: `table[0]`
+    holds the symbols assigned a 1-bit code, `table[15]` those
+    assigned a 16-bit code.
+    """
+
     def __init__(
         self, table_class: int, destination: int, table: list[list[int]]
     ) -> None:
+        """Create a Huffman table.
+
+        Prefer `dc` or `ac` over calling this directly.
+
+        Args:
+            table_class: 0 for a DC table, 1 for an AC table.
+            destination: Which of the four table slots (0-3) this
+                table occupies.
+            table: Symbols grouped by code length, one list per length
+                from 1 to 16 bits. Must have exactly 16 entries.
+
+        Raises:
+            ValueError: If `table_class` or `destination` is out of
+                range, or if `table` does not have 16 entries.
+        """
         if table_class < 0 or table_class > 3:
             raise ValueError("Table class must be between 0 and 3")
         if destination < 0 or destination > 3:
@@ -20,10 +45,24 @@ class HuffmanTable:
 
     @classmethod
     def dc(cls, destination: int, table: list[list[int]]) -> "HuffmanTable":
+        """Create a DC Huffman table.
+
+        Args:
+            destination: Which of the four table slots (0-3) this
+                table occupies.
+            table: Symbols grouped by code length; see `HuffmanTable`.
+        """
         return cls(0, destination, table)
 
     @classmethod
     def ac(cls, destination: int, table: list[list[int]]) -> "HuffmanTable":
+        """Create an AC Huffman table.
+
+        Args:
+            destination: Which of the four table slots (0-3) this
+                table occupies.
+            table: Symbols grouped by code length; see `HuffmanTable`.
+        """
         return cls(1, destination, table)
 
     def __eq__(self, other: object) -> bool:
@@ -42,7 +81,18 @@ class HuffmanTable:
 
 
 class DefineHuffmanTables(pyjpeg.segment.Segment):
+    """Defines one or more Huffman tables (DHT segment).
+
+    A single DHT segment can carry multiple `HuffmanTable`s, each
+    identified by its own class (DC/AC) and destination slot.
+    """
+
     def __init__(self, tables: list[HuffmanTable]) -> None:
+        """Create a DHT segment.
+
+        Args:
+            tables: The Huffman tables this segment defines.
+        """
         self.tables = tables
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
@@ -63,6 +113,16 @@ class DefineHuffmanTables(pyjpeg.segment.Segment):
 
     @classmethod
     def read(cls, reader: pyjpeg.io.Reader) -> "DefineHuffmanTables":
+        """Read a DHT segment, parsing all tables it defines.
+
+        Args:
+            reader: The `pyjpeg.io.Reader` to read from.
+
+        Raises:
+            MarkerError: If the marker is not DHT.
+            LengthError: If the declared segment length is too short,
+                or the tables read don't add up to the declared length.
+        """
         marker = reader.read_marker()
         if marker != pyjpeg.marker.Marker.DHT:
             raise pyjpeg.io.MarkerError("Invalid DHT marker")
