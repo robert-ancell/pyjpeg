@@ -1,3 +1,14 @@
+"""Huffman-coded AC successive approximation refinement scan data.
+
+A progressive-DCT refinement scan that adds one more bit of precision
+to the AC coefficients of data units already coded by an earlier scan.
+Unlike a first (non-refinement) AC scan, coefficients that are already
+non-zero get a single raw correction bit rather than being re-coded,
+while newly-becoming-non-zero coefficients and runs of still-zero
+coefficients are Huffman-coded as usual — interleaved together
+according to the algorithm in ISO/IEC 10918-1 section G.1.2.3.
+"""
+
 import pyjpeg.dct
 import pyjpeg.huffman
 import pyjpeg.huffman_scan
@@ -7,6 +18,8 @@ import pyjpeg.segment
 
 
 class HuffmanDCTACSuccessiveScan(pyjpeg.segment.Segment):
+    """AC successive approximation refinement scan data, Huffman-coded."""
+
     def __init__(
         self,
         data_units: list[list[int]],
@@ -14,6 +27,19 @@ class HuffmanDCTACSuccessiveScan(pyjpeg.segment.Segment):
         spectral_selection: tuple[int, int] = (1, 63),
         point_transform: int = 0,
     ) -> None:
+        """Create an AC successive approximation scan.
+
+        Args:
+            data_units: The data units this scan refines, each 64
+                coefficients in zigzag order, already updated with
+                this scan's refinement bits.
+            table: The AC Huffman table, in
+                `pyjpeg.dht.HuffmanTable`'s format.
+            spectral_selection: The `(Ss, Se)` band of AC coefficients
+                this scan covers.
+            point_transform: Which bit position (Al) this scan
+                refines.
+        """
         self.data_units = data_units
         self.table = table
         self.spectral_selection = spectral_selection
@@ -22,6 +48,14 @@ class HuffmanDCTACSuccessiveScan(pyjpeg.segment.Segment):
     def write(
         self, writer: pyjpeg.io.Writer, symbol_frequencies: list[int] | None = None
     ) -> None:
+        """Write this scan's entropy-coded data.
+
+        Args:
+            writer: The `pyjpeg.io.Writer` to write to.
+            symbol_frequencies: If given, one list of 256 counters,
+                incremented as symbols are written (used by
+                `pyjpeg.huffman_optimize.optimize`).
+        """
         scan_writer = pyjpeg.huffman_scan.Writer(writer)
 
         encoder = pyjpeg.huffman.Encoder(self.table)
@@ -109,6 +143,28 @@ class HuffmanDCTACSuccessiveScan(pyjpeg.segment.Segment):
         spectral_selection: tuple[int, int] = (1, 63),
         point_transform: int = 0,
     ) -> "HuffmanDCTACSuccessiveScan":
+        """Read an AC successive approximation scan, refining existing data units.
+
+        Args:
+            reader: The `pyjpeg.io.Reader` to read from.
+            data_units: The data units to refine (from an earlier
+                scan), each 64 coefficients in zigzag order. Not
+                modified in place; refined copies are returned.
+            table: The AC Huffman table, in
+                `pyjpeg.dht.HuffmanTable`'s format.
+            spectral_selection: The `(Ss, Se)` band of AC coefficients
+                this scan covers.
+            point_transform: Which bit position (Al) this scan
+                refines.
+
+        Returns:
+            A scan whose `data_units` are copies of `data_units` with
+            this scan's refinement bits applied.
+
+        Raises:
+            ReadError: If a decoded non-zero AC coefficient isn't `1`
+                or `-1` (as required for a refinement scan).
+        """
         scan_reader = pyjpeg.huffman_scan.Reader(reader)
 
         updated_data_units = []

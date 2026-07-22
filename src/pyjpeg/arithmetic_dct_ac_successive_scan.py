@@ -1,3 +1,13 @@
+"""Arithmetic-coded AC successive approximation refinement scan data.
+
+A progressive-DCT refinement scan that adds one more bit of precision
+to the AC coefficients of data units already coded by an earlier scan,
+following the algorithm in ISO/IEC 10918-1 section G.1.2.3: previously
+non-zero coefficients receive a single conditioned correction bit,
+while newly-becoming-non-zero coefficients and end-of-band positions
+are arithmetic-coded using per-position state.
+"""
+
 import pyjpeg.arithmetic
 import pyjpeg.dct
 import pyjpeg.io
@@ -5,17 +15,35 @@ import pyjpeg.segment
 
 
 class ArithmeticDCTACSuccessiveScan(pyjpeg.segment.Segment):
+    """AC successive approximation refinement scan data, arithmetic-coded."""
+
     def __init__(
         self,
         data_units: list[list[int]],
         spectral_selection: tuple[int, int] = (1, 63),
         point_transform: int = 0,
     ) -> None:
+        """Create an AC successive approximation scan.
+
+        Args:
+            data_units: The data units this scan refines, each 64
+                coefficients in zigzag order, already updated with
+                this scan's refinement bits.
+            spectral_selection: The `(Ss, Se)` band of AC coefficients
+                this scan covers.
+            point_transform: Which bit position (Al) this scan
+                refines.
+        """
         self.data_units = data_units
         self.spectral_selection = spectral_selection
         self.point_transform = point_transform
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
+        """Write this scan's entropy-coded data.
+
+        Args:
+            writer: The `pyjpeg.io.Writer` to write to.
+        """
         eob_states = [pyjpeg.arithmetic.State() for _ in range(63)]
         nonzero_states = [pyjpeg.arithmetic.State() for _ in range(63)]
         additional_states = [pyjpeg.arithmetic.State() for _ in range(63)]
@@ -88,6 +116,27 @@ class ArithmeticDCTACSuccessiveScan(pyjpeg.segment.Segment):
         spectral_selection: tuple[int, int] = (1, 63),
         point_transform: int = 0,
     ) -> "ArithmeticDCTACSuccessiveScan":
+        """Read an AC successive approximation scan, refining existing data units.
+
+        Args:
+            reader: The `pyjpeg.io.Reader` to read from.
+            approximate_data_units: The data units to refine (from an
+                earlier scan), each 64 coefficients in zigzag order.
+                Not modified in place; refined copies are returned.
+            spectral_selection: The `(Ss, Se)` band of AC coefficients
+                this scan covers.
+            point_transform: Which bit position (Al) this scan
+                refines.
+
+        Returns:
+            A scan whose `data_units` are copies of
+            `approximate_data_units` with this scan's refinement bits
+            applied.
+
+        Raises:
+            ReadError: If the number of coefficients read would
+                exceed `spectral_selection`.
+        """
         eob_states = [pyjpeg.arithmetic.State() for _ in range(63)]
         nonzero_states = [pyjpeg.arithmetic.State() for _ in range(63)]
         additional_states = [pyjpeg.arithmetic.State() for _ in range(63)]
