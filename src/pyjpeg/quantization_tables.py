@@ -1,3 +1,9 @@
+"""Standard quantization tables defined in the JPEG standard, Annex K.
+
+The tables are stored in zigzag order, matching how they're written
+in a DQT segment. See `pyjpeg.dqt.QuantizationTable`.
+"""
+
 # Quantization tables defined in JPEG standard Annex K
 # The tables are in zig-zag order
 standard_luminance_quantization_table = [
