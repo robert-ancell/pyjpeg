@@ -1,10 +1,34 @@
+"""Define Restart Interval (DRI) segment."""
+
 import pyjpeg.io
 import pyjpeg.marker
 import pyjpeg.segment
 
 
 class DefineRestartInterval(pyjpeg.segment.Segment):
+    """Sets the number of MCUs (or samples) between restart markers.
+
+    A restart interval of `0` disables restart markers. The interval
+    is stored as an unsigned integer using `number_of_bytes` bytes,
+    normally 2 but up to 4 for formats permitting a variable-length
+    DRI segment (see the `variable_length` argument to `read`).
+    """
+
     def __init__(self, restart_interval: int, number_of_bytes: int = 2) -> None:
+        """Create a DRI segment.
+
+        Args:
+            restart_interval: The number of MCUs (or samples) between
+                restart markers. Must be representable in
+                `number_of_bytes` bytes.
+            number_of_bytes: The number of bytes used to store
+                `restart_interval`, between 1 and 4.
+
+        Raises:
+            ValueError: If `number_of_bytes` is not between 1 and 4,
+                or if `restart_interval` is out of range for the given
+                `number_of_bytes`.
+        """
         if number_of_bytes < 1 or number_of_bytes > 4:
             raise ValueError("Number of bytes must be between 1 and 4")
         max_restart_interval = 2 ** (8 * number_of_bytes) - 1
@@ -24,6 +48,21 @@ class DefineRestartInterval(pyjpeg.segment.Segment):
     def read(
         cls, reader: pyjpeg.io.Reader, variable_length: bool = False
     ) -> "DefineRestartInterval":
+        """Read a DRI segment.
+
+        Args:
+            reader: The `pyjpeg.io.Reader` to read from.
+            variable_length: If `True`, allow the segment length to be
+                anywhere from 4 to 6 bytes (as used by formats such as
+                JPEG-LS, where the interval may be stored in more than
+                2 bytes). If `False`, only the standard 4-byte length
+                (a 2-byte interval) is accepted.
+
+        Raises:
+            MarkerError: If the marker is not DRI.
+            LengthError: If the segment length is invalid for the
+                given `variable_length` setting.
+        """
         marker = reader.read_marker()
         if marker != pyjpeg.marker.Marker.DRI:
             raise pyjpeg.io.MarkerError("Invalid DRI marker")
