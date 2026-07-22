@@ -1,5 +1,13 @@
 import pyjpeg.io
 
+"""MQ-coder binary arithmetic coding, as used by JPEG's arithmetic coding mode.
+
+Implements the adaptive binary arithmetic coder defined in ISO/IEC
+10918-1 Annex D: a `Writer`/`Reader` pair that encode/decode a stream
+of binary decisions, each conditioned on a `State` (probability
+estimate) that adapts as symbols are coded.
+"""
+
 # State machine as defined in ISO/IEC 10918-1 Table D.3
 # Contains (Qe, next_lps, next_mps, switch_mps)
 states = [
@@ -120,13 +128,31 @@ states = [
 
 
 class State:
+    """The adaptive state (probability estimate) for one binary decision.
+
+    Each independently-coded binary decision in a scan (e.g. one bit
+    position of one coefficient) has its own `State`, which adapts as
+    that decision is coded repeatedly.
+    """
+
     def __init__(self) -> None:
+        """Create a state with the initial probability estimate."""
         self.index = 0
         self.mps = 0
 
 
 class Writer:
+    """Arithmetic-encodes a stream of binary decisions.
+
+    Wraps a byte-oriented `pyjpeg.io.Writer`.
+    """
+
     def __init__(self, writer: pyjpeg.io.Writer) -> None:
+        """Create an arithmetic encoder.
+
+        Args:
+            writer: The underlying byte-oriented writer to write to.
+        """
         self.writer = writer
         self.a = 0x10000
         self.c = 0
@@ -136,21 +162,38 @@ class Writer:
         self.have_data = False
         self.zero_count = 0
 
-    # Encodes [value] using [state].
     def write_bit(self, state: State, value: int) -> None:
+        """Encode a binary decision using an adaptive probability state.
+
+        Args:
+            state: The `State` conditioning this decision. Updated in
+                place as it adapts.
+            value: The bit to encode (0 or 1).
+        """
         if value == state.mps:
             self._encode_mps(state)
         else:
             self._encode_lps(state)
 
-    # Encodes [value] using fixed probability (0.5).
     def write_fixed_bit(self, value: int) -> None:
+        """Encode a binary decision using a fixed 0.5 probability.
+
+        Used for bits that aren't worth adaptively modeling, such as
+        sign bits.
+
+        Args:
+            value: The bit to encode (0 or 1).
+        """
         # Default state is 0.5
         state = State()
         self.write_bit(state, value)
 
-    # Write out any remaining bits
     def flush(self) -> None:
+        """Flush any remaining encoded data to the underlying writer.
+
+        Must be called once at the end of encoding, after which no
+        more bits can be written.
+        """
         # Clear final bits
         t = (self.c + self.a - 1) & 0xFFFF0000
         if t < self.c:
@@ -244,7 +287,17 @@ class Writer:
 
 
 class Reader:
+    """Arithmetic-decodes a stream of binary decisions.
+
+    Wraps a byte-oriented `pyjpeg.io.Reader`.
+    """
+
     def __init__(self, reader: pyjpeg.io.Reader) -> None:
+        """Create an arithmetic decoder, priming it from `reader`.
+
+        Args:
+            reader: The underlying byte-oriented reader to read from.
+        """
         self.reader = reader
         self.d = 0
         self.ct = 0
@@ -258,6 +311,15 @@ class Reader:
         self.d = 0
 
     def read_bit(self, state: State) -> int:
+        """Decode a binary decision using an adaptive probability state.
+
+        Args:
+            state: The `State` conditioning this decision. Updated in
+                place as it adapts.
+
+        Returns:
+            The decoded bit (0 or 1).
+        """
         (qe, _, _, _) = states[state.index]
         self.a = (self.a - qe) & 0xFFFF
         if self.c < self.a:
@@ -272,6 +334,14 @@ class Reader:
         return bit
 
     def read_fixed_bit(self) -> int:
+        """Decode a binary decision using a fixed 0.5 probability.
+
+        Used for bits that aren't worth adaptively modeling, such as
+        sign bits.
+
+        Returns:
+            The decoded bit (0 or 1).
+        """
         # Default state is 0.5
         return self.read_bit(State())
 
