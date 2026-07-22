@@ -1,3 +1,9 @@
+"""Standard Huffman tables defined in the JPEG standard, Annex K.
+
+Each table is a list of 16 entries (one per code length, 1-16 bits),
+matching `pyjpeg.dht.HuffmanTable`'s `table` format.
+"""
+
 # Huffman tables defined in JPEG standard Annex K
 standard_luminance_dc_huffman_table = [
     [],
