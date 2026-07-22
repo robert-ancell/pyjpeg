@@ -1,3 +1,11 @@
+"""High-level decoded image representation.
+
+`Image` is the main entry point for decoding a JPEG into raw samples
+(`Image.read`) and encoding raw samples back into a JPEG
+(`Image.write`), without needing to work with individual segments
+directly.
+"""
+
 import pyjpeg.dct
 import pyjpeg.dht
 import pyjpeg.dnl
@@ -15,9 +23,25 @@ import pyjpeg.stream
 
 
 class Component:
+    """A single decoded (or to-be-encoded) image component.
+
+    Holds one component's samples as a flat, non-interleaved list in
+    raster order, at that component's own resolution (which may be
+    smaller than the image's if `sampling_factor` is not `(1, 1)`).
+    """
+
     def __init__(
         self, id: int, samples: list[int], sampling_factor: tuple[int, int] = (1, 1)
     ) -> None:
+        """Create a component.
+
+        Args:
+            id: The component identifier, matching
+                `pyjpeg.sof.FrameComponent.id`.
+            samples: The component's samples, in raster order.
+            sampling_factor: The `(horizontal, vertical)` sampling
+                factor.
+        """
         self.id = id
         self.samples = samples
         self.sampling_factor = sampling_factor
@@ -27,6 +51,14 @@ class Component:
 
 
 class Image:
+    """A decoded JPEG image: raw samples plus the parameters needed to re-encode it.
+
+    Note: `read` currently only supports baseline/extended Huffman
+    DCT-coded images (single, non-progressive scans); `write` always
+    encodes as baseline DCT using the standard Annex K quantization
+    and Huffman tables, with one non-interleaved scan per component.
+    """
+
     def __init__(
         self,
         number_of_lines: int,
@@ -34,6 +66,14 @@ class Image:
         components: list[Component],
         precision: int = 8,
     ) -> None:
+        """Create an image.
+
+        Args:
+            number_of_lines: The image height, in samples.
+            samples_per_line: The image width, in samples.
+            components: The image's components.
+            precision: Bits per sample.
+        """
         self.number_of_lines = number_of_lines
         self.samples_per_line = samples_per_line
         self.components = components
@@ -41,6 +81,14 @@ class Image:
 
     @classmethod
     def read(cls, reader: pyjpeg.io.Reader) -> "Image":
+        """Decode a JPEG bitstream into an `Image`.
+
+        Args:
+            reader: The `pyjpeg.io.Reader` to read from.
+
+        Raises:
+            Exception: If the stream ends before an EOI segment is found.
+        """
         components: list[Component] = []
         components_by_id = {}
         sof: pyjpeg.sof.StartOfFrame | None = None
@@ -132,6 +180,15 @@ class Image:
         raise Exception("Missing end of image")
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
+        """Encode this image as a baseline DCT JPEG.
+
+        Always uses the standard Annex K luminance quantization and
+        Huffman tables, and writes one non-interleaved scan per
+        component.
+
+        Args:
+            writer: The `pyjpeg.io.Writer` to write to.
+        """
         quantization_table = (
             pyjpeg.quantization_tables.standard_luminance_quantization_table
         )
@@ -206,6 +263,14 @@ class Image:
         stream.write(writer)
 
     def get_interleaved_samples(self) -> list[int]:
+        """Return this image's samples interleaved component-by-component.
+
+        For a single-component (e.g. grayscale) image, returns that
+        component's samples directly. For multiple components,
+        returns samples ordered `[c0[0], c1[0], ..., c0[1], c1[1],
+        ...]` — the layout typically expected by other image
+        libraries (e.g. one RGB pixel at a time).
+        """
         if len(self.components) == 1:
             return self.components[0].samples
 
