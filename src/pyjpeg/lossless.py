@@ -1,3 +1,12 @@
+"""Lossless (predictive) coding: sample prediction and DPCM differencing.
+
+Implements the seven predictors defined for JPEG lossless coding
+(numbered 1-7, matching the `predictor`/`Ss` value from
+`pyjpeg.sos.StartOfScan.lossless`), used to predict each sample from
+its already-decoded neighbors before differencing.
+"""
+
+
 def get_diff(
     samples_per_line: int,
     samples: list[int],
@@ -8,6 +17,28 @@ def get_diff(
     precision: int = 8,
     predictor: int = 1,
 ) -> int:
+    """Compute the difference between a sample and its predicted value.
+
+    Used when encoding: the returned difference (not the sample
+    itself) is what gets entropy-coded.
+
+    Args:
+        samples_per_line: The image width, in samples.
+        samples: All samples decoded/available so far, interleaved
+                across components, in raster order.
+        x: The sample's horizontal position.
+        y: The sample's vertical position.
+        component: Which component this sample belongs to.
+        number_of_components: The total number of interleaved
+            components.
+        precision: Bits per sample.
+        predictor: Which of the seven predictors (1-7) to use; see
+            `pyjpeg.sos.StartOfScan.lossless`.
+
+    Returns:
+        The signed difference between the actual and predicted
+        sample value.
+    """
     predicted_sample = _predict_sample(
         samples_per_line,
         samples,
@@ -40,6 +71,27 @@ def get_sample(
     precision: int = 8,
     predictor: int = 1,
 ) -> int:
+    """Reconstruct a sample from a decoded difference and its predicted value.
+
+    The inverse of `get_diff`, used when decoding.
+
+    Args:
+        samples_per_line: The image width, in samples.
+        samples: All samples decoded so far, interleaved across
+            components, in raster order.
+        x: The sample's horizontal position.
+        y: The sample's vertical position.
+        diff: The decoded difference for this sample.
+        component: Which component this sample belongs to.
+        number_of_components: The total number of interleaved
+            components.
+        precision: Bits per sample.
+        predictor: Which of the seven predictors (1-7) to use; see
+            `pyjpeg.sos.StartOfScan.lossless`.
+
+    Returns:
+        The reconstructed sample value.
+    """
     predicted_sample = _predict_sample(
         samples_per_line,
         samples,
