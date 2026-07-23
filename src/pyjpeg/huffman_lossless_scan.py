@@ -11,13 +11,11 @@ class HuffmanLosslessScanComponent:
     """A single component's Huffman table for a lossless scan."""
 
     def __init__(self, table: list[list[int]]) -> None:
-        """Create a lossless scan component.
-
-        Args:
-            table: The component's Huffman table, in
-                `pyjpeg.dht.HuffmanTable`'s format.
-        """
+        """Create a lossless scan component."""
         self.table = table
+        """The component's Huffman table, in `pyjpeg.dht.HuffmanTable`'s
+        format.
+        """
 
     def __eq__(self, other: object) -> bool:
         return (
@@ -45,22 +43,19 @@ class HuffmanLosslessScan(pyjpeg.segment.Segment):
         precision: int = 8,
         predictor: int = 1,
     ) -> None:
-        """Create a lossless scan.
-
-        Args:
-            samples_per_line: The image width, in samples.
-            samples: The decoded samples, interleaved across
-                components, in raster order.
-            components: The scan's components.
-            precision: Bits per sample.
-            predictor: Which of the seven lossless predictors (1-7)
-                to use.
-        """
+        """Create a lossless scan."""
         self.samples_per_line = samples_per_line
+        """The image width, in samples."""
         self.samples = samples
+        """The decoded samples, interleaved across components, in raster
+        order.
+        """
         self.components = components
+        """The scan's components."""
         self.precision = precision
+        """Bits per sample."""
         self.predictor = predictor
+        """Which of the seven lossless predictors (1-7) to use."""
 
     def write(
         self,

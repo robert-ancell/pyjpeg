@@ -27,23 +27,17 @@ class HuffmanDCTACSuccessiveScan(pyjpeg.segment.Segment):
         spectral_selection: tuple[int, int] = (1, 63),
         point_transform: int = 0,
     ) -> None:
-        """Create an AC successive approximation scan.
-
-        Args:
-            data_units: The data units this scan refines, each 64
-                coefficients in zigzag order, already updated with
-                this scan's refinement bits.
-            table: The AC Huffman table, in
-                `pyjpeg.dht.HuffmanTable`'s format.
-            spectral_selection: The `(Ss, Se)` band of AC coefficients
-                this scan covers.
-            point_transform: Which bit position (Al) this scan
-                refines.
-        """
+        """Create an AC successive approximation scan."""
         self.data_units = data_units
+        """The data units this scan refines, each 64 coefficients in zigzag
+        order, already updated with this scan's refinement bits.
+        """
         self.table = table
+        """The AC Huffman table, in `pyjpeg.dht.HuffmanTable`'s format."""
         self.spectral_selection = spectral_selection
+        """The `(Ss, Se)` band of AC coefficients this scan covers."""
         self.point_transform = point_transform
+        """Which bit position (Al) this scan refines."""
 
     def write(
         self, writer: pyjpeg.io.Writer, symbol_frequencies: list[int] | None = None

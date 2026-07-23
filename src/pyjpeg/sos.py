@@ -18,22 +18,6 @@ class ScanComponent:
         """Create a scan component.
 
         Prefer `dct`, `lossless`, or `ls` over calling this directly.
-
-        Args:
-            component_selector: Identifies which frame component this
-                is, matching a `component_selector` from the frame's
-                SOF segment.
-            dc_table: For DCT scans, the DC Huffman/arithmetic table
-                destination. For lossless scans, the prediction table
-                destination. For JPEG-LS scans, the upper nibble of
-                the mapping table index.
-            ac_table: For DCT scans, the AC Huffman/arithmetic table
-                destination. Unused for lossless scans. For JPEG-LS
-                scans, the lower nibble of the mapping table index.
-
-        Raises:
-            ValueError: If `component_selector`, `dc_table`, or
-                `ac_table` is out of range.
         """
         if component_selector < 0 or component_selector > 255:
             raise ValueError("Invalid component selector")
@@ -42,8 +26,19 @@ class ScanComponent:
         if ac_table < 0 or ac_table > 15:
             raise ValueError("Invalid AC table")
         self.component_selector = component_selector
+        """Identifies which frame component this is, matching a
+        `component_selector` from the frame's SOF segment.
+        """
         self.dc_table = dc_table
+        """For DCT scans, the DC Huffman/arithmetic table destination. For
+        lossless scans, the prediction table destination. For JPEG-LS
+        scans, the upper nibble of the mapping table index.
+        """
         self.ac_table = ac_table
+        """For DCT scans, the AC Huffman/arithmetic table destination.
+        Unused for lossless scans. For JPEG-LS scans, the lower nibble of
+        the mapping table index.
+        """
 
     @classmethod
     def dct(
@@ -126,18 +121,6 @@ class StartOfScan(pyjpeg.segment.Segment):
         """Create an SOS segment.
 
         Prefer `dct`, `lossless`, or `ls` over calling this directly.
-
-        Args:
-            components: The components included in this scan.
-            spectral_selection: A `(first, second)` pair whose meaning
-                depends on the frame's coding mode; see the class
-                docstring.
-            point_transform: A byte whose meaning depends on the
-                frame's coding mode; see the class docstring.
-
-        Raises:
-            ValueError: If `spectral_selection` or `point_transform`
-                is out of range.
         """
         if spectral_selection[0] < 0 or spectral_selection[0] > 255:
             raise ValueError("Invalid spectral selection")
@@ -146,8 +129,15 @@ class StartOfScan(pyjpeg.segment.Segment):
         if point_transform < 0 or point_transform > 255:
             raise ValueError("Invalid point transform")
         self.components = components
+        """The components included in this scan."""
         self.spectral_selection = spectral_selection
+        """A `(first, second)` pair whose meaning depends on the frame's
+        coding mode; see the class docstring.
+        """
         self.point_transform = point_transform
+        """A byte whose meaning depends on the frame's coding mode; see the
+        class docstring.
+        """
 
     @classmethod
     def dct(
@@ -167,10 +157,6 @@ class StartOfScan(pyjpeg.segment.Segment):
                 position (Al).
             previous_point_transform: The previous successive-
                 approximation bit position (Ah).
-
-        Raises:
-            ValueError: If `point_transform` or
-                `previous_point_transform` is out of range.
         """
         if point_transform < 0 or point_transform > 15:
             raise ValueError("Invalid point transform")
@@ -195,9 +181,6 @@ class StartOfScan(pyjpeg.segment.Segment):
             components: The components included in this scan.
             predictor: Which lossless predictor to use.
             point_transform: The point transform (Pt) shift value.
-
-        Raises:
-            ValueError: If `point_transform` is out of range.
         """
         if point_transform < 0 or point_transform > 15:
             raise ValueError("Invalid point transform")
@@ -219,9 +202,6 @@ class StartOfScan(pyjpeg.segment.Segment):
             interleave_mode: The interleave mode; see
                 `pyjpeg.ls_scan.LSInterleaveMode`.
             point_transform: The point transform shift value.
-
-        Raises:
-            ValueError: If `point_transform` is out of range.
         """
         if point_transform < 0 or point_transform > 15:
             raise ValueError("Invalid point transform")

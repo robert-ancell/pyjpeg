@@ -13,15 +13,13 @@ class Writer:
     """Writes Golomb-Rice coded values, bit at a time."""
 
     def __init__(self, writer: pyjpeg.io.Writer, qbpp: int = 8) -> None:
-        """Create a Golomb-Rice writer.
-
-        Args:
-            writer: The underlying byte-oriented writer to write to.
-            qbpp: Bits used for the raw fallback value in the escape
-                sequence; see `pyjpeg.ls_scan.CodingParameters.qbpp`.
-        """
+        """Create a Golomb-Rice writer."""
         self.writer = writer
+        """The underlying byte-oriented writer to write to."""
         self.qbpp = qbpp
+        """Bits used for the raw fallback value in the escape sequence; see
+        `pyjpeg.ls_scan.CodingParameters.qbpp`.
+        """
         self.data = 0
         self.bit_count = 0
 
@@ -85,15 +83,13 @@ class Reader:
     """Reads Golomb-Rice coded values, bit at a time."""
 
     def __init__(self, reader: pyjpeg.io.Reader, qbpp: int = 8) -> None:
-        """Create a Golomb-Rice reader.
-
-        Args:
-            reader: The underlying byte-oriented reader to read from.
-            qbpp: Bits used for the raw fallback value in the escape
-                sequence; see `pyjpeg.ls_scan.CodingParameters.qbpp`.
-        """
+        """Create a Golomb-Rice reader."""
         self.reader = reader
+        """The underlying byte-oriented reader to read from."""
         self.qbpp = qbpp
+        """Bits used for the raw fallback value in the escape sequence; see
+        `pyjpeg.ls_scan.CodingParameters.qbpp`.
+        """
         self.data = 0
         self.bit_count = 0
 

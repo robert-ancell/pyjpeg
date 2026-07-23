@@ -13,12 +13,9 @@ class Comment(pyjpeg.segment.Segment):
     """
 
     def __init__(self, data: bytes) -> None:
-        """Create a comment segment.
-
-        Args:
-            data: The comment's raw byte content.
-        """
+        """Create a comment segment."""
         self.data = data
+        """The comment's raw byte content."""
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
         writer.write_marker(pyjpeg.marker.Marker.COM)

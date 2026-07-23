@@ -41,12 +41,9 @@ class Stream:
     """
 
     def __init__(self, segments: list[pyjpeg.segment.Segment]) -> None:
-        """Create a stream from an already-parsed list of segments.
-
-        Args:
-            segments: The segments making up the stream, in file order.
-        """
+        """Create a stream from an already-parsed list of segments."""
         self.segments = segments
+        """The segments making up the stream, in file order."""
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
         """Serialize every segment in the stream, in order.

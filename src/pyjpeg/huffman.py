@@ -144,12 +144,9 @@ class SymbolTreeNode:
         self,
         symbol: int | None = None,
     ) -> None:
-        """Create a tree node.
-
-        Args:
-            symbol: The decoded symbol, if this is a leaf node.
-        """
+        """Create a tree node."""
         self.symbol = symbol
+        """The decoded symbol, if this is a leaf node."""
         self.children: list[SymbolTreeNode | None] = [None, None]
 
 

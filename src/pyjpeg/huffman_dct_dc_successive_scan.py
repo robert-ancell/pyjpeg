@@ -20,18 +20,14 @@ class HuffmanDCTDCSuccessiveScan(pyjpeg.segment.Segment):
     """
 
     def __init__(self, data_units: list[list[int]], point_transform: int = 0) -> None:
-        """Create a DC successive approximation scan.
-
-        Args:
-            data_units: The data units this scan refines, each 64
-                coefficients in zigzag order, with the DC coefficient
-                (index 0) already updated with this scan's refinement
-                bit.
-            point_transform: Which bit position (Al) this scan
-                refines.
-        """
+        """Create a DC successive approximation scan."""
         self.data_units = data_units
+        """The data units this scan refines, each 64 coefficients in zigzag
+        order, with the DC coefficient (index 0) already updated with
+        this scan's refinement bit.
+        """
         self.point_transform = point_transform
+        """Which bit position (Al) this scan refines."""
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
         scan_writer = pyjpeg.scan.Writer(writer)

@@ -17,9 +17,13 @@ class LSPresetParametersId:
     """The `id` byte values identifying which kind of LSE data follows."""
 
     CODING_PARAMETERS = 1
+    """Custom coding thresholds. See `LSCodingParameters`."""
     MAPPING_TABLE = 2
+    """A sample mapping table. See `LSMappingTable`."""
     MAPPING_TABLE_CONTINUATION = 3
+    """Continuation data for a mapping table. See `LSMappingTableContinuation`."""
     OVERSIZE_IMAGE_DIMENSION = 4
+    """Oversize image dimensions. See `LSOversizeImageDimensions`."""
 
 
 class LSPresetParameters(pyjpeg.segment.Segment):
@@ -33,13 +37,11 @@ class LSPresetParameters(pyjpeg.segment.Segment):
     """
 
     def __init__(self, id: int) -> None:
-        """Create a preset parameters segment.
-
-        Args:
-            id: Which kind of preset parameters this is; see
-                `LSPresetParametersId`.
-        """
+        """Create a preset parameters segment."""
         self.id = id
+        """Which kind of preset parameters this is; see
+        `LSPresetParametersId`.
+        """
 
     @classmethod
     def read(cls, reader: pyjpeg.io.Reader) -> "LSPresetParameters":
@@ -125,19 +127,16 @@ class LSCodingParameters(LSPresetParameters):
         gradient_thresholds: tuple[int, int, int] = (0, 0, 0),
         reset: int = 0,
     ) -> None:
-        """Create a JPEG-LS coding parameters segment.
-
-        Args:
-            maxval: The maximum sample value. `0` means derive it
-                from the frame's precision.
-            gradient_thresholds: The `(T1, T2, T3)` gradient
-                thresholds.
-            reset: The value at which context counters reset.
-        """
+        """Create a JPEG-LS coding parameters segment."""
         super().__init__(LSPresetParametersId.CODING_PARAMETERS)
         self.maxval = maxval
+        """The maximum sample value. `0` means derive it from the frame's
+        precision.
+        """
         self.gradient_thresholds = gradient_thresholds
+        """The `(T1, T2, T3)` gradient thresholds."""
         self.reset = reset
+        """The value at which context counters reset."""
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
         writer.write_marker(pyjpeg.marker.Marker.LSE)
@@ -175,18 +174,14 @@ class LSMappingTable(LSPresetParameters):
         table: bytes,
         weight: int = 1,
     ) -> None:
-        """Create a mapping table.
-
-        Args:
-            table_id: The table's index, referenced by scan
-                components.
-            table: The mapping table entries.
-            weight: The table's weight/precedence.
-        """
+        """Create a mapping table."""
         super().__init__(LSPresetParametersId.MAPPING_TABLE)
         self.table_id = table_id
+        """The table's index, referenced by scan components."""
         self.table = table
+        """The mapping table entries."""
         self.weight = weight
+        """The table's weight/precedence."""
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
         writer.write_marker(pyjpeg.marker.Marker.LSE)
@@ -218,18 +213,14 @@ class LSMappingTableContinuation(LSPresetParameters):
         table: bytes,
         weight: int = 1,
     ) -> None:
-        """Create a mapping table continuation.
-
-        Args:
-            table_id: The table's index, matching the
-                `LSMappingTable` this continues.
-            table: The additional mapping table entries.
-            weight: The table's weight/precedence.
-        """
+        """Create a mapping table continuation."""
         super().__init__(LSPresetParametersId.MAPPING_TABLE_CONTINUATION)
         self.table_id = table_id
+        """The table's index, matching the `LSMappingTable` this continues."""
         self.table = table
+        """The additional mapping table entries."""
         self.weight = weight
+        """The table's weight/precedence."""
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
         writer.write_marker(pyjpeg.marker.Marker.LSE)
@@ -242,7 +233,7 @@ class LSMappingTableContinuation(LSPresetParameters):
 
     def __eq__(self, other: object) -> bool:
         return (
-            isinstance(other, LSMappingTable)
+            isinstance(other, LSMappingTableContinuation)
             and other.table_id == self.table_id
             and other.table == self.table
         )
@@ -262,18 +253,7 @@ class LSOversizeImageDimensions(LSPresetParameters):
     def __init__(
         self, number_of_lines: int, samples_per_line: int, number_of_bytes: int = 2
     ) -> None:
-        """Create an oversize image dimensions segment.
-
-        Args:
-            number_of_lines: The image height, in samples.
-            samples_per_line: The image width, in samples.
-            number_of_bytes: The number of bytes used to store each
-                dimension, between 2 and 4.
-
-        Raises:
-            ValueError: If `number_of_bytes`, `number_of_lines`, or
-                `samples_per_line` is out of range.
-        """
+        """Create an oversize image dimensions segment."""
         super().__init__(LSPresetParametersId.OVERSIZE_IMAGE_DIMENSION)
         if number_of_bytes < 2 or number_of_bytes > 4:
             raise ValueError("Invalid LSE number of bytes")
@@ -282,8 +262,13 @@ class LSOversizeImageDimensions(LSPresetParameters):
         if samples_per_line >= 1 << (8 * number_of_bytes):
             raise ValueError("Invalid LSE samples per line")
         self.number_of_lines = number_of_lines
+        """The image height, in samples."""
         self.samples_per_line = samples_per_line
+        """The image width, in samples."""
         self.number_of_bytes = number_of_bytes
+        """The number of bytes used to store each dimension, between 2 and
+        4.
+        """
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
         writer.write_marker(pyjpeg.marker.Marker.LSE)
@@ -317,10 +302,10 @@ class LSUnknownPresetParameters(LSPresetParameters):
 
         Args:
             id: The unrecognized preset parameters id.
-            data: The raw payload data.
         """
         super().__init__(id)
         self.data = data
+        """The raw payload data."""
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
         writer.write_marker(pyjpeg.marker.Marker.LSE)

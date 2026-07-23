@@ -33,18 +33,15 @@ class Component:
     def __init__(
         self, id: int, samples: list[int], sampling_factor: tuple[int, int] = (1, 1)
     ) -> None:
-        """Create a component.
-
-        Args:
-            id: The component identifier, matching
-                `pyjpeg.sof.FrameComponent.id`.
-            samples: The component's samples, in raster order.
-            sampling_factor: The `(horizontal, vertical)` sampling
-                factor.
-        """
+        """Create a component."""
         self.id = id
+        """The component identifier, matching
+        `pyjpeg.sof.FrameComponent.id`.
+        """
         self.samples = samples
+        """The component's samples, in raster order."""
         self.sampling_factor = sampling_factor
+        """The `(horizontal, vertical)` sampling factor."""
 
     def __repr__(self) -> str:
         return f"Component(id={self.id}, len(samples)={len(self.samples)}, sampling_factor={self.sampling_factor})"
@@ -66,18 +63,15 @@ class Image:
         components: list[Component],
         precision: int = 8,
     ) -> None:
-        """Create an image.
-
-        Args:
-            number_of_lines: The image height, in samples.
-            samples_per_line: The image width, in samples.
-            components: The image's components.
-            precision: Bits per sample.
-        """
+        """Create an image."""
         self.number_of_lines = number_of_lines
+        """The image height, in samples."""
         self.samples_per_line = samples_per_line
+        """The image width, in samples."""
         self.components = components
+        """The image's components."""
         self.precision = precision
+        """Bits per sample."""
 
     @classmethod
     def read(cls, reader: pyjpeg.io.Reader) -> "Image":
@@ -87,7 +81,8 @@ class Image:
             reader: The `pyjpeg.io.Reader` to read from.
 
         Raises:
-            Exception: If the stream ends before an EOI segment is found.
+            Exception: If the stream ends before an EOI segment is
+                found.
         """
         components: list[Component] = []
         components_by_id = {}

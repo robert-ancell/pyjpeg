@@ -252,12 +252,9 @@ class BufferedReader(Reader):
     """
 
     def __init__(self, data: bytes | bytearray) -> None:
-        """Create a reader over the given in-memory buffer.
-
-        Args:
-            data: The bytes to read from.
-        """
+        """Create a reader over the given in-memory buffer."""
         self.data = data
+        """The bytes to read from."""
         self.offset = 0
 
     def read_u8(self) -> int:
@@ -314,12 +311,9 @@ class FileWriter(Writer):
     """
 
     def __init__(self, f: BinaryIO) -> None:
-        """Create a writer over the given binary file object.
-
-        Args:
-            f: An open binary file object to write to.
-        """
+        """Create a writer over the given binary file object."""
         self.f = f
+        """An open binary file object to write to."""
 
     def write_u8(self, value: int) -> None:
         """Write a single byte to the file.
@@ -346,12 +340,9 @@ class FileReader(Reader):
     """
 
     def __init__(self, f: BinaryIO) -> None:
-        """Create a reader over the given binary file object.
-
-        Args:
-            f: An open binary file object to read from.
-        """
+        """Create a reader over the given binary file object."""
         self.f = f
+        """An open binary file object to read from."""
 
     def read_u8(self) -> int:
         """Read and return the next byte, advancing the read position.

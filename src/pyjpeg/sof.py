@@ -14,20 +14,35 @@ class FrameType:
     """
 
     BASELINE = 0
+    """Baseline sequential DCT, Huffman coding."""
     EXTENDED_HUFFMAN = 1
+    """Extended sequential DCT, Huffman coding."""
     PROGRESSIVE_HUFFMAN = 2
+    """Progressive DCT, Huffman coding."""
     LOSSLESS_HUFFMAN = 3
+    """Lossless (predictive), Huffman coding."""
     DIFFERENTIAL_SEQUENTIAL_HUFFMAN = 5
+    """Differential sequential DCT, Huffman coding (hierarchical)."""
     DIFFERENTIAL_PROGRESSIVE_HUFFMAN = 6
+    """Differential progressive DCT, Huffman coding (hierarchical)."""
     DIFFERENTIAL_LOSSLESS_HUFFMAN = 7
+    """Differential lossless, Huffman coding (hierarchical)."""
     EXTENDED_ARITHMETIC = 9
+    """Extended sequential DCT, arithmetic coding."""
     PROGRESSIVE_ARITHMETIC = 10
+    """Progressive DCT, arithmetic coding."""
     LOSSLESS_ARITHMETIC = 11
+    """Lossless (predictive), arithmetic coding."""
     DIFFERENTIAL_SEQUENTIAL_ARITHMETIC = 13
+    """Differential sequential DCT, arithmetic coding (hierarchical)."""
     DIFFERENTIAL_PROGRESSIVE_ARITHMETIC = 14
+    """Differential progressive DCT, arithmetic coding (hierarchical)."""
     DIFFERENTIAL_LOSSLESS_ARITHMETIC = 15
+    """Differential lossless, arithmetic coding (hierarchical)."""
     DEFINE_HIERARCHICAL_PROGRESSION = 30
+    """Define Hierarchical Progression (DHP)."""
     LS = 55
+    """JPEG-LS. See `pyjpeg.ls_scan`."""
 
 
 class FrameComponent:
@@ -43,19 +58,17 @@ class FrameComponent:
         """Create a frame component.
 
         Prefer `dct`, `lossless`, or `ls` over calling this directly.
-
-        Args:
-            id: The component identifier, referenced by scan
-                components (`ScanComponent.component_selector`).
-            sampling_factor: The `(horizontal, vertical)` sampling
-                factor.
-            quantization_table_index: Which quantization table
-                destination this component uses. Unused for lossless
-                and JPEG-LS frames.
         """
         self.id = id
+        """The component identifier, referenced by scan components
+        (`ScanComponent.component_selector`).
+        """
         self.sampling_factor = sampling_factor
+        """The `(horizontal, vertical)` sampling factor."""
         self.quantization_table_index = quantization_table_index
+        """Which quantization table destination this component uses. Unused
+        for lossless and JPEG-LS frames.
+        """
 
     @classmethod
     def dct(
@@ -133,20 +146,19 @@ class StartOfFrame(pyjpeg.segment.Segment):
 
         Prefer `baseline`, `extended`, `progressive`, `lossless`, or
         `ls` over calling this directly.
-
-        Args:
-            n: The frame type; see `FrameType`.
-            precision: Bits per sample.
-            number_of_lines: The image height in samples. `0` if not
-                yet known (see `pyjpeg.dnl.DefineNumberOfLines`).
-            samples_per_line: The image width in samples.
-            components: The frame's components.
         """
         self.n = n
+        """The frame type; see `FrameType`."""
         self.precision = precision
+        """Bits per sample."""
         self.number_of_lines = number_of_lines
+        """The image height in samples. `0` if not yet known (see
+        `pyjpeg.dnl.DefineNumberOfLines`).
+        """
         self.samples_per_line = samples_per_line
+        """The image width in samples."""
         self.components = components
+        """The frame's components."""
 
     @classmethod
     def baseline(

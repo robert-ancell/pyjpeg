@@ -30,21 +30,20 @@ class LSInterleaveMode:
     """How components are interleaved within a JPEG-LS scan."""
 
     NONE = 0
+    """Components are not interleaved; each is coded as a full, separate scan."""
     LINE = 1
+    """Components are interleaved one line at a time."""
     SAMPLE = 2
+    """Components are interleaved one sample at a time (all components per pixel)."""
 
 
 class LSScanComponent:
     """A single component's configuration within a JPEG-LS scan."""
 
     def __init__(self, sampling_factor: tuple[int, int] = (1, 1)) -> None:
-        """Create a JPEG-LS scan component.
-
-        Args:
-            sampling_factor: The `(horizontal, vertical)` sampling
-                factor.
-        """
+        """Create a JPEG-LS scan component."""
         self.sampling_factor = sampling_factor
+        """The `(horizontal, vertical)` sampling factor."""
 
     def __eq__(self, other: object) -> bool:
         return (
@@ -75,25 +74,21 @@ class CodingParameters:
         """Create resolved coding parameters.
 
         Args:
-            difference_bound: The near-lossless difference bound
-                (NEAR).
-            maxval: The maximum sample value.
             gradient_thresholds: The `(T1, T2, T3)` gradient
                 thresholds. Any entry that is `0` is replaced with
                 its spec-defined default.
-            reset: The context reset threshold. `0` is replaced with
-                the spec default of 64.
-
-        Raises:
-            ValueError: If the resolved gradient thresholds are not
-                in non-decreasing order.
         """
         self.difference_bound = difference_bound
+        """The near-lossless difference bound (NEAR)."""
         self.maxval = maxval
+        """The maximum sample value."""
         self.gradient_thresholds = _generate_gradient_thresholds(
             difference_bound, maxval, gradient_thresholds
         )
         self.reset = reset
+        """The context reset threshold. `0` is replaced with the spec
+        default of 64.
+        """
         if self.reset == 0:
             self.reset = 64
 
@@ -205,29 +200,7 @@ class LSScan(pyjpeg.segment.Segment):
         gradient_thresholds: tuple[int, int, int] = (0, 0, 0),
         reset: int = 0,
     ) -> None:
-        """Create a JPEG-LS scan.
-
-        Args:
-            width: The image width, in samples.
-            samples: The decoded samples, interleaved across
-                components according to `interleave_mode`.
-            components: The scan's components.
-            interleave_mode: How components are interleaved; see
-                `LSInterleaveMode`.
-            difference_bound: The near-lossless difference bound
-                (NEAR).
-            maxval: The maximum sample value.
-            gradient_thresholds: The `(T1, T2, T3)` gradient
-                thresholds; `0` entries use the spec-defined default.
-            reset: The context reset threshold; `0` uses the spec
-                default.
-
-        Raises:
-            ValueError: If `components` is empty, `interleave_mode`
-                is invalid, or the number of components doesn't match
-                what `interleave_mode` requires (exactly 1 for
-                `NONE`, at least 2 for `LINE`/`SAMPLE`).
-        """
+        """Create a JPEG-LS scan."""
         if len(components) == 0:
             raise ValueError("No components")
         if interleave_mode not in [
@@ -250,20 +223,27 @@ class LSScan(pyjpeg.segment.Segment):
                     "Expected at least 2 components for SAMPLE interleave mode"
                 )
         self.width = width
+        """The image width, in samples."""
         self.samples = samples
+        """The decoded samples, interleaved across components according to
+        `interleave_mode`.
+        """
         self.components = components
+        """The scan's components."""
         self.interleave_mode = interleave_mode
+        """How components are interleaved; see `LSInterleaveMode`."""
         self.difference_bound = difference_bound
+        """The near-lossless difference bound (NEAR)."""
         self.maxval = maxval
+        """The maximum sample value."""
         self.gradient_thresholds = gradient_thresholds
+        """The `(T1, T2, T3)` gradient thresholds; `0` entries use the spec-
+        defined default.
+        """
         self.reset = reset
+        """The context reset threshold; `0` uses the spec default."""
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
-        """Write this scan's entropy-coded data.
-
-        Args:
-            writer: The `pyjpeg.io.Writer` to write to.
-        """
         scan_writer = Writer(
             writer,
             self.width,
@@ -308,9 +288,6 @@ class LSScan(pyjpeg.segment.Segment):
                 thresholds; `0` entries use the spec-defined default.
             reset: The context reset threshold; `0` uses the spec
                 default.
-
-        Raises:
-            ValueError: If `components` is empty.
         """
         if len(components) == 0:
             raise ValueError("No components")
@@ -416,15 +393,13 @@ class RegularContext:
     """
 
     def __init__(self, accumulated_prediction_error_magnitude: int) -> None:
-        """Create a regular context with the given initial error magnitude.
-
-        Args:
-            accumulated_prediction_error_magnitude: The initial value
-                of the accumulated prediction error magnitude (A).
-        """
+        """Create a regular context with the given initial error magnitude."""
         self.accumulated_prediction_error_magnitude = (
             accumulated_prediction_error_magnitude
         )
+        """The initial value of the accumulated prediction error magnitude
+        (A).
+        """
         self.bias = 0
         self.prediction_correction = 0
         self.frequency_of_occurence = 1
@@ -592,12 +567,12 @@ class RunInterruptContext:
 
         Args:
             a: The initial accumulated prediction error magnitude.
-            near: Whether this context is for the "near" case (where
-                the left and above neighbors differ by no more than
-                the difference bound).
         """
         self.accumulated_prediction_error_magnitude = a
         self.near = near
+        """Whether this context is for the "near" case (where the left and
+        above neighbors differ by no more than the difference bound).
+        """
         self.frequency_of_occurence = 1
         self.negative_prediction_error = 0
 
@@ -748,22 +723,19 @@ class Codec:
         interleave_mode: int,
         parameters: CodingParameters,
     ) -> None:
-        """Create a codec.
-
-        Args:
-            width: The image width, in samples.
-            samples: The sample buffer (to be filled when decoding, or
-                already filled when encoding).
-            components: The scan's components.
-            interleave_mode: How components are interleaved; see
-                `LSInterleaveMode`.
-            parameters: The scan's coding parameters.
-        """
+        """Create a codec."""
         self.width = width
+        """The image width, in samples."""
         self.samples = samples
+        """The sample buffer (to be filled when decoding, or already filled
+        when encoding).
+        """
         self.components = components
+        """The scan's components."""
         self.interleave_mode = interleave_mode
+        """How components are interleaved; see `LSInterleaveMode`."""
         self.parameters = parameters
+        """The scan's coding parameters."""
 
         def get_range(maxval: int, difference_bound: int) -> int:
             return ((maxval + 2 * difference_bound) // (2 * difference_bound + 1)) + 1

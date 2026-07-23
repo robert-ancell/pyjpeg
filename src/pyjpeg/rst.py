@@ -16,17 +16,11 @@ class Restart(pyjpeg.segment.Segment):
     """
 
     def __init__(self, index: int) -> None:
-        """Create a restart marker.
-
-        Args:
-            index: Which of the eight restart markers this is, 0-7.
-
-        Raises:
-            ValueError: If `index` is not between 0 and 7.
-        """
+        """Create a restart marker."""
         if index < 0 or index > 7:
             raise ValueError("Invalid RST index")
         self.index = index
+        """Which of the eight restart markers this is, 0-7."""
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
         writer.write_marker(pyjpeg.marker.Marker.RST0 + self.index)

@@ -18,20 +18,7 @@ class DefineNumberOfLines(pyjpeg.segment.Segment):
     """
 
     def __init__(self, number_of_lines: int, number_of_bytes: int = 2) -> None:
-        """Create a DNL segment.
-
-        Args:
-            number_of_lines: The number of lines in the frame. Must be
-                at least 1 and representable in `number_of_bytes`
-                bytes.
-            number_of_bytes: The number of bytes used to store
-                `number_of_lines`, between 1 and 4.
-
-        Raises:
-            ValueError: If `number_of_bytes` is not between 1 and 4,
-                or if `number_of_lines` is out of range for the given
-                `number_of_bytes`.
-        """
+        """Create a DNL segment."""
         if number_of_bytes < 1 or number_of_bytes > 4:
             raise ValueError("Number of bytes must be between 1 and 4")
         max_number_of_lines = 2 ** (8 * number_of_bytes) - 1
@@ -40,7 +27,13 @@ class DefineNumberOfLines(pyjpeg.segment.Segment):
                 f"Number of lines must be between 1 and {max_number_of_lines}"
             )
         self.number_of_lines = number_of_lines
+        """The number of lines in the frame. Must be at least 1 and
+        representable in `number_of_bytes` bytes.
+        """
         self.number_of_bytes = number_of_bytes
+        """The number of bytes used to store `number_of_lines`, between 1
+        and 4.
+        """
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
         writer.write_marker(pyjpeg.marker.Marker.DNL)

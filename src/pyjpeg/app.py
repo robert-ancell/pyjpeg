@@ -21,17 +21,11 @@ class ApplicationSpecificData(pyjpeg.segment.Segment):
     """
 
     def __init__(self, n: int) -> None:
-        """Create an APPn segment.
-
-        Args:
-            n: Which APPn marker this is, 0-15.
-
-        Raises:
-            ValueError: If `n` is not between 0 and 15.
-        """
+        """Create an APPn segment."""
         if n < 0 or n > 15:
             raise ValueError("n must be between 0 and 15")
         self.n = n
+        """Which APPn marker this is, 0-15."""
 
     @classmethod
     def read(cls, reader: pyjpeg.io.Reader) -> "ApplicationSpecificData":
@@ -189,8 +183,11 @@ class JfifDensityUnit:
     """Units for `JfifDensity.unit`."""
 
     ASPECT_RATIO = 0
+    """No absolute unit; `x`/`y` express a pixel aspect ratio."""
     DPI = 1
+    """`x`/`y` are in dots per inch."""
     DPCM = 2
+    """`x`/`y` are in dots per centimeter."""
 
 
 class JfifDensity:
@@ -200,16 +197,13 @@ class JfifDensity:
     """
 
     def __init__(self, unit: int = 0, x: int = 0, y: int = 0) -> None:
-        """Create a density value.
-
-        Args:
-            unit: The density unit; see `JfifDensityUnit`.
-            x: The horizontal density.
-            y: The vertical density.
-        """
+        """Create a density value."""
         self.unit = unit
+        """The density unit; see `JfifDensityUnit`."""
         self.x = x
+        """The horizontal density."""
         self.y = y
+        """The vertical density."""
 
     @classmethod
     def aspect_ratio(cls, x: int, y: int) -> "JfifDensity":
@@ -252,20 +246,18 @@ class JfifHeader(ApplicationSpecificData):
         thumbnail_size: tuple[int, int] = (0, 0),
         thumbnail_data: bytes = b"",
     ) -> None:
-        """Create a JFIF header.
-
-        Args:
-            version: The JFIF `(major, minor)` version.
-            density: The pixel density.
-            thumbnail_size: The `(width, height)` of the embedded
-                uncompressed RGB thumbnail, in pixels.
-            thumbnail_data: The thumbnail's raw RGB pixel data.
-        """
+        """Create a JFIF header."""
         super().__init__(0)
         self.version = version
+        """The JFIF `(major, minor)` version."""
         self.density = density
+        """The pixel density."""
         self.thumbnail_size = thumbnail_size
+        """The `(width, height)` of the embedded uncompressed RGB thumbnail,
+        in pixels.
+        """
         self.thumbnail_data = thumbnail_data
+        """The thumbnail's raw RGB pixel data."""
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
         writer.write_marker(pyjpeg.marker.Marker.APP0)
@@ -288,13 +280,10 @@ class JfifJpegThumbnail(ApplicationSpecificData):
     """A JFXX extension thumbnail stored as embedded JPEG data."""
 
     def __init__(self, data: bytes) -> None:
-        """Create a JFXX JPEG thumbnail.
-
-        Args:
-            data: The embedded JPEG thumbnail's raw bytes.
-        """
+        """Create a JFXX JPEG thumbnail."""
         super().__init__(0)
         self.data = data
+        """The embedded JPEG thumbnail's raw bytes."""
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
         writer.write_marker(pyjpeg.marker.Marker.APP0)
@@ -313,21 +302,16 @@ class JfifPalletizedThumbnail(ApplicationSpecificData):
     def __init__(
         self, width: int, height: int, palette: list[int], data: bytes
     ) -> None:
-        """Create a JFXX palettized thumbnail.
-
-        Args:
-            width: The thumbnail width, in pixels.
-            height: The thumbnail height, in pixels.
-            palette: 256 RGB triples (768 values) forming the color
-                palette.
-            data: The thumbnail's pixel data, one palette index per
-                pixel.
-        """
+        """Create a JFXX palettized thumbnail."""
         super().__init__(0)
         self.width = width
+        """The thumbnail width, in pixels."""
         self.height = height
+        """The thumbnail height, in pixels."""
         self.palette = palette
+        """256 RGB triples (768 values) forming the color palette."""
         self.data = data
+        """The thumbnail's pixel data, one palette index per pixel."""
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
         writer.write_marker(pyjpeg.marker.Marker.APP0)
@@ -348,17 +332,14 @@ class JfifRgbThumbnail(ApplicationSpecificData):
     """A JFXX extension thumbnail stored as an uncompressed RGB image."""
 
     def __init__(self, width: int, height: int, data: bytes) -> None:
-        """Create a JFXX RGB thumbnail.
-
-        Args:
-            width: The thumbnail width, in pixels.
-            height: The thumbnail height, in pixels.
-            data: The thumbnail's raw RGB pixel data.
-        """
+        """Create a JFXX RGB thumbnail."""
         super().__init__(0)
         self.width = width
+        """The thumbnail width, in pixels."""
         self.height = height
+        """The thumbnail height, in pixels."""
         self.data = data
+        """The thumbnail's raw RGB pixel data."""
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
         writer.write_marker(pyjpeg.marker.Marker.APP0)
@@ -381,13 +362,10 @@ class ExifHeader(ApplicationSpecificData):
     """
 
     def __init__(self, data: bytes) -> None:
-        """Create an Exif header.
-
-        Args:
-            data: The raw Exif (TIFF-structured) metadata.
-        """
+        """Create an Exif header."""
         super().__init__(1)
         self.data = data
+        """The raw Exif (TIFF-structured) metadata."""
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
         writer.write_marker(pyjpeg.marker.Marker.APP1)
@@ -403,39 +381,63 @@ class SpiffProfile:
     """SPIFF profile identifiers, for `SpiffHeader.profile`."""
 
     NONE = 0
+    """No application profile."""
     CONTINUOUS_TONE = 1
+    """Continuous-tone base profile."""
     CONTINUOUS_TONE_PROGRESSIVE = 2
+    """Continuous-tone progressive profile."""
     BI_LEVEL_FACSIMILE = 3
+    """Bi-level facsimile profile."""
     CONTINUOUS_TONE_FACSIMILE = 4
+    """Continuous-tone facsimile profile."""
 
 
 class SpiffColorSpace:
     """SPIFF color space identifiers, for `SpiffHeader.color_space`."""
 
     BI_LEVEL_BLACK = 0
+    """Bi-level (1-bit) images, black is sample value 0."""
     Y_CB_CR_1 = 1
+    """YCbCr color space, variant 1."""
     OTHER = 2
+    """An unspecified/other color space."""
     Y_CB_CR_2 = 3
+    """YCbCr color space, variant 2."""
     Y_CB_CR_3 = 4
+    """YCbCr color space, variant 3."""
     GRAYSCALE = 8
+    """Grayscale."""
     PHOTO_YCC = 9
+    """PhotoYCC color space."""
     RGB = 10
+    """RGB color space."""
     CMY = 11
+    """CMY color space."""
     CMYK = 12
+    """CMYK color space."""
     YCCK = 13
+    """YCCK color space."""
     CIELAB = 14
-    BI_LEVEL_WHITE = 1
+    """CIELab color space."""
+    BI_LEVEL_WHITE = 15
+    """Bi-level (1-bit) images, white is sample value 0."""
 
 
 class SpiffCompressionType:
     """SPIFF compression type identifiers, for `SpiffHeader.compression_type`."""
 
     UNCOMPRESSED = 0
+    """No compression."""
     MODIFIED_HUFFMAN = 1
+    """Modified Huffman (ITU-T T.4) compression."""
     MODIFIED_READ = 2
+    """Modified READ (ITU-T T.4) compression."""
     MODIFIED_MODIFIED_READ = 3
+    """Modified Modified READ (ITU-T T.6) compression."""
     JBIG = 4
+    """JBIG compression."""
     JPEG = 5
+    """JPEG compression (this format's own)."""
 
 
 class SpiffHeader(ApplicationSpecificData):
@@ -455,35 +457,32 @@ class SpiffHeader(ApplicationSpecificData):
         vertical_resoution: int = 1,
         horizontal_resolution: int = 1,
     ) -> None:
-        """Create a SPIFF header.
-
-        Args:
-            version: The SPIFF `(major, minor)` version.
-            profile: The application profile; see `SpiffProfile`.
-            number_of_components: The number of image components.
-            height: The image height, in samples.
-            width: The image width, in samples.
-            color_space: The color space; see `SpiffColorSpace`.
-            bits_per_sample: Bits per sample.
-            compression_type: The compression type; see
-                `SpiffCompressionType`.
-            resolution_units: The units `horizontal_resolution`/
-                `vertical_resoution` are given in.
-            vertical_resoution: The vertical resolution.
-            horizontal_resolution: The horizontal resolution.
-        """
+        """Create a SPIFF header."""
         super().__init__(8)
         self.version = version
+        """The SPIFF `(major, minor)` version."""
         self.profile = profile
+        """The application profile; see `SpiffProfile`."""
         self.number_of_components = number_of_components
+        """The number of image components."""
         self.height = height
+        """The image height, in samples."""
         self.width = width
+        """The image width, in samples."""
         self.color_space = color_space
+        """The color space; see `SpiffColorSpace`."""
         self.bits_per_sample = bits_per_sample
+        """Bits per sample."""
         self.compression_type = compression_type
+        """The compression type; see `SpiffCompressionType`."""
         self.resolution_units = resolution_units
+        """The units `horizontal_resolution`/ `vertical_resoution` are given
+        in.
+        """
         self.vertical_resoution = vertical_resoution
+        """The vertical resolution."""
         self.horizontal_resolution = horizontal_resolution
+        """The horizontal resolution."""
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
         writer.write_marker(pyjpeg.marker.Marker.APP8)
@@ -509,8 +508,12 @@ class AdobeColorSpace:
     """Adobe color transform identifiers, for `AdobeHeader.color_space`."""
 
     RGB_OR_CMYK = 0
+    """No color transform; samples are RGB or CMYK depending on the
+    number of components."""
     Y_CB_CR = 1
+    """YCbCr color transform, for 3-component images."""
     Y_CB_CR_K = 2
+    """YCCK color transform, for 4-component (CMYK-derived) images."""
 
 
 class AdobeHeader(ApplicationSpecificData):
@@ -523,20 +526,16 @@ class AdobeHeader(ApplicationSpecificData):
         flags1: int = 0,
         color_space: int = AdobeColorSpace.Y_CB_CR,
     ) -> None:
-        """Create an Adobe header.
-
-        Args:
-            version: The Adobe APP14 format version (100 or 101).
-            flags0: The first Adobe flags word.
-            flags1: The second Adobe flags word.
-            color_space: The color transform used; see
-                `AdobeColorSpace`.
-        """
+        """Create an Adobe header."""
         super().__init__(14)
         self.version = version
+        """The Adobe APP14 format version (100 or 101)."""
         self.flags0 = flags0
+        """The first Adobe flags word."""
         self.flags1 = flags1
+        """The second Adobe flags word."""
         self.color_space = color_space
+        """The color transform used; see `AdobeColorSpace`."""
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
         writer.write_marker(pyjpeg.marker.Marker.APP14)
@@ -576,10 +575,10 @@ class UnknownApplicationSpecificData(ApplicationSpecificData):
 
         Args:
             n: Which APPn marker this is, 0-15.
-            data: The raw payload data.
         """
         super().__init__(n)
         self.data = data
+        """The raw payload data."""
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
         writer.write_marker(self.n)

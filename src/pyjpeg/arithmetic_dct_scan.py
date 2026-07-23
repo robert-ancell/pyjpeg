@@ -16,18 +16,15 @@ class ArithmeticDCTScanComponent:
         conditioning_bounds: tuple[int, int] = (0, 1),
         kx: int = 5,
     ):
-        """Create a DCT scan component.
-
-        Args:
-            sampling_factor: The `(horizontal, vertical)` sampling
-                factor, matching `pyjpeg.sof.FrameComponent`.
-            conditioning_bounds: The DC arithmetic conditioning
-                `(lower, upper)` bounds.
-            kx: The AC arithmetic coding Kx parameter.
-        """
+        """Create a DCT scan component."""
         self.sampling_factor = sampling_factor
+        """The `(horizontal, vertical)` sampling factor, matching
+        `pyjpeg.sof.FrameComponent`.
+        """
         self.conditioning_bounds = conditioning_bounds
+        """The DC arithmetic conditioning `(lower, upper)` bounds."""
         self.kx = kx
+        """The AC arithmetic coding Kx parameter."""
 
     def __eq__(self, other: object) -> bool:
         return (
@@ -58,22 +55,17 @@ class ArithmeticDCTScan(pyjpeg.segment.Segment):
         spectral_selection: tuple[int, int] = (0, 63),
         point_transform: int = 0,
     ) -> None:
-        """Create a DCT scan.
-
-        Args:
-            data_units: The scan's data units, each 64 coefficients
-                in zigzag order, interleaved across components in
-                MCU order.
-            components: The scan's components.
-            spectral_selection: The `(Ss, Se)` band of coefficients
-                this scan covers.
-            point_transform: The point transform (Al) shift applied
-                before coding.
-        """
+        """Create a DCT scan."""
         self.data_units = data_units
+        """The scan's data units, each 64 coefficients in zigzag order,
+        interleaved across components in MCU order.
+        """
         self.components = components
+        """The scan's components."""
         self.spectral_selection = spectral_selection
+        """The `(Ss, Se)` band of coefficients this scan covers."""
         self.point_transform = point_transform
+        """The point transform (Al) shift applied before coding."""
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
         scan_writer = Writer(
@@ -206,13 +198,12 @@ class Writer:
 
         Args:
             writer: The underlying byte-oriented writer to write to.
-            spectral_selection: The `(Ss, Se)` band of coefficients to
-                write for each data unit.
-            point_transform: The point transform (Al) shift to apply.
         """
         self.writer = pyjpeg.arithmetic_scan.Writer(writer)
         self.spectral_selection = spectral_selection
+        """The `(Ss, Se)` band of coefficients to write for each data unit."""
         self.point_transform = point_transform
+        """The point transform (Al) shift to apply."""
 
         def make_states(count: int) -> list[pyjpeg.arithmetic.State]:
             return [pyjpeg.arithmetic.State() for _ in range(count)]
@@ -323,14 +314,12 @@ class Reader:
 
         Args:
             reader: The underlying byte-oriented reader to read from.
-            spectral_selection: The `(Ss, Se)` band of coefficients to
-                read for each data unit.
-            point_transform: The point transform (Al) shift that was
-                applied when coding.
         """
         self.reader = pyjpeg.arithmetic_scan.Reader(reader)
         self.spectral_selection = spectral_selection
+        """The `(Ss, Se)` band of coefficients to read for each data unit."""
         self.point_transform = point_transform
+        """The point transform (Al) shift that was applied when coding."""
 
         def make_states(count: int) -> list[pyjpeg.arithmetic.State]:
             return [pyjpeg.arithmetic.State() for _ in range(count)]

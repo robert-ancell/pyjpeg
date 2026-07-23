@@ -18,18 +18,6 @@ class ArithmeticConditioning:
         """Create an arithmetic conditioning entry.
 
         Prefer `dc` or `ac` over calling this directly.
-
-        Args:
-            table_class: 0 for a DC entry, 1 for an AC entry.
-            destination: Which of the four table slots (0-3) this
-                entry conditions.
-            value: The raw conditioning byte — for DC entries, the
-                lower and upper bounds packed as `upper << 4 | lower`;
-                for AC entries, the Kx parameter directly.
-
-        Raises:
-            ValueError: If `table_class`, `destination`, or `value` is
-                out of range.
         """
         if table_class < 0 or table_class > 3:
             raise ValueError("Table class must be between 0 and 3")
@@ -38,8 +26,14 @@ class ArithmeticConditioning:
         if value < 0 or value > 0xFFFF:
             raise ValueError("Value must be between 0 and 0xFFFF")
         self.table_class = table_class
+        """0 for a DC entry, 1 for an AC entry."""
         self.destination = destination
+        """Which of the four table slots (0-3) this entry conditions."""
         self.value = value
+        """The raw conditioning byte — for DC entries, the lower and upper
+        bounds packed as `upper << 4 | lower`; for AC entries, the Kx
+        parameter directly.
+        """
 
     @classmethod
     def dc(cls, destination: int, bounds: tuple[int, int]) -> "ArithmeticConditioning":
@@ -87,12 +81,9 @@ class DefineArithmeticConditioning(pyjpeg.segment.Segment):
     """
 
     def __init__(self, tables: list[ArithmeticConditioning]) -> None:
-        """Create a DAC segment.
-
-        Args:
-            tables: The conditioning entries this segment defines.
-        """
+        """Create a DAC segment."""
         self.tables = tables
+        """The conditioning entries this segment defines."""
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
         writer.write_marker(pyjpeg.marker.Marker.DAC)

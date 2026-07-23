@@ -17,18 +17,17 @@ class HuffmanDCTScanComponent:
         ac_table: list[list[int]],
         sampling_factor: tuple[int, int] = (1, 1),
     ):
-        """Create a DCT scan component.
-
-        Args:
-            dc_table: The component's DC Huffman table, in
-                `pyjpeg.dht.HuffmanTable`'s format.
-            ac_table: The component's AC Huffman table.
-            sampling_factor: The `(horizontal, vertical)` sampling
-                factor, matching `pyjpeg.sof.FrameComponent`.
-        """
+        """Create a DCT scan component."""
         self.dc_table = dc_table
+        """The component's DC Huffman table, in `pyjpeg.dht.HuffmanTable`'s
+        format.
+        """
         self.ac_table = ac_table
+        """The component's AC Huffman table."""
         self.sampling_factor = sampling_factor
+        """The `(horizontal, vertical)` sampling factor, matching
+        `pyjpeg.sof.FrameComponent`.
+        """
 
     def __eq__(self, other: object) -> bool:
         return (
@@ -58,28 +57,20 @@ class HuffmanDCTScan(pyjpeg.segment.Segment):
         spectral_selection: tuple[int, int] = (0, 63),
         point_transform: int = 0,
     ) -> None:
-        """Create a DCT scan.
-
-        Args:
-            data_units: The scan's data units, each 64 coefficients
-                in zigzag order, interleaved across components in
-                MCU order.
-            components: The scan's components.
-            spectral_selection: The `(Ss, Se)` band of coefficients
-                this scan covers.
-            point_transform: The point transform (Al) shift applied
-                before coding.
-
-        Raises:
-            ValueError: If `components` is empty.
-        """
+        """Create a DCT scan."""
         if len(components) == 0:
             raise ValueError("components must not be empty")
 
         self.data_units = data_units
+        """The scan's data units, each 64 coefficients in zigzag order,
+        interleaved across components in MCU order.
+        """
         self.components = components
+        """The scan's components."""
         self.spectral_selection = spectral_selection
+        """The `(Ss, Se)` band of coefficients this scan covers."""
         self.point_transform = point_transform
+        """The point transform (Al) shift applied before coding."""
 
     def write(
         self,
@@ -159,7 +150,6 @@ class HuffmanDCTScan(pyjpeg.segment.Segment):
                 when coding.
 
         Raises:
-            ValueError: If `components` is empty.
             ReadError: If more data units are encountered than
                 `number_of_data_units`.
         """
@@ -229,13 +219,12 @@ class Writer:
 
         Args:
             writer: The underlying byte-oriented writer to write to.
-            spectral_selection: The `(Ss, Se)` band of coefficients to
-                write for each data unit.
-            point_transform: The point transform (Al) shift to apply.
         """
         self.writer = pyjpeg.huffman_scan.Writer(writer)
         self.spectral_selection = spectral_selection
+        """The `(Ss, Se)` band of coefficients to write for each data unit."""
         self.point_transform = point_transform
+        """The point transform (Al) shift to apply."""
 
     def write_data_unit(
         self,
@@ -323,14 +312,12 @@ class Reader:
 
         Args:
             reader: The underlying byte-oriented reader to read from.
-            spectral_selection: The `(Ss, Se)` band of coefficients to
-                read for each data unit.
-            point_transform: The point transform (Al) shift that was
-                applied when coding.
         """
         self.reader = pyjpeg.huffman_scan.Reader(reader)
         self.spectral_selection = spectral_selection
+        """The `(Ss, Se)` band of coefficients to read for each data unit."""
         self.point_transform = point_transform
+        """The point transform (Al) shift that was applied when coding."""
 
     def read_data_unit(
         self,

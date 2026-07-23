@@ -11,13 +11,9 @@ class ArithmeticLosslessScanComponent:
     """A single component's arithmetic coding conditioning for a lossless scan."""
 
     def __init__(self, conditioning_bounds: tuple[int, int] = (0, 1)) -> None:
-        """Create a lossless scan component.
-
-        Args:
-            conditioning_bounds: The arithmetic conditioning
-                `(lower, upper)` bounds.
-        """
+        """Create a lossless scan component."""
         self.conditioning_bounds = conditioning_bounds
+        """The arithmetic conditioning `(lower, upper)` bounds."""
 
     def __eq__(self, other: object) -> bool:
         return (
@@ -46,29 +42,21 @@ class ArithmeticLosslessScan(pyjpeg.segment.Segment):
         precision: int = 8,
         predictor: int = 1,
     ) -> None:
-        """Create a lossless scan.
-
-        Args:
-            samples_per_line: The image width, in samples.
-            samples: The decoded samples, interleaved across
-                components, in raster order.
-            components: The scan's components.
-            precision: Bits per sample.
-            predictor: Which of the seven lossless predictors (1-7)
-                to use.
-        """
+        """Create a lossless scan."""
         self.samples_per_line = samples_per_line
+        """The image width, in samples."""
         self.samples = samples
+        """The decoded samples, interleaved across components, in raster
+        order.
+        """
         self.components = components
+        """The scan's components."""
         self.precision = precision
+        """Bits per sample."""
         self.predictor = predictor
+        """Which of the seven lossless predictors (1-7) to use."""
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
-        """Write this scan's entropy-coded data.
-
-        Args:
-            writer: The `pyjpeg.io.Writer` to write to.
-        """
         scan_writer = Writer(writer)
 
         previous_line = [0] * self.samples_per_line * len(self.components)

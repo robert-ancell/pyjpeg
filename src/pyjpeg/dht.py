@@ -20,17 +20,6 @@ class HuffmanTable:
         """Create a Huffman table.
 
         Prefer `dc` or `ac` over calling this directly.
-
-        Args:
-            table_class: 0 for a DC table, 1 for an AC table.
-            destination: Which of the four table slots (0-3) this
-                table occupies.
-            table: Symbols grouped by code length, one list per length
-                from 1 to 16 bits. Must have exactly 16 entries.
-
-        Raises:
-            ValueError: If `table_class` or `destination` is out of
-                range, or if `table` does not have 16 entries.
         """
         if table_class < 0 or table_class > 3:
             raise ValueError("Table class must be between 0 and 3")
@@ -39,9 +28,14 @@ class HuffmanTable:
         if len(table) != 16:
             raise ValueError("Table must have 16 entries")
         self.table_class = table_class
+        """0 for a DC table, 1 for an AC table."""
         self.destination = destination
+        """Which of the four table slots (0-3) this table occupies."""
         # FIXME: Rename to symbols_by_length
         self.table = table
+        """Symbols grouped by code length, one list per length from 1 to 16
+        bits. Must have exactly 16 entries.
+        """
 
     @classmethod
     def dc(cls, destination: int, table: list[list[int]]) -> "HuffmanTable":
@@ -88,12 +82,9 @@ class DefineHuffmanTables(pyjpeg.segment.Segment):
     """
 
     def __init__(self, tables: list[HuffmanTable]) -> None:
-        """Create a DHT segment.
-
-        Args:
-            tables: The Huffman tables this segment defines.
-        """
+        """Create a DHT segment."""
         self.tables = tables
+        """The Huffman tables this segment defines."""
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
         writer.write_marker(pyjpeg.marker.Marker.DHT)

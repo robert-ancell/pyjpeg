@@ -19,12 +19,9 @@ class Writer:
     """
 
     def __init__(self, writer: pyjpeg.io.Writer) -> None:
-        """Create a bit writer.
-
-        Args:
-            writer: The underlying byte-oriented writer to write to.
-        """
+        """Create a bit writer."""
         self.writer = writer
+        """The underlying byte-oriented writer to write to."""
         self.data = 0
         self.bit_count = 0
 
@@ -75,12 +72,9 @@ class Reader:
     """
 
     def __init__(self, reader: pyjpeg.io.Reader) -> None:
-        """Create a bit reader.
-
-        Args:
-            reader: The underlying byte-oriented reader to read from.
-        """
+        """Create a bit reader."""
         self.reader = reader
+        """The underlying byte-oriented reader to read from."""
         self.data = 0
         self.bit_count = 0
 

@@ -13,10 +13,15 @@ class Classification:
     """DC context classification categories, used to select the DC conditioning context."""
 
     ZERO = 0
+    """The previous DC difference was zero."""
     SMALL_POSITIVE = 1
+    """The previous DC difference was small and positive."""
     SMALL_NEGATIVE = 2
+    """The previous DC difference was small and negative."""
     LARGE_POSITIVE = 3
+    """The previous DC difference was large and positive."""
     LARGE_NEGATIVE = 4
+    """The previous DC difference was large and negative."""
 
 
 def classify_dc(conditioning_bounds: tuple[int, int], value: int) -> int:
@@ -130,9 +135,6 @@ class Writer:
             sn_sp_x1: State for whether the magnitude is 1 or 2.
             xstates: States for encoding the magnitude's bit width.
             mstates: States for encoding the magnitude's low bits.
-
-        Raises:
-            ValueError: If `ac` is zero.
         """
         if ac == 0:
             raise ValueError("ac coefficient must not be 0")

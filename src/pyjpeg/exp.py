@@ -14,16 +14,15 @@ class ExpandReferenceComponents(pyjpeg.segment.Segment):
     """
 
     def __init__(self, expand_horizontal: bool, expand_vertical: bool) -> None:
-        """Create an EXP segment.
-
-        Args:
-            expand_horizontal: Whether to double the horizontal
-                resolution of the reference components.
-            expand_vertical: Whether to double the vertical resolution
-                of the reference components.
-        """
+        """Create an EXP segment."""
         self.expand_horizontal = expand_horizontal
+        """Whether to double the horizontal resolution of the reference
+        components.
+        """
         self.expand_vertical = expand_vertical
+        """Whether to double the vertical resolution of the reference
+        components.
+        """
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
         writer.write_marker(pyjpeg.marker.Marker.EXP)

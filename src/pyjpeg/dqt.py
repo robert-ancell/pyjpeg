@@ -14,24 +14,17 @@ class QuantizationTable:
     def __init__(
         self, destination: int, values: list[int], precision: int = 8
     ) -> None:
-        """Create a quantization table.
-
-        Args:
-            destination: Which of the four table slots (0-3) this
-                table occupies.
-            values: The 64 quantization values, in zigzag order.
-            precision: Bits per value, either 8 or 16.
-
-        Raises:
-            ValueError: If `destination` is out of range.
-        """
+        """Create a quantization table."""
         if destination < 0 or destination > 3:
             raise ValueError("Destination must be between 0 and 3")
         if precision not in (8, 16):
             raise ValueError("Precision must be 8 or 16")
         self.destination = destination
+        """Which of the four table slots (0-3) this table occupies."""
         self.precision = precision
+        """Bits per value, either 8 or 16."""
         self.values = values
+        """The 64 quantization values, in zigzag order."""
 
     def __eq__(self, other: object) -> bool:
         return (
@@ -53,12 +46,9 @@ class DefineQuantizationTables(pyjpeg.segment.Segment):
     """
 
     def __init__(self, tables: list[QuantizationTable]) -> None:
-        """Create a DQT segment.
-
-        Args:
-            tables: The quantization tables this segment defines.
-        """
+        """Create a DQT segment."""
         self.tables = tables
+        """The quantization tables this segment defines."""
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
         writer.write_marker(pyjpeg.marker.Marker.DQT)
