@@ -56,6 +56,8 @@ class ArithmeticDCTScan(pyjpeg.segment.Segment):
         point_transform: int = 0,
     ) -> None:
         """Create a DCT scan."""
+        if len(components) == 0:
+            raise ValueError("components must not be empty")
         self.data_units = data_units
         """The scan's data units, each 64 coefficients in zigzag order,
         interleaved across components in MCU order.
@@ -129,6 +131,9 @@ class ArithmeticDCTScan(pyjpeg.segment.Segment):
             ReadError: If more data units are encountered than
                 `number_of_data_units`.
         """
+        if len(components) == 0:
+            raise ValueError("components must not be empty")
+
         scan_reader = Reader(
             reader,
             spectral_selection=spectral_selection,

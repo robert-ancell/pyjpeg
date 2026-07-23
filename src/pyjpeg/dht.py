@@ -30,7 +30,7 @@ class HuffmanTable:
 
         Prefer `dc` or `ac` over calling this directly.
         """
-        if table_class not in [HuffmanTableClass.DC, HuffmanTableClass.AC]:
+        if table_class not in (HuffmanTableClass.DC, HuffmanTableClass.AC):
             raise ValueError("Invalid table class")
         if destination < 0 or destination > 3:
             raise ValueError("Destination must be between 0 and 3")
@@ -134,7 +134,7 @@ class DefineHuffmanTables(pyjpeg.segment.Segment):
         while offset < length:
             table_class_and_destination = reader.read_u8()
             table_class = table_class_and_destination >> 4
-            if table_class not in [HuffmanTableClass.DC, HuffmanTableClass.AC]:
+            if table_class not in (HuffmanTableClass.DC, HuffmanTableClass.AC):
                 raise ValueError("Invalid table class")
             destination = table_class_and_destination & 0x0F
             table = []

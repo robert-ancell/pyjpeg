@@ -43,6 +43,8 @@ class ArithmeticLosslessScan(pyjpeg.segment.Segment):
         predictor: int = 1,
     ) -> None:
         """Create a lossless scan."""
+        if predictor < 1 or predictor > 7:
+            raise ValueError("Invalid predictor")
         self.samples_per_line = samples_per_line
         """The image width, in samples."""
         self.samples = samples

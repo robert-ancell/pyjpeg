@@ -59,6 +59,10 @@ class FrameComponent:
 
         Prefer `dct`, `lossless`, or `ls` over calling this directly.
         """
+        if id < 0 or id > 255:
+            raise ValueError("Invalid component id")
+        if quantization_table_index < 0 or quantization_table_index > 255:
+            raise ValueError("Invalid quantization table index")
         self.id = id
         """The component identifier, referenced by scan components
         (`ScanComponent.component_selector`).
@@ -147,6 +151,30 @@ class StartOfFrame(pyjpeg.segment.Segment):
         Prefer `baseline`, `extended`, `progressive`, `lossless`, or
         `ls` over calling this directly.
         """
+        if n not in (
+            FrameType.BASELINE,
+            FrameType.EXTENDED_HUFFMAN,
+            FrameType.PROGRESSIVE_HUFFMAN,
+            FrameType.LOSSLESS_HUFFMAN,
+            FrameType.DIFFERENTIAL_SEQUENTIAL_HUFFMAN,
+            FrameType.DIFFERENTIAL_PROGRESSIVE_HUFFMAN,
+            FrameType.DIFFERENTIAL_LOSSLESS_HUFFMAN,
+            FrameType.EXTENDED_ARITHMETIC,
+            FrameType.PROGRESSIVE_ARITHMETIC,
+            FrameType.LOSSLESS_ARITHMETIC,
+            FrameType.DIFFERENTIAL_SEQUENTIAL_ARITHMETIC,
+            FrameType.DIFFERENTIAL_PROGRESSIVE_ARITHMETIC,
+            FrameType.DIFFERENTIAL_LOSSLESS_ARITHMETIC,
+            FrameType.DEFINE_HIERARCHICAL_PROGRESSION,
+            FrameType.LS,
+        ):
+            raise ValueError("Invalid frame type")
+        if precision < 0 or precision > 255:
+            raise ValueError("Invalid precision")
+        if number_of_lines < 0 or number_of_lines > 65535:
+            raise ValueError("Invalid number of lines")
+        if samples_per_line < 0 or samples_per_line > 65535:
+            raise ValueError("Invalid samples per line")
         self.n = n
         """The frame type; see `FrameType`."""
         self.precision = precision

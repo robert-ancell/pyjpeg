@@ -198,6 +198,8 @@ class JfifDensity:
 
     def __init__(self, unit: int = 0, x: int = 0, y: int = 0) -> None:
         """Create a density value."""
+        if unit < JfifDensityUnit.ASPECT_RATIO or unit > JfifDensityUnit.DPCM:
+            raise ValueError("Invalid density unit")
         self.unit = unit
         """The density unit; see `JfifDensityUnit`."""
         self.x = x
@@ -458,6 +460,21 @@ class SpiffHeader(ApplicationSpecificData):
         horizontal_resolution: int = 1,
     ) -> None:
         """Create a SPIFF header."""
+        if (
+            profile < SpiffProfile.NONE
+            or profile > SpiffProfile.CONTINUOUS_TONE_FACSIMILE
+        ):
+            raise ValueError("Invalid SPIFF profile")
+        if (
+            color_space < SpiffColorSpace.BI_LEVEL_BLACK
+            or color_space > SpiffColorSpace.BI_LEVEL_WHITE
+        ):
+            raise ValueError("Invalid SPIFF color space")
+        if (
+            compression_type < SpiffCompressionType.UNCOMPRESSED
+            or compression_type > SpiffCompressionType.JPEG
+        ):
+            raise ValueError("Invalid SPIFF compression type")
         super().__init__(8)
         self.version = version
         """The SPIFF `(major, minor)` version."""
