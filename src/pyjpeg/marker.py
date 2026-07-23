@@ -106,19 +106,19 @@ class Marker:
     APP15 = 0xEF
     """Application-specific data, segment 15. See `pyjpeg.app.ApplicationSpecificData`."""
     VER = 0xF0
-    """Reserved marker."""
+    """Version."""
     DTI = 0xF1
-    """Reserved marker."""
+    """Define tiled image."""
     DTT = 0xF2
-    """Reserved marker."""
+    """Define tile."""
     SRF = 0xF3
-    """Reserved marker."""
+    """Selectively refined frame."""
     SRS = 0xF4
-    """Reserved marker."""
+    """Selectively refined scan."""
     DCR = 0xF5
-    """Reserved marker."""
+    """Define component registration."""
     DQS = 0xF6
-    """Reserved marker."""
+    """Define quantizater scale selection."""
     SOF55 = 0xF7
     """JPEG-LS Start Of Frame. See `pyjpeg.sof.FrameType.LS`."""
     LSE = 0xF8
