@@ -346,7 +346,6 @@ class StartOfFrame(pyjpeg.segment.Segment):
             pyjpeg.marker.Marker.SOF14,
             pyjpeg.marker.Marker.SOF15,
             pyjpeg.marker.Marker.SOF55,
-            pyjpeg.marker.Marker.SOF57,
         ):
             raise pyjpeg.io.MarkerError("Invalid SOF marker")
         n = marker - pyjpeg.marker.Marker.SOF0

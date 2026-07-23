@@ -123,9 +123,5 @@ class Marker:
     """JPEG-LS Start Of Frame. See `pyjpeg.sof.FrameType.LS`."""
     LSE = 0xF8
     """JPEG-LS preset parameters. See `pyjpeg.lse.LSPresetParameters`."""
-    SOF57 = 0xF9
-    """Reserved marker; not associated with a defined coding process in
-    this codebase (`pyjpeg.sof.FrameType` has no matching constant).
-    See the note on `pyjpeg.sof.StartOfFrame.read`."""
     COM = 0xFE
     """Comment. See `pyjpeg.com.Comment`."""
