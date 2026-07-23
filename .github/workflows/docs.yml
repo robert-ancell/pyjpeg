@@ -38,7 +38,7 @@ jobs:
           pip install pdoc
 
       - name: Build API docs
-        run: pdoc --output-directory site src/pyjpeg
+        run: pdoc --docformat google --output-directory site src/pyjpeg
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
