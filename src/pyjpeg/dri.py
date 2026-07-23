@@ -16,8 +16,8 @@ class DefineRestartInterval(pyjpeg.segment.Segment):
 
     def __init__(self, restart_interval: int, number_of_bytes: int = 2) -> None:
         """Create a DRI segment."""
-        if number_of_bytes < 1 or number_of_bytes > 4:
-            raise ValueError("Number of bytes must be between 1 and 4")
+        if number_of_bytes < 2 or number_of_bytes > 4:
+            raise ValueError("Number of bytes must be between 2 and 4")
         max_restart_interval = 2 ** (8 * number_of_bytes) - 1
         if restart_interval < 0 or restart_interval > max_restart_interval:
             raise ValueError(
@@ -28,7 +28,7 @@ class DefineRestartInterval(pyjpeg.segment.Segment):
         representable in `number_of_bytes` bytes.
         """
         self.number_of_bytes = number_of_bytes
-        """The number of bytes used to store `restart_interval`, between 1
+        """The number of bytes used to store `restart_interval`, between 2
         and 4.
         """
 
