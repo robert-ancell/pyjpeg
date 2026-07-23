@@ -163,7 +163,7 @@ class Stream:
                 dht = pyjpeg.dht.DefineHuffmanTables.read(reader)
                 segments.append(dht)
                 for huffman_table in dht.tables:
-                    if huffman_table.table_class == 0:
+                    if huffman_table.table_class == pyjpeg.dht.HuffmanTableClass.DC:
                         dc_huffman_tables[huffman_table.destination] = (
                             huffman_table.table
                         )

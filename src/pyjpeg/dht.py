@@ -5,6 +5,15 @@ import pyjpeg.marker
 import pyjpeg.segment
 
 
+class HuffmanTableClass:
+    """Huffman table class constants."""
+
+    DC = 0
+    """DC table class."""
+    AC = 1
+    """AC table class."""
+
+
 class HuffmanTable:
     """A single Huffman table, for either DC or AC coefficients.
 
@@ -21,8 +30,8 @@ class HuffmanTable:
 
         Prefer `dc` or `ac` over calling this directly.
         """
-        if table_class < 0 or table_class > 3:
-            raise ValueError("Table class must be between 0 and 3")
+        if table_class not in [HuffmanTableClass.DC, HuffmanTableClass.AC]:
+            raise ValueError("Invalid table class")
         if destination < 0 or destination > 3:
             raise ValueError("Destination must be between 0 and 3")
         if len(table) != 16:
@@ -46,7 +55,7 @@ class HuffmanTable:
                 table occupies.
             table: Symbols grouped by code length; see `HuffmanTable`.
         """
-        return cls(0, destination, table)
+        return cls(HuffmanTableClass.DC, destination, table)
 
     @classmethod
     def ac(cls, destination: int, table: list[list[int]]) -> "HuffmanTable":
@@ -57,7 +66,7 @@ class HuffmanTable:
                 table occupies.
             table: Symbols grouped by code length; see `HuffmanTable`.
         """
-        return cls(1, destination, table)
+        return cls(HuffmanTableClass.AC, destination, table)
 
     def __eq__(self, other: object) -> bool:
         return (
@@ -125,6 +134,8 @@ class DefineHuffmanTables(pyjpeg.segment.Segment):
         while offset < length:
             table_class_and_destination = reader.read_u8()
             table_class = table_class_and_destination >> 4
+            if table_class not in [HuffmanTableClass.DC, HuffmanTableClass.AC]:
+                raise ValueError("Invalid table class")
             destination = table_class_and_destination & 0x0F
             table = []
             lengths = []

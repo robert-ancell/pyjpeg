@@ -131,7 +131,10 @@ for segment in stream.segments:
             print(
                 " %s Table %d:"
                 % (
-                    {0: "DC", 1: "AC"}[huffman_table.table_class],
+                    {
+                        pyjpeg.HuffmanTableClass.DC: "DC",
+                        pyjpeg.HuffmanTableClass.AC: "AC",
+                    }[huffman_table.table_class],
                     huffman_table.destination,
                 )
             )
@@ -147,7 +150,10 @@ for segment in stream.segments:
             print(
                 " %s Table %d: %s"
                 % (
-                    {0: "DC", 1: "AC"}[conditioning.table_class],
+                    {
+                        pyjpeg.ArithmeticConditioningTableClass.DC: "DC",
+                        pyjpeg.ArithmeticConditioningTableClass.AC: "AC",
+                    }[conditioning.table_class],
                     conditioning.destination,
                     repr(conditioning.value),
                 )

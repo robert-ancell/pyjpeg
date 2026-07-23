@@ -23,9 +23,13 @@ from pyjpeg.arithmetic_lossless_scan import (
     ArithmeticLosslessScanComponent,
 )
 from pyjpeg.com import Comment
-from pyjpeg.dac import ArithmeticConditioning, DefineArithmeticConditioning
+from pyjpeg.dac import (
+    ArithmeticConditioning,
+    ArithmeticConditioningTableClass,
+    DefineArithmeticConditioning,
+)
 from pyjpeg.dct import fdct, idct, unzig_zag, zig_zag
-from pyjpeg.dht import DefineHuffmanTables, HuffmanTable
+from pyjpeg.dht import DefineHuffmanTables, HuffmanTable, HuffmanTableClass
 from pyjpeg.dnl import DefineNumberOfLines
 from pyjpeg.dqt import DefineQuantizationTables, QuantizationTable
 from pyjpeg.dri import DefineRestartInterval
@@ -82,6 +86,7 @@ __all__ = [
     "AdobeHeader",
     "ApplicationSpecificData",
     "ArithmeticConditioning",
+    "ArithmeticConditioningTableClass",
     "ArithmeticDCTACSuccessiveScan",
     "ArithmeticDCTDCSuccessiveScan",
     "ArithmeticDCTScan",
@@ -111,6 +116,7 @@ __all__ = [
     "HuffmanLosslessScan",
     "HuffmanLosslessScanComponent",
     "HuffmanTable",
+    "HuffmanTableClass",
     "Image",
     "JfifDensity",
     "JfifDensityUnit",

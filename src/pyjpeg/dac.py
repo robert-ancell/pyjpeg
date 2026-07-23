@@ -5,6 +5,15 @@ import pyjpeg.marker
 import pyjpeg.segment
 
 
+class ArithmeticConditioningTableClass:
+    """Arithmetic table class constants."""
+
+    DC = 0
+    """DC table class."""
+    AC = 1
+    """AC table class."""
+
+
 class ArithmeticConditioning:
     """A single arithmetic coding conditioning entry, for DC or AC coefficients.
 
@@ -19,8 +28,11 @@ class ArithmeticConditioning:
 
         Prefer `dc` or `ac` over calling this directly.
         """
-        if table_class < 0 or table_class > 3:
-            raise ValueError("Table class must be between 0 and 3")
+        if table_class not in [
+            ArithmeticConditioningTableClass.DC,
+            ArithmeticConditioningTableClass.AC,
+        ]:
+            raise ValueError("Invalid table class")
         if destination < 0 or destination > 3:
             raise ValueError("Destination must be between 0 and 3")
         if value < 0 or value > 0xFFFF:
@@ -44,7 +56,9 @@ class ArithmeticConditioning:
                 entry conditions.
             bounds: The `(lower, upper)` conditioning bounds.
         """
-        return cls(0, destination, bounds[1] << 4 | bounds[0])
+        return cls(
+            ArithmeticConditioningTableClass.DC, destination, bounds[1] << 4 | bounds[0]
+        )
 
     @classmethod
     def ac(cls, destination: int, kx: int) -> "ArithmeticConditioning":
@@ -55,7 +69,7 @@ class ArithmeticConditioning:
                 entry conditions.
             kx: The Kx conditioning parameter.
         """
-        return cls(1, destination, kx)
+        return cls(ArithmeticConditioningTableClass.AC, destination, kx)
 
     def __eq__(self, other: object) -> bool:
         return (
@@ -115,6 +129,11 @@ class DefineArithmeticConditioning(pyjpeg.segment.Segment):
         for _ in range(n_tables):
             table_class_and_destination = reader.read_u8()
             table_class = table_class_and_destination >> 4
+            if table_class not in [
+                ArithmeticConditioningTableClass.DC,
+                ArithmeticConditioningTableClass.AC,
+            ]:
+                raise ValueError("Invalid table class")
             destination = table_class_and_destination & 0x0F
             value = reader.read_u8()
             tables.append(ArithmeticConditioning(table_class, destination, value))

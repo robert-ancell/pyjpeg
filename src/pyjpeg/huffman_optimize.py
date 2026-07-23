@@ -48,7 +48,7 @@ def optimize(segments: list[pyjpeg.segment.Segment]) -> list[pyjpeg.segment.Segm
     for segment in segments:
         if isinstance(segment, pyjpeg.dht.DefineHuffmanTables):
             for table in segment.tables:
-                if table.table_class == 0:
+                if table.table_class == pyjpeg.dht.HuffmanTableClass.DC:
                     dc_huffman_table_indexes[table.destination] = len(
                         symbol_frequencies
                     )
@@ -104,7 +104,7 @@ def optimize(segments: list[pyjpeg.segment.Segment]) -> list[pyjpeg.segment.Segm
                     symbol_frequencies[table_index]
                 )
                 table_index += 1
-                if table.table_class == 0:
+                if table.table_class == pyjpeg.dht.HuffmanTableClass.DC:
                     dc_huffman_tables[table.destination] = table.table
                 else:
                     ac_huffman_tables[table.destination] = table.table
