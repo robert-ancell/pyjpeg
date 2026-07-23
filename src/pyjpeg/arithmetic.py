@@ -1,5 +1,3 @@
-import pyjpeg.io
-
 """MQ-coder binary arithmetic coding, as used by JPEG's arithmetic coding mode.
 
 Implements the adaptive binary arithmetic coder defined in ISO/IEC
@@ -7,6 +5,8 @@ Implements the adaptive binary arithmetic coder defined in ISO/IEC
 of binary decisions, each conditioned on a `State` (probability
 estimate) that adapts as symbols are coded.
 """
+
+import pyjpeg.io
 
 # State machine as defined in ISO/IEC 10918-1 Table D.3
 # Contains (Qe, next_lps, next_mps, switch_mps)
@@ -148,12 +148,9 @@ class Writer:
     """
 
     def __init__(self, writer: pyjpeg.io.Writer) -> None:
-        """Create an arithmetic encoder.
-
-        Args:
-            writer: The underlying byte-oriented writer to write to.
-        """
+        """Create an arithmetic encoder."""
         self.writer = writer
+        """The underlying byte-oriented writer to write to."""
         self.a = 0x10000
         self.c = 0
         self.ct = 11
@@ -293,12 +290,9 @@ class Reader:
     """
 
     def __init__(self, reader: pyjpeg.io.Reader) -> None:
-        """Create an arithmetic decoder, priming it from `reader`.
-
-        Args:
-            reader: The underlying byte-oriented reader to read from.
-        """
+        """Create an arithmetic decoder, priming it from `reader`."""
         self.reader = reader
+        """The underlying byte-oriented reader to read from."""
         self.d = 0
         self.ct = 0
         self.a = 0
