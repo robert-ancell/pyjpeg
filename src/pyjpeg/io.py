@@ -7,25 +7,21 @@ of a small set of primitive byte operations, plus in-memory
 (`FileReader`/`FileWriter`) implementations of those primitives.
 """
 
+from __future__ import annotations
+
 from typing import BinaryIO
 
 
 class ReadError(Exception):
     """Base exception for errors encountered while reading JPEG data."""
 
-    pass
-
 
 class LengthError(ReadError):
     """Raised when a segment or field's declared length is invalid."""
 
-    pass
-
 
 class MarkerError(ReadError):
     """Raised when an expected JPEG marker is missing or malformed."""
-
-    pass
 
 
 class Writer:

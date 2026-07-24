@@ -172,7 +172,7 @@ class Image:
                     precision=sof.precision,
                 )
 
-        raise Exception("Missing end of image")
+        raise pyjpeg.io.ReadError("Missing end of image")
 
     def write(self, writer: pyjpeg.io.Writer) -> None:
         """Encode this image as a baseline DCT JPEG.

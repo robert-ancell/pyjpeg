@@ -51,7 +51,7 @@ def test_arithmetic():
     def to_hex(data: bytearray) -> str:
         s = ""
         for b in data:
-            s += "%02X" % b
+            s += f"{b:02X}"
         return s
 
     assert (

@@ -8,6 +8,8 @@ while newly-becoming-non-zero coefficients and end-of-band positions
 are arithmetic-coded using per-position state.
 """
 
+from __future__ import annotations
+
 import pyjpeg.arithmetic
 import pyjpeg.dct
 import pyjpeg.io
@@ -105,7 +107,7 @@ class ArithmeticDCTACSuccessiveScan(pyjpeg.segment.Segment):
         approximate_data_units: list[list[int]],
         spectral_selection: tuple[int, int] = (1, 63),
         point_transform: int = 0,
-    ) -> "ArithmeticDCTACSuccessiveScan":
+    ) -> ArithmeticDCTACSuccessiveScan:
         """Read an AC successive approximation scan, refining existing data units.
 
         Args:

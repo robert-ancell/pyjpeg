@@ -1,5 +1,7 @@
 """Huffman-coded lossless scan data."""
 
+from __future__ import annotations
+
 import pyjpeg.huffman
 import pyjpeg.huffman_scan
 import pyjpeg.io
@@ -118,7 +120,7 @@ class HuffmanLosslessScan(pyjpeg.segment.Segment):
         components: list[HuffmanLosslessScanComponent],
         precision: int = 8,
         predictor: int = 1,
-    ) -> "HuffmanLosslessScan":
+    ) -> HuffmanLosslessScan:
         """Read a lossless scan's entropy-coded data.
 
         Note: the returned scan's `precision` is always the default

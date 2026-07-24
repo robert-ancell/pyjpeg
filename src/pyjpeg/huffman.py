@@ -6,6 +6,8 @@ optimal Huffman code table from symbol frequencies, plus an
 read from a DHT segment) to encode and decode symbols.
 """
 
+from __future__ import annotations
+
 import pyjpeg.io
 import pyjpeg.scan
 
@@ -124,11 +126,11 @@ class Encoder:
             symbol: The symbol to encode.
 
         Raises:
-            Exception: If `symbol` has no code in this table.
+            ValueError: If `symbol` has no code in this table.
         """
         code = self.codes.get(symbol)
         if code is None:
-            raise Exception("Unknown Huffman symbol")
+            raise ValueError("Unknown Huffman symbol")
         writer.write_bits(code)
 
 
@@ -198,7 +200,7 @@ class Decoder:
             reader: The `pyjpeg.scan.Reader` to read from.
 
         Raises:
-            Exception: If the bits read don't match any code in this
+            pyjpeg.io.ReadError: If the bits read don't match any code in this
                 table.
         """
         node = self.symbol_tree
@@ -206,7 +208,7 @@ class Decoder:
             bit = reader.read_bit()
             next_node = node.children[bit]
             if next_node is None:
-                raise Exception("Unknown Huffman Code")
+                raise pyjpeg.io.ReadError("Unknown Huffman Code")
             elif next_node.symbol is not None:
                 return next_node.symbol
             else:

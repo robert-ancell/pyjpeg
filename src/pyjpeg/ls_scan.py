@@ -173,10 +173,8 @@ class CodingParameters:
         if sample > self.maxval + self.difference_bound:
             sample -= self.range * delta
 
-        if sample > self.maxval:
-            sample = self.maxval
-        if sample < 0:
-            sample = 0
+        sample = min(sample, self.maxval)
+        sample = max(sample, 0)
 
         return sample
 
@@ -209,19 +207,14 @@ class LSScan(pyjpeg.segment.Segment):
             LSInterleaveMode.SAMPLE,
         ]:
             raise ValueError("Invalid interleave mode")
-        if interleave_mode == LSInterleaveMode.NONE:
-            if len(components) != 1:
-                raise ValueError("Expected 1 component for NONE interleave mode")
-        elif interleave_mode == LSInterleaveMode.LINE:
-            if len(components) <= 1:
-                raise ValueError(
-                    "Expected at least 2 components for LINE interleave mode"
-                )
-        elif interleave_mode == LSInterleaveMode.SAMPLE:
-            if len(components) <= 1:
-                raise ValueError(
-                    "Expected at least 2 components for SAMPLE interleave mode"
-                )
+        if interleave_mode == LSInterleaveMode.NONE and len(components) != 1:
+            raise ValueError("Expected 1 component for NONE interleave mode")
+        elif interleave_mode == LSInterleaveMode.LINE and len(components) <= 1:
+            raise ValueError("Expected at least 2 components for LINE interleave mode")
+        elif interleave_mode == LSInterleaveMode.SAMPLE and len(components) <= 1:
+            raise ValueError(
+                "Expected at least 2 components for SAMPLE interleave mode"
+            )
         self.width = width
         """The image width, in samples."""
         self.samples = samples
@@ -548,8 +541,7 @@ class RegularContext:
                 self.prediction_correction -= 1
         elif self.bias > 0:
             self.bias -= self.frequency_of_occurence
-            if self.bias > 0:
-                self.bias = 0
+            self.bias = min(self.bias, 0)
             if self.prediction_correction < MAX_CORRECTION:
                 self.prediction_correction += 1
 
@@ -1001,10 +993,7 @@ class Writer(Codec):
         """
         for component_index, sample in enumerate(run_sample):
             if (
-                abs(
-                    self.samples[sample_index + component_index]
-                    - run_sample[component_index]
-                )
+                abs(self.samples[sample_index + component_index] - sample)
                 > self.parameters.difference_bound
             ):
                 return False
@@ -1239,6 +1228,7 @@ def _generate_gradient_thresholds(
     Returns:
         The resolved `(T1, T2, T3)` thresholds.
     """
+
     def clamp(i: int, j: int) -> int:
         if i > maxval or i < j:
             return j

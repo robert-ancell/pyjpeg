@@ -79,6 +79,10 @@ class Writer:
             self.write_bit(0)
 
 
+class ReadError(Exception):
+    pass
+
+
 class Reader:
     """Reads Golomb-Rice coded values, bit at a time."""
 
@@ -97,12 +101,12 @@ class Reader:
         """Read and return a single bit (0 or 1).
 
         Raises:
-            Exception: If a marker is encountered in the data.
+            ReadError: If a marker is encountered in the data.
         """
         if self.bit_count == 0:
             if self.reader.peek_u8() == 0xFF:
                 if (self.reader.peek_u8(1) & 0x80) != 0:
-                    raise Exception("End of stream")
+                    raise ReadError("End of stream")
                 self.data = self.reader.read_u8() << 7 | self.reader.read_u8()
                 self.bit_count = 15
             else:
@@ -122,13 +126,13 @@ class Reader:
                 escape sequence is used.
 
         Raises:
-            Exception: If the unary prefix exceeds `limit`.
+            ReadError: If the unary prefix exceeds `limit`.
         """
         value = 0
         while self.read_bit() == 0:
             value += 1
         if value > limit:
-            raise Exception(f"Golomb value exceeds limit of {limit}")
+            raise ReadError(f"Golomb value exceeds limit of {limit}")
         if value == limit:
             v = 0
             for _ in range(self.qbpp):

@@ -7,6 +7,8 @@ carrying forward the frame- and table-level state each segment type
 needs to interpret the segments that follow it.
 """
 
+from __future__ import annotations
+
 import pyjpeg.app
 import pyjpeg.arithmetic_dct_scan
 import pyjpeg.arithmetic_lossless_scan
@@ -57,7 +59,7 @@ class Stream:
     # FIXME: Use empty Huffman tables instead of None
     # FIXME: Use list for tables instead of object
     @classmethod
-    def read(cls, reader: pyjpeg.io.Reader) -> "Stream":
+    def read(cls, reader: pyjpeg.io.Reader) -> Stream:
         """Parse a complete JPEG bitstream into a `Stream`.
 
         Args:
@@ -244,7 +246,7 @@ class Stream:
             elif marker == Marker.COM:
                 segments.append(pyjpeg.com.Comment.read(reader))
             else:
-                raise Exception("Unknown marker %02x" % marker)
+                raise pyjpeg.io.ReadError(f"Unknown marker {marker:02x}")
 
 
 def _size_in_dct_minimum_coded_units(sof: pyjpeg.sof.StartOfFrame) -> tuple[int, int]:
@@ -308,13 +310,15 @@ def _parse_arithmetic_dct_scan(
     sof: pyjpeg.sof.StartOfFrame,
     dri: pyjpeg.dri.DefineRestartInterval | None,
     sos: pyjpeg.sos.StartOfScan,
-    dc_arithmetic_conditioning_bounds: list[tuple[int, int]] = [
+    dc_arithmetic_conditioning_bounds: tuple[
+        tuple[int, int], tuple[int, int], tuple[int, int], tuple[int, int]
+    ] = (
         (0, 1),
         (0, 1),
         (0, 1),
         (0, 1),
-    ],
-    ac_arithmetic_kx: list[int] = [5, 5, 5, 5],
+    ),
+    ac_arithmetic_kx: tuple[int, int, int, int] = (5, 5, 5, 5),
 ) -> pyjpeg.arithmetic_dct_scan.ArithmeticDCTScan:
     components = []
     mcu_size = 0
@@ -384,12 +388,14 @@ def _parse_arithmetic_lossless_scan(
     sof: pyjpeg.sof.StartOfFrame,
     dri: pyjpeg.dri.DefineRestartInterval | None,
     sos: pyjpeg.sos.StartOfScan,
-    dc_arithmetic_conditioning_bounds: list[tuple[int, int]] = [
+    dc_arithmetic_conditioning_bounds: tuple[
+        tuple[int, int], tuple[int, int], tuple[int, int], tuple[int, int]
+    ] = (
         (0, 1),
         (0, 1),
         (0, 1),
         (0, 1),
-    ],
+    ),
 ) -> pyjpeg.arithmetic_lossless_scan.ArithmeticLosslessScan:
     components = []
     for component in sos.components:

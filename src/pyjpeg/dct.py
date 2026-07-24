@@ -250,8 +250,8 @@ def order_mcu_dct_data_units(
     mcu_data_units = []
     for mcu_y in range(0, height // 8, sampling_factor[1]):
         for mcu_x in range(0, width // 8, sampling_factor[0]):
-            for du_y in range(0, sampling_factor[1]):
-                for du_x in range(0, sampling_factor[0]):
+            for du_y in range(sampling_factor[1]):
+                for du_x in range(sampling_factor[0]):
                     i = (mcu_y + du_y) * (width // 8) + mcu_x + du_x
                     mcu_data_units.append(data_units[i])
     return mcu_data_units

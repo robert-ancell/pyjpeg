@@ -9,11 +9,12 @@ coefficients are Huffman-coded as usual — interleaved together
 according to the algorithm in ISO/IEC 10918-1 section G.1.2.3.
 """
 
+from __future__ import annotations
+
 import pyjpeg.dct
 import pyjpeg.huffman
 import pyjpeg.huffman_scan
 import pyjpeg.io
-import pyjpeg.scan
 import pyjpeg.segment
 
 
@@ -136,7 +137,7 @@ class HuffmanDCTACSuccessiveScan(pyjpeg.segment.Segment):
         table: list[list[int]],
         spectral_selection: tuple[int, int] = (1, 63),
         point_transform: int = 0,
-    ) -> "HuffmanDCTACSuccessiveScan":
+    ) -> HuffmanDCTACSuccessiveScan:
         """Read an AC successive approximation scan, refining existing data units.
 
         Args:

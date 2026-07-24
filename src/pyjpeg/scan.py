@@ -63,6 +63,10 @@ class Writer:
             self.write_bit(pad_bit)
 
 
+class ReadError(Exception):
+    pass
+
+
 class Reader:
     """Reads entropy-coded scan data one bit at a time.
 
@@ -82,7 +86,7 @@ class Reader:
         """Read and return a single bit (0 or 1).
 
         Raises:
-            Exception: If the entropy-coded data ends (an `0xFF` byte
+            ReadError: If the entropy-coded data ends (an `0xFF` byte
                 is followed by something other than a `0x00` stuffing
                 byte, i.e. a real marker has been reached).
         """
@@ -90,7 +94,7 @@ class Reader:
             data = self.reader.peek_u8()
             if data == 0xFF:
                 if self.reader.peek_u8(1) != 0:
-                    raise Exception("End of stream")
+                    raise ReadError("End of stream")
                 self.data = self.reader.read_u8()
                 self.reader.read_u8()
             else:

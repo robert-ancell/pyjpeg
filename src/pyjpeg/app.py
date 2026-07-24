@@ -238,13 +238,16 @@ class JfifDensity:
         return cls(JfifDensityUnit.DPCM, x, y)
 
 
+_DEFAULT_JFIF_DENSITY = JfifDensity.aspect_ratio(1, 1)
+
+
 class JfifHeader(ApplicationSpecificData):
     """The JFIF (JPEG File Interchange Format) APP0 header."""
 
     def __init__(
         self,
         version: tuple[int, int] = (1, 2),
-        density: JfifDensity = JfifDensity.aspect_ratio(1, 1),
+        density: JfifDensity = _DEFAULT_JFIF_DENSITY,
         thumbnail_size: tuple[int, int] = (0, 0),
         thumbnail_data: bytes = b"",
     ) -> None:

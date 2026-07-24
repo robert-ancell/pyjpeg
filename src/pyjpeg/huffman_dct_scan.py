@@ -1,5 +1,7 @@
 """Huffman-coded DCT scan data (baseline, extended, and non-successive progressive)."""
 
+from __future__ import annotations
+
 import pyjpeg.dct
 import pyjpeg.huffman
 import pyjpeg.huffman_scan
@@ -136,7 +138,7 @@ class HuffmanDCTScan(pyjpeg.segment.Segment):
         components: list[HuffmanDCTScanComponent],
         spectral_selection: tuple[int, int] = (0, 63),
         point_transform: int = 0,
-    ) -> "HuffmanDCTScan":
+    ) -> HuffmanDCTScan:
         """Read a DCT scan's entropy-coded data.
 
         Args:

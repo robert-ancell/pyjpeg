@@ -165,4 +165,4 @@ def _predict(predictor: int, a: int, b: int, c: int) -> int:
     elif predictor == 7:
         return (a + b) // 2
     else:
-        raise Exception("Unknown predictor")
+        raise ValueError("Unknown predictor")

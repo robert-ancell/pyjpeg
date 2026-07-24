@@ -5,6 +5,8 @@ sign-magnitude bits, as defined by the JPEG standard) on top of
 `pyjpeg.scan`'s bit-level I/O and `pyjpeg.huffman`'s symbol coding.
 """
 
+from __future__ import annotations
+
 import pyjpeg.huffman
 import pyjpeg.io
 import pyjpeg.scan

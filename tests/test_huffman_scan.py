@@ -31,5 +31,7 @@ def test_huffman_scan():
     assert dc == 123
     assert run_length1 == 2
     assert ac1 == 55
+    assert run_length2 == 0
+    assert ac2 == -17
     assert run_length3 == 0
     assert ac3 == 0
