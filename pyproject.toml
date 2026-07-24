@@ -27,4 +27,5 @@ license-files = ["LICENSE"]
 
 [project.urls]
 Homepage = "https://github.com/robert-ancell/pyjpeg"
+Documentation = "https://robert-ancell.github.io/pyjpeg/"
 Issues = "https://github.com/robert-ancell/pyjpeg/issues"
