@@ -29,8 +29,16 @@ def _append_uint32(data: bytearray, value: int) -> None:
     data.extend(value.to_bytes(4, byteorder="big"))
 
 
+def _append_uint64(data: bytearray, value: int) -> None:
+    data.extend(value.to_bytes(8, byteorder="big"))
+
+
 class ICCMultiLocalizedUnicodeTypeRecord:
     def __init__(self, language_code: str, country_code: str, string: str):
+        if len(language_code) != 2:
+            raise ValueError("Language code must be exactly 2 characters")
+        if len(country_code) != 2:
+            raise ValueError("Country code must be exactly 2 characters")
         self.language_code = language_code
         self.country_code = country_code
         self.string = string
@@ -81,6 +89,22 @@ class ICCMultiLocalizedUnicodeType:
             record_offset += record_length
 
         return cls(records)
+
+    def encode(self, data: bytearray) -> None:
+        data.extend(b"mluc")
+        _append_uint32(data, 0)
+        _append_uint32(data, len(self.records))
+        _append_uint32(data, 12)
+        string_offset = 16 + len(self.records) * 12
+        for record in self.records:
+            data.extend(record.language_code.encode("ascii"))
+            data.extend(record.country_code.encode("ascii"))
+            string_length = len(record.string.encode("utf-16-be"))
+            _append_uint32(data, string_length)
+            _append_uint32(data, string_offset)
+            string_offset += string_length
+        for record in self.records:
+            data.extend(record.string.encode("utf-16-be"))
 
     def __repr__(self) -> str:
         return f"ICCMultiLocalizedUnicodeType({self.records})"
@@ -141,6 +165,16 @@ class ICCDateTime:
             raise ValueError("Invalid seconds")
         return cls(year, month, day, hours, minutes, seconds)
 
+    def encode(self, data: bytearray) -> None:
+        data.extend(
+            self.year.to_bytes(2, "big")
+            + self.month.to_bytes(2, "big")
+            + self.day.to_bytes(2, "big")
+            + self.hours.to_bytes(2, "big")
+            + self.minutes.to_bytes(2, "big")
+            + self.seconds.to_bytes(2, "big")
+        )
+
     def __repr__(self) -> str:
         return f"ICCDateTime({self.year}, {self.month}, {self.day}, {self.hours}, {self.minutes}, {self.seconds})"
 
@@ -160,6 +194,9 @@ class ICCProfileDescription(ICCTaggedElement):
         description = ICCMultiLocalizedUnicodeType.decode(data)
         return cls(description)
 
+    def encode(self, data: bytearray) -> None:
+        self.description.encode(data)
+
     def __repr__(self) -> str:
         return f"ICCProfileDescription({self.description})"
 
@@ -172,6 +209,9 @@ class ICCCopyright(ICCTaggedElement):
     def decode(cls, data: bytes) -> "ICCCopyright":
         copyright = ICCMultiLocalizedUnicodeType.decode(data)
         return cls(copyright)
+
+    def encode(self, data: bytearray) -> None:
+        self.copyright.encode(data)
 
     def __repr__(self) -> str:
         return f"ICCCopyright({self.copyright})"
@@ -186,6 +226,9 @@ class ICCChromaticAdaptation(ICCTaggedElement):
         # FIXME
         return cls()
 
+    def encode(self, data: bytearray) -> None:
+        pass
+
     def __repr__(self) -> str:
         return "ICCChromaticAdaptation()"
 
@@ -198,6 +241,9 @@ class ICCMediaWhitePoint(ICCTaggedElement):
     def decode(cls, data: bytes) -> "ICCMediaWhitePoint":
         # FIXME
         return cls()
+
+    def encode(self, data: bytearray) -> None:
+        pass
 
     def __repr__(self) -> str:
         return "ICCMediaWhitePoint()"
@@ -231,6 +277,20 @@ class ICCProfile:
         creator: bytes = _NULL_SIGNATURE,
         id: bytes = _NULL_ID,
     ):
+        if len(profile_class) != 4:
+            raise ValueError("profile_class must be 4 bytes")
+        if len(data_color_space) != 4:
+            raise ValueError("data_color_space must be 4 bytes")
+        if len(pcs) != 4:
+            raise ValueError("pcs must be 4 bytes")
+        if len(device_manufacturer) != 4:
+            raise ValueError("device_manufacturer must be 4 bytes")
+        if len(device_model) != 4:
+            raise ValueError("device_model must be 4 bytes")
+        if len(creator) != 4:
+            raise ValueError("creator must be 4 bytes")
+        if len(id) != 12:
+            raise ValueError("id must be 12 bytes")
         self.preferred_cmm_type = preferred_cmm_type
         self.version = version
         self.profile_class = profile_class
@@ -331,18 +391,27 @@ class ICCProfile:
             tagged_elements=tagged_elements,
         )
 
-    def encode(self) -> bytes:
-        data = bytearray()
+    def encode(self, data: bytearray) -> None:
         _append_uint32(data, 128)
         _append_uint32(data, self.preferred_cmm_type)
         data.append(self.version[0])
         data.append(self.version[1] << 4 | self.version[2])
-        data.append(0)
-        data.append(0)
-        # FIXME
+        data.extend(self.profile_class)
+        data.extend(self.data_color_space)
+        data.extend(self.pcs)
+        self.creation_time.encode(data)
+        data.extend(b"acsp")
+        data.extend(self.primary_platform)
+        _append_uint32(data, self.flags)
+        data.extend(self.device_manufacturer)
+        data.extend(self.device_model)
+        _append_uint64(data, self.device_attributes)
+        _append_uint32(data, self.rendering_intent)
+        data.extend(self.creator)
+        data.extend(self.id)
         for _ in range(28):
             data.append(0)
-        return bytes(data)
+        # FIXME: tags
 
     def __repr__(self) -> str:
         rendering_intent_str = {
