@@ -29,6 +29,63 @@ def _append_uint32(data: bytearray, value: int) -> None:
     data.extend(value.to_bytes(4, byteorder="big"))
 
 
+class ICCMultiLocalizedUnicodeTypeRecord:
+    def __init__(self, language_code: str, country_code: str, string: str):
+        self.language_code = language_code
+        self.country_code = country_code
+        self.string = string
+
+    def __repr__(self) -> str:
+        return f"ICCMultiLocalizedUnicodeTypeRecord({self.language_code!r}, {self.country_code!r}, {self.string!r})"
+
+
+class ICCMultiLocalizedUnicodeType:
+    def __init__(self, records: list[ICCMultiLocalizedUnicodeTypeRecord]):
+        self.records = records
+
+    @classmethod
+    def decode(cls, data: bytes) -> "ICCMultiLocalizedUnicodeType":
+        if len(data) < 16:
+            raise ValueError("Invalid length multi-localized unicode type")
+
+        signature = _get_signature(data, 0)
+        if signature != b"mluc":
+            raise ValueError("Invalid signature for multi-localized unicode type")
+        reserved = _get_uint32(data, 4)
+        if reserved != 0:
+            raise ValueError("Reserved field must be 0")
+        n_records = _get_uint32(data, 8)
+        record_length = _get_uint32(data, 12)
+        if record_length < 12:
+            raise ValueError("Invalid record length")
+        character_start = 16 + n_records * record_length
+        if character_start > len(data):
+            raise ValueError("Insufficient data for records")
+        record_offset = 16
+        records = []
+        for _ in range(n_records):
+            language_code = data[record_offset : record_offset + 2].decode("ascii")
+            country_code = data[record_offset + 2 : record_offset + 4].decode("ascii")
+            string_length = _get_uint32(data, record_offset + 4)
+            string_offset = _get_uint32(data, record_offset + 8)
+            if string_offset < character_start or string_offset + string_length > len(
+                data
+            ):
+                raise ValueError("Invalid string offset")
+            string = data[string_offset : string_offset + string_length].decode(
+                "utf-16-be"
+            )
+            records.append(
+                ICCMultiLocalizedUnicodeTypeRecord(language_code, country_code, string)
+            )
+            record_offset += record_length
+
+        return cls(records)
+
+    def __repr__(self) -> str:
+        return f"ICCMultiLocalizedUnicodeType({self.records})"
+
+
 class ICCProfileClass:
     INPUT = b"scnr"
     DISPLAY = b"mntr"
@@ -95,16 +152,16 @@ class ICCTaggedElement:
 
 
 class ICCProfileDescription(ICCTaggedElement):
-    def __init__(self):
-        pass
+    def __init__(self, description: ICCMultiLocalizedUnicodeType):
+        self.description = description
 
     @classmethod
     def decode(cls, data: bytes) -> "ICCProfileDescription":
-        # FIXME
-        return cls()
+        description = ICCMultiLocalizedUnicodeType.decode(data)
+        return cls(description)
 
     def __repr__(self) -> str:
-        return "ICCProfileDescription()"
+        return f"ICCProfileDescription({self.description})"
 
 
 class ICCCopyright(ICCTaggedElement):
