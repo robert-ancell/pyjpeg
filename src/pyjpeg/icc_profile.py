@@ -165,16 +165,16 @@ class ICCProfileDescription(ICCTaggedElement):
 
 
 class ICCCopyright(ICCTaggedElement):
-    def __init__(self):
-        pass
+    def __init__(self, copyright: ICCMultiLocalizedUnicodeType):
+        self.copyright = copyright
 
     @classmethod
     def decode(cls, data: bytes) -> "ICCCopyright":
-        # FIXME
-        return cls()
+        copyright = ICCMultiLocalizedUnicodeType.decode(data)
+        return cls(copyright)
 
     def __repr__(self) -> str:
-        return "ICCCopyright()"
+        return f"ICCCopyright({self.copyright})"
 
 
 class ICCChromaticAdaptation(ICCTaggedElement):
