@@ -128,17 +128,13 @@ class LSCodingParameters(LSPresetParameters):
         reset: int = 0,
     ) -> None:
         """Create a JPEG-LS coding parameters segment."""
-        if gradient_thresholds[1] < gradient_thresholds[0]:
-            raise ValueError("Invalid gradient thresholds")
-        if gradient_thresholds[2] < gradient_thresholds[1]:
-            raise ValueError("Invalid gradient thresholds")
         super().__init__(LSPresetParametersId.CODING_PARAMETERS)
         self.maxval = maxval
         """The maximum sample value. `0` means derive it from the frame's
         precision.
         """
         self.gradient_thresholds = gradient_thresholds
-        """The `(T1, T2, T3)` gradient thresholds."""
+        """The `(T1, T2, T3)` gradient thresholds. A threshold of `0` means use the default threshold."""
         self.reset = reset
         """The value at which context counters reset."""
 
