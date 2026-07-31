@@ -406,7 +406,7 @@ class RegularContext:
         a: int,
         b: int,
         c: int,
-    ) -> None:
+    ) -> int:
         """Predict, quantize, and Golomb-Rice encode one sample.
 
         Args:
@@ -419,6 +419,10 @@ class RegularContext:
             a: The left neighbor.
             b: The above neighbor.
             c: The above-left neighbor.
+
+        Returns:
+            The reconstructed sample value, i.e. what a decoder would
+            recover for this sample.
         """
         predicted_sample = self._predict(parameters, sign, a, b, c)
         errval = sign * (sample - predicted_sample)
@@ -429,6 +433,7 @@ class RegularContext:
             mapped_errval, self._get_golomb_size(), self._get_limit(parameters)
         )
         self._update_bias(parameters, errval)
+        return parameters.reconstruct(predicted_sample, sign * errval)
 
     def read_sample(
         self,
@@ -576,7 +581,7 @@ class RunInterruptContext:
         sample: int,
         a: int,
         b: int,
-    ) -> None:
+    ) -> int:
         """Predict, quantize, and Golomb-Rice encode a run-interrupting sample.
 
         Args:
@@ -587,10 +592,16 @@ class RunInterruptContext:
             sample: The actual sample value.
             a: The left neighbor.
             b: The above neighbor.
+
+        Returns:
+            The reconstructed sample value, i.e. what a decoder would
+            recover for this sample.
         """
         if self.near:
+            predicted_sample = a
             errval = sample - a
         else:
+            predicted_sample = b
             errval = sample - b
             if a > b:
                 errval = -errval
@@ -599,6 +610,11 @@ class RunInterruptContext:
         mapped_errval = self._map_error(errval, k)
         writer.write_value(mapped_errval, k, self._get_limit(parameters, run_index))
         self._update_accumulated_prediction_error(parameters, errval)
+        if not self.near and a > b:
+            reconstructed_errval = -errval
+        else:
+            reconstructed_errval = errval
+        return parameters.reconstruct(predicted_sample, reconstructed_errval)
 
     def read_sample(
         self,
@@ -855,6 +871,10 @@ class Writer(Codec):
                 `LSInterleaveMode`.
             parameters: The scan's coding parameters.
         """
+        # If using near lossless, copy the samples to update with the reconstructed values
+        if parameters.difference_bound > 0:
+            samples = samples[:]
+
         super().__init__(width, samples, components, interleave_mode, parameters)
         self.writer = pyjpeg.golomb_scan.Writer(writer, qbpp=self.parameters.qbpp)
 
@@ -938,6 +958,12 @@ class Writer(Codec):
         """
         run_counter = 0
         while self.in_run(sample_index, run_sample):
+            for component_index in range(len(run_sample)):
+                if self.parameters.difference_bound > 0:
+                    self.samples[sample_index + component_index] = run_sample[
+                        component_index
+                    ]
+
             sample_index += len(self.components)
             run_counter += 1
 
@@ -971,7 +997,7 @@ class Writer(Codec):
                 len(self.components),
                 sample_index + component_index,
             )
-            context.write_sample(
+            reconstructed_sample = context.write_sample(
                 self.writer,
                 self.parameters,
                 run_index,
@@ -979,6 +1005,8 @@ class Writer(Codec):
                 a,
                 b,
             )
+            if self.parameters.difference_bound > 0:
+                self.samples[sample_index + component_index] = reconstructed_sample
         sample_index += len(self.components)
         run_index = max(run_index - 1, 0)
 
@@ -1017,7 +1045,7 @@ class Writer(Codec):
                 sample_index + component_index,
             )
             sign, context = self.get_regular_context(a, b, c, d)
-            context.write_sample(
+            reconstructed_sample = context.write_sample(
                 self.writer,
                 self.parameters,
                 sign,
@@ -1026,6 +1054,8 @@ class Writer(Codec):
                 b,
                 c,
             )
+            if self.parameters.difference_bound > 0:
+                self.samples[sample_index + component_index] = reconstructed_sample
         return sample_index + len(self.components)
 
 

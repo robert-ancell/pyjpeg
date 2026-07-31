@@ -31,6 +31,24 @@ def test_ls_scan():
     assert scan.width == width
     assert scan.samples == samples
 
+    def is_near(a: list[int], b: list[int], tolerance: int = 0) -> bool:
+        if len(a) != len(b):
+            return False
+        for i in range(len(a)):
+            if abs(a[i] - b[i]) > tolerance:
+                return False
+        return True
+
+    writer = pyjpeg.BufferedWriter()
+    scan = pyjpeg.LSScan(width, samples, [pyjpeg.LSScanComponent()], difference_bound=2)
+    scan.write(writer)
+    reader = pyjpeg.BufferedReader(writer.data)
+    scan = pyjpeg.LSScan.read(
+        reader, width, len(samples), [pyjpeg.LSScanComponent()], difference_bound=2
+    )
+    assert scan.width == width
+    assert is_near(scan.samples, samples, 2)
+
     rgb_samples = []
     for s in samples:
         rgb_samples.append(s)
