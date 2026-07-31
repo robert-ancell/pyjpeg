@@ -144,7 +144,7 @@ class CodingParameters:
             if errval > 0:
                 errval = (errval + self.difference_bound) // delta
             else:
-                errval = -(self.difference_bound - errval) // delta
+                errval = -((self.difference_bound - errval) // delta)
 
         max_error = (self.range + 1) // 2
         min_error = max_error - self.range
