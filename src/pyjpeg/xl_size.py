@@ -40,6 +40,7 @@ class XLSize:
         ratio_index = 0
         writer.write_bool(size_multiple_of_eight)
         write_dimension(self.height, size_multiple_of_eight)
+        ratio_index = _get_ratio_index(self.width, self.height)
         writer.write_bits(0, ratio_index)
         if ratio_index != 0:
             write_dimension(self.width, size_multiple_of_eight)
