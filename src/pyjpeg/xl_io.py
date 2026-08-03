@@ -8,7 +8,7 @@ class XLWriter:
         self.bit_count = 0
 
     def write_bit(self, bit: int) -> None:
-        self.data |= bit << (7 - self.bit_count)
+        self.data |= bit << self.bit_count
         self.bit_count += 1
         if self.bit_count == 8:
             self.writer.write_u8(self.data)
