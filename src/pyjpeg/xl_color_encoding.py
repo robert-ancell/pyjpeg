@@ -60,7 +60,7 @@ class XLColorEncoding:
                 writer.write_enum(self.white_point)
             if self.color_encoding not in (XLColorSpace.GRAY, XLColorSpace.XYB):
                 writer.write_enum(self.primaries)
-            writer.write_u8(self.use_gamma)
+            writer.write_bool(self.use_gamma)
             if self.use_gamma:
                 writer.write_bits(self.transfer_function, 24)
             else:
