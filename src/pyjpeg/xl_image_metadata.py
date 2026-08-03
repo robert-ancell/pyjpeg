@@ -195,10 +195,15 @@ class XLImageMetadata:
             writer.write_bool(self.preview_size is not None)
             if self.preview_size is not None:
                 self.preview_size.write(writer)
+            writer.write_bool(self.animation_header is not None)
+            if self.animation_header is not None:
+                self.animation_header.write(writer)
 
         self.bit_depth.write(writer)
         writer.write_bool(self.modular_16bit_buffers)
-        # self.extra_channels
+        writer.write_u32(len(self.extra_channels), (0, 1, 2, 1), (0, 0, 4, 12))
+        for extra_channel in self.extra_channels:
+            extra_channel.write(writer)
         writer.write_bool(self.xyb_encoded)
         self.color_encoding.write(writer)
         if self.tone_mapping is not None:
@@ -273,7 +278,7 @@ class XLImageMetadata:
 
     def __repr__(self) -> str:
         args = []
-        if self.orientation != 0:
+        if self.orientation != XLOrientation.IDENTITY:
             args.append(f"orientation={self.orientation}")
         if self.intrinsic_size is not None:
             args.append(f"intrinsic_size={self.intrinsic_size}")
