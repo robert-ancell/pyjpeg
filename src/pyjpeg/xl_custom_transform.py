@@ -301,7 +301,7 @@ class XLCustomTransform:
 
     def write(self, writer: XLWriter) -> None:
         is_default = self == XLCustomTransform()
-        writer.write_bool(not is_default)
+        writer.write_bool(is_default)
         if is_default:
             return
 
