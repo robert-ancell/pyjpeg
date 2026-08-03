@@ -36,7 +36,8 @@ class XLPasses:
         self.down_samples = down_samples
 
     def write(self, writer: XLWriter) -> None:
-        writer.write_u32(len(self.shift) - 1, (1, 2, 3, 4), (0, 0, 0, 3))
+        writer.write_u32(len(self.shift), (1, 2, 3, 4), (0, 0, 0, 3))
+        writer.write_u32(len(self.down_samples) - 1, (0, 1, 2, 3), (0, 0, 0, 1))
         for shift in self.shift[:-1]:
             writer.write_bits(shift, 2)
         for shift, _ in self.down_samples[:-1]:
