@@ -19,7 +19,6 @@ class XLBitDepth:
             writer.write_bits(self.exp_bits - 1, 4)
         else:
             writer.write_u32(self.bits_per_sample, (8, 10, 12, 1), (0, 0, 0, 6))
-            writer.write_bits(self.exp_bits, 4)
 
     @classmethod
     def read(cls, reader: XLReader) -> "XLBitDepth":
