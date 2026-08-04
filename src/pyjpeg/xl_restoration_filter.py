@@ -68,11 +68,12 @@ class XLRestorationFilter:
                 writer.write_f16(self.gab2_weights[2])
         writer.write_bits(self.epf_iterations, 2)
         if self.epf_iterations > 0:
-            non_standard_lut = self.epf_sharp_lut != DEFAULT_EPF_SHARP_LUT
-            writer.write_bool(non_standard_lut)
-            if non_standard_lut:
-                for lut in self.epf_sharp_lut:
-                    writer.write_f16(lut)
+            if not is_modular:
+                non_standard_lut = self.epf_sharp_lut != DEFAULT_EPF_SHARP_LUT
+                writer.write_bool(non_standard_lut)
+                if non_standard_lut:
+                    for lut in self.epf_sharp_lut:
+                        writer.write_f16(lut)
             non_standard_channel_scale = (
                 self.epf_channel_scale != DEFAULT_EPF_CHANNEL_SCALE
             )

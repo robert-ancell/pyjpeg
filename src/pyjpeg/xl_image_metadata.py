@@ -60,10 +60,11 @@ class XLExtraChannelInfo:
         if self.type == XLExtraChannelType.ALPHA:
             writer.write_bool(self.alpha_associated)
         if self.type == XLExtraChannelType.SPOT_COLOR:
-            writer.write_f16(0)  # FIXME
-            writer.write_f16(0)  # FIXME
-            writer.write_f16(0)  # FIXME
-            writer.write_f16(0)  # FIXME
+            assert self.spot_color is not None
+            writer.write_f16(self.spot_color[0])
+            writer.write_f16(self.spot_color[1])
+            writer.write_f16(self.spot_color[2])
+            writer.write_f16(self.spot_color[3])
         if self.type == XLExtraChannelType.SELECTION_MASK:
             writer.write_u32(self.cfa_index, (1, 0, 3, 19), (0, 2, 4, 8))
 
@@ -206,8 +207,8 @@ class XLImageMetadata:
             extra_channel.write(writer)
         writer.write_bool(self.xyb_encoded)
         self.color_encoding.write(writer)
-        if self.tone_mapping is not None:
-            self.tone_mapping.write(writer)
+        if extra_fields:
+            (self.tone_mapping or XLToneMapping()).write(writer)
         self.extensions.write(writer)
 
     @classmethod

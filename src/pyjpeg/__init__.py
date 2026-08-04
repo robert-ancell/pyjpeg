@@ -80,9 +80,37 @@ from pyjpeg.sof import FrameComponent, FrameType, StartOfFrame
 from pyjpeg.soi import StartOfImage
 from pyjpeg.sos import ScanComponent, StartOfScan
 from pyjpeg.stream import Stream
-from pyjpeg.xl_frame_header import XLFrameHeader
+from pyjpeg.xl_animation_header import XLAnimationHeader
+from pyjpeg.xl_bit_depth import XLBitDepth
+from pyjpeg.xl_color_encoding import (
+    XLColorEncoding,
+    XLColorSpace,
+    XLPrimaries,
+    XLRenderingIntent,
+    XLWhitePoint,
+)
+from pyjpeg.xl_custom_transform import XLCustomTransform
+from pyjpeg.xl_extensions import XLExtensions
+from pyjpeg.xl_frame_header import (
+    XLAnimationFrame,
+    XLCropArea,
+    XLFrameFlag,
+    XLFrameHeader,
+    XLFrameType,
+    XLPasses,
+)
+from pyjpeg.xl_icc_profile import XLIccProfile
 from pyjpeg.xl_image_header import XLImageHeader
+from pyjpeg.xl_image_metadata import (
+    XLExtraChannelInfo,
+    XLExtraChannelType,
+    XLImageMetadata,
+    XLOrientation,
+)
 from pyjpeg.xl_io import XLReader, XLWriter
+from pyjpeg.xl_restoration_filter import XLRestorationFilter
+from pyjpeg.xl_size import XLSize
+from pyjpeg.xl_tone_mapping import XLToneMapping
 
 __all__ = [
     "AdobeColorSpace",
@@ -154,9 +182,32 @@ __all__ = [
     "Stream",
     "UnknownApplicationSpecificData",
     "Writer",
+    "XLAnimationFrame",
+    "XLAnimationHeader",
+    "XLBitDepth",
+    "XLColorEncoding",
+    "XLColorSpace",
+    "XLCropArea",
+    "XLCustomTransform",
+    "XLExtensions",
+    "XLExtraChannelInfo",
+    "XLExtraChannelType",
+    "XLFrameFlag",
     "XLFrameHeader",
+    "XLFrameType",
+    "XLHuffmanTable",
+    "XLIccProfile",
     "XLImageHeader",
+    "XLImageMetadata",
+    "XLOrientation",
+    "XLPasses",
+    "XLPrimaries",
     "XLReader",
+    "XLRenderingIntent",
+    "XLRestorationFilter",
+    "XLSize",
+    "XLToneMapping",
+    "XLWhitePoint",
     "XLWriter",
     "fdct",
     "huffman_optimize",

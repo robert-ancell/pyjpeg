@@ -1,3 +1,5 @@
+import struct
+
 import pyjpeg.io
 
 
@@ -68,7 +70,11 @@ class XLWriter:
         self.write_u32(value, (0, 1, 2, 18), (0, 0, 4, 6))
 
     def write_f16(self, value: float) -> None:
-        pass  # FIXME
+        # Using struct is the simplest way to handle the IEEE-754 complexity
+        bits = struct.unpack(">H", struct.pack(">e", value))[0]
+        self.write_bit((bits >> 15) & 1)
+        self.write_bits((bits >> 10) & 0x1F, 5)
+        self.write_bits(bits & 0x3FF, 10)
 
     def write_bytes(self, data: bytes) -> None:
         for byte in data:
@@ -134,10 +140,12 @@ class XLReader:
         return self.read_u32((0, 1, 2, 18), (0, 0, 4, 6))
 
     def read_f16(self) -> float:
-        sign = [1, -1][self.read_bit()]
-        exponent = self.read_bits(5) - 15
-        mantissa = 1 + self.read_bits(10)
-        return sign * mantissa * (2**exponent)
+        sign = self.read_bit()
+        exponent = self.read_bits(5)
+        mantissa = self.read_bits(10)
+        bits = (sign << 15) | (exponent << 10) | mantissa
+        # Using struct is the simplest way to handle the IEEE-754 complexity
+        return struct.unpack(">e", struct.pack(">H", bits))[0]
 
     def read_bytes(self, n: int) -> bytes:
         return bytes([self.read_u8() for _ in range(n)])

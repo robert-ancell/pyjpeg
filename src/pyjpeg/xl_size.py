@@ -1,17 +1,17 @@
 import pyjpeg.xl_io
 
-_RATIOS = [(1, 1), (12, 10), (4, 3), (3, 2), (16, 9), (5, 4), (2, 1)]
+_RATIOS = [(0, 0), (1, 1), (12, 10), (4, 3), (3, 2), (16, 9), (5, 4), (2, 1)]
 
 
 def _get_width_for_height(height: int, ratio_index: int) -> int:
-    ratio_x, ratio_y = _RATIOS[ratio_index - 1]
+    ratio_x, ratio_y = _RATIOS[ratio_index]
     return (height * ratio_x) // ratio_y
 
 
 def _get_ratio_index(width: int, height: int) -> int:
-    for i in range(len(_RATIOS)):
+    for i in range(1, len(_RATIOS)):
         if width == _get_width_for_height(height, i):
-            return i + 1
+            return i
     return 0
 
 
@@ -37,12 +37,11 @@ class XLSize:
             and self.width % 8 == 0
             and 8 <= self.width <= 256
         )
-        ratio_index = 0
         writer.write_bool(size_multiple_of_eight)
         write_dimension(self.height, size_multiple_of_eight)
         ratio_index = _get_ratio_index(self.width, self.height)
-        writer.write_bits(0, ratio_index)
-        if ratio_index != 0:
+        writer.write_bits(ratio_index, 3)
+        if ratio_index == 0:
             write_dimension(self.width, size_multiple_of_eight)
 
     @classmethod

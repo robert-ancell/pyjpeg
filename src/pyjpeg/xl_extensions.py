@@ -10,6 +10,7 @@ class XLExtensions:
         writer.write_u64(self.key)
         for payload in self.payloads:
             writer.write_u64(len(payload))
+        for payload in self.payloads:
             writer.write_bytes(payload)
 
     @classmethod

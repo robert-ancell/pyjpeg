@@ -305,12 +305,23 @@ class XLCustomTransform:
         if is_default:
             return
 
-        for value in self.up2_weights:
-            writer.write_f16(value)
-        for value in self.up4_weights:
-            writer.write_f16(value)
-        for value in self.up8_weights:
-            writer.write_f16(value)
+        cw_mask = 0
+        if self.up2_weights != DEFAULT_UP2_WEIGHTS:
+            cw_mask |= 0x1
+        if self.up4_weights != DEFAULT_UP4_WEIGHTS:
+            cw_mask |= 0x2
+        if self.up8_weights != DEFAULT_UP8_WEIGHTS:
+            cw_mask |= 0x4
+        writer.write_bits(cw_mask, 3)
+        if cw_mask & 0x1:
+            for value in self.up2_weights:
+                writer.write_f16(value)
+        if cw_mask & 0x2:
+            for value in self.up4_weights:
+                writer.write_f16(value)
+        if cw_mask & 0x4:
+            for value in self.up8_weights:
+                writer.write_f16(value)
 
     @classmethod
     def read(cls, reader: XLReader, xyb_encoded: bool) -> "XLCustomTransform":

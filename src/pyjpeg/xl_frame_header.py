@@ -59,8 +59,10 @@ class XLPasses:
         for _ in range(number_down_sample):
             down_sample_shifts.append(reader.read_bits(2))
         down_samples = []
-        for shift in down_sample_shifts:
-            down_samples.append((shift, reader.read_u32((0, 1, 2, 0), (0, 0, 0, 3))))
+        for down_sample_shift in down_sample_shifts:
+            down_samples.append(
+                (down_sample_shift, reader.read_u32((0, 1, 2, 0), (0, 0, 0, 3)))
+            )
         down_samples.append((1, number - 1))
 
         return cls(shift=shift, down_samples=down_samples)
@@ -120,7 +122,7 @@ class XLCropArea:
         return f"XLCropArea(x={self.x}, y={self.y}, width={self.width}, height={self.height})"
 
 
-class XLAnimationHeader:
+class XLAnimationFrame:
     def __init__(
         self,
         duration: int = 0,
@@ -137,7 +139,7 @@ class XLAnimationHeader:
     @classmethod
     def read(
         cls, reader: XLReader, have_timecodes: bool = False
-    ) -> "XLAnimationHeader":
+    ) -> "XLAnimationFrame":
         duration = reader.read_u32((0, 1, 0, 0), (0, 0, 8, 32))
         if have_timecodes:
             timecode = reader.read_bits(32)
@@ -146,12 +148,12 @@ class XLAnimationHeader:
         return cls(duration=duration, timecode=timecode)
 
     def __eq__(self, other: object) -> bool:
-        return isinstance(other, XLAnimationHeader) and (
+        return isinstance(other, XLAnimationFrame) and (
             self.duration == other.duration and self.timecode == other.timecode
         )
 
     def __repr__(self) -> str:
-        return f"XLAnimationHeader(duration={self.duration}, timecode={self.timecode})"
+        return f"XLAnimationFrame(duration={self.duration}, timecode={self.timecode})"
 
 
 class XLFrameHeader:
@@ -169,7 +171,7 @@ class XLFrameHeader:
         if_level: int = 0,
         passes: XLPasses = XLPasses(),
         crop_area: XLCropArea | None = None,
-        animation_header: XLAnimationHeader | None = None,
+        animation_header: XLAnimationFrame | None = None,
         is_last: bool = False,
         name: str = "",
         restoration_filter: XLRestorationFilter = XLRestorationFilter(),
@@ -220,6 +222,9 @@ class XLFrameHeader:
             if self.do_ycbcr and (self.flags & XLFrameFlag.USE_LF_FRAME) == 0:
                 for mode in self.upsampling_mode:
                     writer.write_bits(mode, 2)
+        if (self.flags & XLFrameFlag.USE_LF_FRAME) == 0:
+            for value in self.upsampling:
+                writer.write_bits(value, 2)
         if self.is_modular:
             writer.write_bits(self.group_size_shift, 2)
         if image_metadata.xyb_encoded and not self.is_modular:
@@ -303,7 +308,7 @@ class XLFrameHeader:
             XLFrameType.SKIP_PROGRESSIVE,
         )
         if is_normal_frame and image_metadata.animation_header is not None:
-            animation_header = XLAnimationHeader.read(
+            animation_header = XLAnimationFrame.read(
                 reader, have_timecodes=image_metadata.animation_header.have_timecodes
             )
         else:
