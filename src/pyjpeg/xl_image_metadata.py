@@ -47,7 +47,7 @@ class XLExtraChannelInfo:
         self.cfa_index = cfa_index
 
     def write(self, writer: XLWriter) -> None:
-        is_default = self.type == XLExtraChannelType.ALPHA
+        is_default = self == XLExtraChannelInfo()
         writer.write_bool(is_default)
         if is_default:
             return

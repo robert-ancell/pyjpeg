@@ -46,18 +46,23 @@ class XLWriter:
             self.write_bits(value - 1, 4)
         elif value < 272:
             self.write_bits(2, 2)
-            self.write_bits(value - 1, 8)
+            self.write_bits(value - 17, 8)
         else:
             self.write_bits(3, 2)
             self.write_bits(value & 0xFFF, 12)
             value >>= 12
             length = 12
-            while value > 0 and length >= 8:
+            while True:
+                if value == 0:
+                    self.write_bool(False)
+                    return
+                self.write_bool(True)
+                if length == 60:
+                    self.write_bits(value & 0xF, 4)
+                    return
                 self.write_bits(value & 0xFF, 8)
                 value >>= 8
-                length -= 8
-            if length > 0:
-                self.write_bits(value & 0xF, 4)
+                length += 8
 
     def write_enum(self, value: int) -> None:
         self.write_u32(value, (0, 1, 2, 18), (0, 0, 4, 6))
