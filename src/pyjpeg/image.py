@@ -262,16 +262,11 @@ class Image:
     def write_xl(self, writer: pyjpeg.io.Writer) -> None:
         xl_writer = XLWriter(writer)
 
-        # Stream signature
-        xl_writer.write_u8(0xFF)
-        xl_writer.write_u8(0x0A)
-
         if len(self.components) == 1:
             color_encoding = XLColorSpace.GRAY
         else:
             color_encoding = XLColorSpace.RGB
         image_metadata = XLImageMetadata(
-            modular_16bit_buffers=True,
             xyb_encoded=False,
             color_encoding=XLColorEncoding(
                 color_encoding=color_encoding,
@@ -283,7 +278,6 @@ class Image:
             is_last=True,
             restoration_filter=XLRestorationFilter(gab=False, epf_iterations=0),
         )
-
         image_header = XLImageHeader(
             size=XLSize(self.samples_per_line, self.number_of_lines),
             image_metadata=image_metadata,
