@@ -8,23 +8,24 @@ directly.
 
 import pyjpeg.dct
 import pyjpeg.dht
-import pyjpeg.dnl
 import pyjpeg.dqt
-import pyjpeg.huffman_dct_scan
 import pyjpeg.huffman_tables
 import pyjpeg.io
 import pyjpeg.quantization_tables
-import pyjpeg.segment
-import pyjpeg.stream
+from pyjpeg.dnl import DefineNumberOfLines
 from pyjpeg.eoi import EndOfImage
-from pyjpeg.sof import StartOfFrame
+from pyjpeg.huffman_dct_scan import HuffmanDCTScan, HuffmanDCTScanComponent
+from pyjpeg.segment import Segment
+from pyjpeg.sof import FrameComponent, StartOfFrame
 from pyjpeg.soi import StartOfImage
-from pyjpeg.sos import StartOfScan
+from pyjpeg.sos import ScanComponent, StartOfScan
+from pyjpeg.stream import Stream
 from pyjpeg.xl_color_encoding import XLColorEncoding, XLColorSpace, XLTransferFunction
 from pyjpeg.xl_frame_header import XLFrameHeader, XLImageMetadata
 from pyjpeg.xl_image_header import XLImageHeader
 from pyjpeg.xl_io import XLWriter
 from pyjpeg.xl_restoration_filter import XLRestorationFilter
+from pyjpeg.xl_size import XLSize
 
 
 class Component:
@@ -93,7 +94,7 @@ class Image:
         components_by_id = {}
         sof: StartOfFrame | None = None
         sos: StartOfScan | None = None
-        dnl: pyjpeg.dnl.DefineNumberOfLines | None = None
+        dnl: DefineNumberOfLines | None = None
         quantization_tables = [
             [1] * 64,
             [1] * 64,
@@ -101,7 +102,7 @@ class Image:
             [1] * 64,
         ]
 
-        stream = pyjpeg.stream.Stream.read(reader)
+        stream = Stream.read(reader)
         for segment in stream.segments:
             if isinstance(segment, StartOfFrame):
                 sof = segment
@@ -125,7 +126,7 @@ class Image:
                     quantization_tables[table.destination] = table.values
             elif isinstance(segment, StartOfScan):
                 sos = segment
-            elif isinstance(segment, pyjpeg.huffman_dct_scan.HuffmanDCTScan):
+            elif isinstance(segment, HuffmanDCTScan):
                 assert sof is not None
                 assert sos is not None
                 # FIXME: sampling factor
@@ -162,7 +163,7 @@ class Image:
                             du_x = 0
                             du_y += 8
                         du_coord[component_index] = (du_x, du_y)
-            elif isinstance(segment, pyjpeg.dnl.DefineNumberOfLines):
+            elif isinstance(segment, DefineNumberOfLines):
                 dnl = segment
             elif isinstance(segment, EndOfImage):
                 assert sof is not None
@@ -194,7 +195,7 @@ class Image:
         )
         dc_huffman_table = pyjpeg.huffman_tables.standard_luminance_dc_huffman_table
         ac_huffman_table = pyjpeg.huffman_tables.standard_luminance_ac_huffman_table
-        segments: list[pyjpeg.segment.Segment] = [StartOfImage()]
+        segments: list[Segment] = [StartOfImage()]
         segments.append(
             pyjpeg.dqt.DefineQuantizationTables(
                 [pyjpeg.dqt.QuantizationTable(0, quantization_table)]
@@ -211,24 +212,22 @@ class Image:
         frame_components = []
         for component in self.components:
             frame_components.append(
-                pyjpeg.sof.FrameComponent.dct(
+                FrameComponent.dct(
                     component.id, sampling_factor=component.sampling_factor
                 )
             )
         segments.append(
-            pyjpeg.sof.StartOfFrame.baseline(
+            StartOfFrame.baseline(
                 self.number_of_lines, self.samples_per_line, frame_components
             )
         )
         for component in self.components:
-            scan_components: list[pyjpeg.sos.ScanComponent] = [
-                pyjpeg.sos.ScanComponent.dct(component.id, 0, 0)
+            scan_components: list[ScanComponent] = [
+                ScanComponent.dct(component.id, 0, 0)
             ]
-            segments.append(pyjpeg.sos.StartOfScan.dct(scan_components))
-            dct_scan_components: list[
-                pyjpeg.huffman_dct_scan.HuffmanDCTScanComponent
-            ] = [
-                pyjpeg.huffman_dct_scan.HuffmanDCTScanComponent(
+            segments.append(StartOfScan.dct(scan_components))
+            dct_scan_components: list[HuffmanDCTScanComponent] = [
+                HuffmanDCTScanComponent(
                     dc_huffman_table,
                     ac_huffman_table,
                 )
@@ -255,21 +254,19 @@ class Image:
                     data_units.append(
                         pyjpeg.dct.fdct(du_samples, self.precision, quantization_table)
                     )
-            segments.append(
-                pyjpeg.huffman_dct_scan.HuffmanDCTScan(data_units, dct_scan_components)
-            )
-        segments.append(pyjpeg.eoi.EndOfImage())
-        stream = pyjpeg.stream.Stream(segments)
+            segments.append(HuffmanDCTScan(data_units, dct_scan_components))
+        segments.append(EndOfImage())
+        stream = Stream(segments)
         stream.write(writer)
 
     def write_xl(self, writer: pyjpeg.io.Writer) -> None:
-        xl_writer = pyjpeg.xl_io.XLWriter(writer)
+        xl_writer = XLWriter(writer)
 
         # Stream signature
         xl_writer.write_u8(0xFF)
         xl_writer.write_u8(0x0A)
 
-        if len(self.channels) == 1:
+        if len(self.components) == 1:
             color_encoding = XLColorSpace.GRAY
         else:
             color_encoding = XLColorSpace.RGB
@@ -287,21 +284,16 @@ class Image:
             restoration_filter=XLRestorationFilter(gab=False, epf_iterations=0),
         )
 
-        buf = io.BytesIO()
-        writer = XLWriter(pio.FileWriter(buf))
+        image_header = XLImageHeader(
+            size=XLSize(self.samples_per_line, self.number_of_lines),
+            image_metadata=image_metadata,
+        )
 
         # Signature: "start of JPEG XL codestream" marker.
-        writer.write_u8(0xFF)
-        writer.write_u8(0x0A)
-
-        image_header = XLImageHeader(
-            size=XLSize(width, height),
-            image_metadata=image_metadata,
-            custom_transform=XLCustomTransform(),
-        )
-        image_header.write(writer)
-
-        frame_header.write(writer, image_metadata)
+        xl_writer.write_u8(0xFF)
+        xl_writer.write_u8(0x0A)
+        image_header.write(xl_writer)
+        frame_header.write(xl_writer, image_metadata)
 
     def get_interleaved_samples(self) -> list[int]:
         """Return this image's samples interleaved component-by-component.

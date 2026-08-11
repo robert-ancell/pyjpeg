@@ -73,8 +73,8 @@ class Stream:
             Exception: If an unrecognized marker is encountered.
         """
         quantization_tables = [[1] * 64, [1] * 64, [1] * 64, [1] * 64]
-        dc_arithmetic_conditioning_bounds = [(0, 1), (0, 1), (0, 1), (0, 1)]
-        ac_arithmetic_kx = [5, 5, 5, 5]
+        dc_arithmetic_conditioning_bounds = ((0, 1), (0, 1), (0, 1), (0, 1))
+        ac_arithmetic_kx = (5, 5, 5, 5)
         empty_huffman_table: list[list[int]] = [[] * 255]
         dc_huffman_tables = [
             empty_huffman_table,

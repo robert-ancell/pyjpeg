@@ -6,13 +6,16 @@ from pyjpeg.xl_image_metadata import XLImageMetadata
 from pyjpeg.xl_io import XLReader, XLWriter
 from pyjpeg.xl_size import XLSize
 
+DEFAULT_IMAGE_METADATA = XLImageMetadata()
+DEFAULT_CUSTOM_TRANSFORM = XLCustomTransform()
+
 
 class XLImageHeader:
     def __init__(
         self,
         size: XLSize,
-        image_metadata: XLImageMetadata,
-        custom_transform: XLCustomTransform,
+        image_metadata: XLImageMetadata = DEFAULT_IMAGE_METADATA,
+        custom_transform: XLCustomTransform = DEFAULT_CUSTOM_TRANSFORM,
         icc_profile: XLIccProfile | None = None,
     ) -> None:
         self.size = size
@@ -57,9 +60,9 @@ class XLImageHeader:
 
     def __repr__(self) -> str:
         args = [f"size={self.size}"]
-        if self.image_metadata != XLImageMetadata():
+        if self.image_metadata != DEFAULT_IMAGE_METADATA:
             args.append(f"image_metadata={self.image_metadata}")
-        if self.custom_transform != XLCustomTransform():
+        if self.custom_transform != DEFAULT_CUSTOM_TRANSFORM:
             args.append(f"custom_transform={self.custom_transform}")
         if self.icc_profile is not None:
             args.append(f"icc_profile={self.icc_profile}")
