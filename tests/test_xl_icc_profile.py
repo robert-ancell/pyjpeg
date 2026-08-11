@@ -22,4 +22,4 @@ def test_icc_profile_read():
 
     reader = pyjpeg.XLReader(pyjpeg.BufferedReader(writer.data))
     profile = pyjpeg.XLIccProfile.read(reader)
-    assert repr(profile) == "XLIccProfile()"
+    assert profile == pyjpeg.XLIccProfile()

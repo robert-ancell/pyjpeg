@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pyjpeg.xl_animation_header import XLAnimationHeader
 from pyjpeg.xl_bit_depth import XLBitDepth
 from pyjpeg.xl_color_encoding import XLColorEncoding
@@ -27,11 +29,14 @@ class XLExtraChannelType:
     OPTIONAL = 16
 
 
+DEFAULT_BIT_DEPTH = XLBitDepth()
+
+
 class XLExtraChannelInfo:
     def __init__(
         self,
         type: int = XLExtraChannelType.ALPHA,
-        bit_depth: XLBitDepth = XLBitDepth(),
+        bit_depth: XLBitDepth = DEFAULT_BIT_DEPTH,
         dim_shift: int = 0,
         name: str = "",
         alpha_associated: bool = False,
@@ -69,7 +74,7 @@ class XLExtraChannelInfo:
             writer.write_u32(self.cfa_index, (1, 0, 3, 19), (0, 2, 4, 8))
 
     @classmethod
-    def read(cls, reader: XLReader) -> "XLExtraChannelInfo":
+    def read(cls, reader: XLReader) -> XLExtraChannelInfo:
         if reader.read_bool():
             return cls()
 
@@ -106,23 +111,23 @@ class XLExtraChannelInfo:
             cfa_index=cfa_index,
         )
 
-    def __eq__(self, value: object, /) -> bool:
+    def __eq__(self, other: object) -> bool:
         return (
-            isinstance(value, XLExtraChannelInfo)
-            and self.type == value.type
-            and self.bit_depth == value.bit_depth
-            and self.dim_shift == value.dim_shift
-            and self.name == value.name
-            and self.alpha_associated == value.alpha_associated
-            and self.spot_color == value.spot_color
-            and self.cfa_index == value.cfa_index
+            isinstance(other, XLExtraChannelInfo)
+            and other.type == self.type
+            and other.bit_depth == self.bit_depth
+            and other.dim_shift == self.dim_shift
+            and other.name == self.name
+            and other.alpha_associated == self.alpha_associated
+            and other.spot_color == self.spot_color
+            and other.cfa_index == self.cfa_index
         )
 
     def __repr__(self) -> str:
         args = []
         if self.type != XLExtraChannelType.COLOR_FILTER_ARRAY:
             args.append(f"type={self.type}")
-        if self.bit_depth != XLBitDepth():
+        if self.bit_depth != DEFAULT_BIT_DEPTH:
             args.append(f"bit_depth={self.bit_depth}")
         if self.dim_shift != 0:
             args.append(f"dim_shift={self.dim_shift}")
@@ -148,6 +153,12 @@ class XLOrientation:
     ROTATE_90_CCW = 8
 
 
+DEFAULT_BIT_DEPTH = XLBitDepth()
+DEFAULT_EXTRA_CHANNELS = []
+DEFAULT_COLOR_ENCODING = XLColorEncoding()
+DEFAULT_EXTENSIONS = XLExtensions()
+
+
 class XLImageMetadata:
     def __init__(
         self,
@@ -155,13 +166,13 @@ class XLImageMetadata:
         intrinsic_size: XLSize | None = None,
         preview_size: XLSize | None = None,
         animation_header: XLAnimationHeader | None = None,
-        bit_depth: XLBitDepth = XLBitDepth(),
+        bit_depth: XLBitDepth = DEFAULT_BIT_DEPTH,
         modular_16bit_buffers: bool = True,
-        extra_channels: list[XLExtraChannelInfo] = [],
+        extra_channels: list[XLExtraChannelInfo] = DEFAULT_EXTRA_CHANNELS,
         xyb_encoded: bool = True,
-        color_encoding: XLColorEncoding = XLColorEncoding(),
+        color_encoding: XLColorEncoding = DEFAULT_COLOR_ENCODING,
         tone_mapping: XLToneMapping | None = None,
-        extensions: XLExtensions = XLExtensions(),
+        extensions: XLExtensions = DEFAULT_EXTENSIONS,
     ) -> None:
         self.orientation = orientation
         self.intrinsic_size = intrinsic_size
@@ -212,7 +223,7 @@ class XLImageMetadata:
         self.extensions.write(writer)
 
     @classmethod
-    def read(cls, reader: XLReader) -> "XLImageMetadata":
+    def read(cls, reader: XLReader) -> XLImageMetadata:
         # All defaults
         if reader.read_bool():
             return cls()
@@ -261,20 +272,20 @@ class XLImageMetadata:
             extensions=extensions,
         )
 
-    def __eq__(self, value: object) -> bool:
+    def __eq__(self, other: object) -> bool:
         return (
-            isinstance(value, XLImageMetadata)
-            and self.orientation == value.orientation
-            and self.intrinsic_size == value.intrinsic_size
-            and self.preview_size == value.preview_size
-            and self.animation_header == value.animation_header
-            and self.bit_depth == value.bit_depth
-            and self.modular_16bit_buffers == value.modular_16bit_buffers
-            and self.extra_channels == value.extra_channels
-            and self.xyb_encoded == value.xyb_encoded
-            and self.color_encoding == value.color_encoding
-            and self.tone_mapping == value.tone_mapping
-            and self.extensions == value.extensions
+            isinstance(other, XLImageMetadata)
+            and other.orientation == self.orientation
+            and other.intrinsic_size == self.intrinsic_size
+            and other.preview_size == self.preview_size
+            and other.animation_header == self.animation_header
+            and other.bit_depth == self.bit_depth
+            and other.modular_16bit_buffers == self.modular_16bit_buffers
+            and other.extra_channels == self.extra_channels
+            and other.xyb_encoded == self.xyb_encoded
+            and other.color_encoding == self.color_encoding
+            and other.tone_mapping == self.tone_mapping
+            and other.extensions == self.extensions
         )
 
     def __repr__(self) -> str:
@@ -287,18 +298,18 @@ class XLImageMetadata:
             args.append(f"preview_size={self.preview_size}")
         if self.animation_header is not None:
             args.append(f"animation_header={self.animation_header}")
-        if self.bit_depth != XLBitDepth():
+        if self.bit_depth != DEFAULT_BIT_DEPTH:
             args.append(f"bit_depth={self.bit_depth}")
         if self.modular_16bit_buffers:
             args.append(f"modular_16bit_buffers={self.modular_16bit_buffers}")
-        if self.extra_channels:
+        if self.extra_channels != DEFAULT_EXTRA_CHANNELS:
             args.append(f"extra_channels={self.extra_channels}")
         if self.xyb_encoded:
             args.append(f"xyb_encoded={self.xyb_encoded}")
-        if self.color_encoding != XLColorEncoding():
+        if self.color_encoding != DEFAULT_COLOR_ENCODING:
             args.append(f"color_encoding={self.color_encoding}")
         if self.tone_mapping is not None:
             args.append(f"tone_mapping={self.tone_mapping}")
-        if self.extensions != XLExtensions():
+        if self.extensions != DEFAULT_EXTENSIONS:
             args.append(f"extensions={self.extensions}")
         return f"XLImageMetadata({', '.join(args)})"

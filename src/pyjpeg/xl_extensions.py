@@ -1,8 +1,10 @@
 from pyjpeg.xl_io import XLReader, XLWriter
 
+DEFAULT_PAYLOADS = []
+
 
 class XLExtensions:
-    def __init__(self, key: int = 0, payloads: list[bytes] = []) -> None:
+    def __init__(self, key: int = 0, payloads: list[bytes] = DEFAULT_PAYLOADS) -> None:
         self.key = key
         self.payloads = payloads
 
@@ -26,17 +28,17 @@ class XLExtensions:
             payloads.append(reader.read_bytes(length))
         return cls(key, payloads)
 
-    def __eq__(self, value: object) -> bool:
+    def __eq__(self, other: object) -> bool:
         return (
-            isinstance(value, XLExtensions)
-            and self.key == value.key
-            and self.payloads == value.payloads
+            isinstance(other, XLExtensions)
+            and other.key == self.key
+            and other.payloads == self.payloads
         )
 
     def __repr__(self) -> str:
         args = []
         if self.key != 0:
             args.append(f"key={self.key}")
-        if self.payloads:
+        if self.payloads != DEFAULT_PAYLOADS:
             args.append(f"payloads={self.payloads}")
         return f"XLExtensions({', '.join(args)})"

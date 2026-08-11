@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pyjpeg.xl_custom_transform import XLCustomTransform
 from pyjpeg.xl_icc_profile import XLIccProfile
 from pyjpeg.xl_image_metadata import XLImageMetadata
@@ -27,7 +29,7 @@ class XLImageHeader:
         writer.align()
 
     @classmethod
-    def read(cls, reader: XLReader) -> "XLImageHeader":
+    def read(cls, reader: XLReader) -> XLImageHeader:
         size = XLSize.read(reader)
         image_metadata = XLImageMetadata.read(reader)
         custom_transform = XLCustomTransform.read(reader, image_metadata.xyb_encoded)
@@ -42,6 +44,15 @@ class XLImageHeader:
             image_metadata=image_metadata,
             custom_transform=custom_transform,
             icc_profile=icc_profile,
+        )
+
+    def __eq__(self, other: object) -> bool:
+        return (
+            isinstance(other, XLImageHeader)
+            and other.size == self.size
+            and other.image_metadata == self.image_metadata
+            and other.custom_transform == self.custom_transform
+            and other.icc_profile == self.icc_profile
         )
 
     def __repr__(self) -> str:

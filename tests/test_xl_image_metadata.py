@@ -25,7 +25,8 @@ def test_image_metadata_grayscale_lossless():
         modular_16bit_buffers=True,
         xyb_encoded=False,
         color_encoding=pyjpeg.XLColorEncoding(
-            color_encoding=pyjpeg.XLColorSpace.GRAY, transfer_function=(1 << 24) + 13
+            color_encoding=pyjpeg.XLColorSpace.GRAY,
+            transfer_function=pyjpeg.XLTransferFunction.SRGB,
         ),
     )
     _round_trip(metadata, "20286e00")

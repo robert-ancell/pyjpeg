@@ -12,6 +12,8 @@ DEFAULT_EPF_PASS2_SIGMA_SCALE = 6.5
 DEFAULT_EPF_BORDER_SAD_MUL = 2 / 3
 DEFAULT_EPF_SIGMA_FOR_MODULAR = 1.0
 
+DEFAULT_EXTENSIONS = XLExtensions()
+
 
 class XLRestorationFilter:
     def __init__(
@@ -29,7 +31,7 @@ class XLRestorationFilter:
         epf_pass2_sigma_scale: float = DEFAULT_EPF_PASS2_SIGMA_SCALE,
         epf_border_sad_mul: float = DEFAULT_EPF_BORDER_SAD_MUL,
         epf_sigma_for_modular: float = DEFAULT_EPF_SIGMA_FOR_MODULAR,
-        extensions: XLExtensions = XLExtensions(),
+        extensions: XLExtensions = DEFAULT_EXTENSIONS,
     ):
         if epf_iterations < 0 or epf_iterations > 3:
             raise ValueError("epf_iterations must be between 0 and 3")
@@ -169,21 +171,21 @@ class XLRestorationFilter:
             extensions=extensions,
         )
 
-    def __eq__(self, other):
+    def __eq__(self, other) -> bool:
         return (
             isinstance(other, XLRestorationFilter)
-            and self.gab == other.gab
-            and self.epf_iterations == other.epf_iterations
-            and self.gab1_weights == other.gab1_weights
-            and self.gab2_weights == other.gab2_weights
-            and self.epf_sharp_lut == other.epf_sharp_lut
-            and self.epf_channel_scale == other.epf_channel_scale
-            and self.epf_quant_multiplier == other.epf_quant_multiplier
-            and self.epf_pass0_sigma_scale == other.epf_pass0_sigma_scale
-            and self.epf_pass2_sigma_scale == other.epf_pass2_sigma_scale
-            and self.epf_border_sad_mul == other.epf_border_sad_mul
-            and self.epf_sigma_for_modular == other.epf_sigma_for_modular
-            and self.extensions == other.extensions
+            and other.gab == self.gab
+            and other.epf_iterations == self.epf_iterations
+            and other.gab1_weights == self.gab1_weights
+            and other.gab2_weights == self.gab2_weights
+            and other.epf_sharp_lut == self.epf_sharp_lut
+            and other.epf_channel_scale == self.epf_channel_scale
+            and other.epf_quant_multiplier == self.epf_quant_multiplier
+            and other.epf_pass0_sigma_scale == self.epf_pass0_sigma_scale
+            and other.epf_pass2_sigma_scale == self.epf_pass2_sigma_scale
+            and other.epf_border_sad_mul == self.epf_border_sad_mul
+            and other.epf_sigma_for_modular == self.epf_sigma_for_modular
+            and other.extensions == self.extensions
         )
 
     def __repr__(self):

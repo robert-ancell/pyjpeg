@@ -347,12 +347,12 @@ class XLCustomTransform:
             up2_weights=up2_weights, up4_weights=up4_weights, up8_weights=up8_weights
         )
 
-    def __eq__(self, value: object) -> bool:
+    def __eq__(self, other: object) -> bool:
         return (
-            isinstance(value, XLCustomTransform)
-            and self.up2_weights == value.up2_weights
-            and self.up4_weights == value.up4_weights
-            and self.up8_weights == value.up8_weights
+            isinstance(other, XLCustomTransform)
+            and other.up2_weights == self.up2_weights
+            and other.up4_weights == self.up4_weights
+            and other.up8_weights == self.up8_weights
         )
 
     def __repr__(self) -> str:

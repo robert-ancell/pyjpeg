@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pyjpeg.io import ReadError
 from pyjpeg.xl_extensions import XLExtensions
 from pyjpeg.xl_image_metadata import XLImageMetadata
@@ -20,9 +22,15 @@ class XLFrameFlag:
     SKIP_ADAPTIVE_LF_SMOOTHING = 1 << 7
 
 
+DEFAULT_SHIFT = [0]
+DEFAULT_DOWN_SAMPLES = [(1, 0)]
+
+
 class XLPasses:
     def __init__(
-        self, shift: list[int] = [0], down_samples: list[tuple[int, int]] = [(1, 0)]
+        self,
+        shift: list[int] = DEFAULT_SHIFT,
+        down_samples: list[tuple[int, int]] = DEFAULT_DOWN_SAMPLES,
     ):
         if len(shift) < 1 or len(shift) > 12:
             raise ValueError("Invalid number of passes")
@@ -46,7 +54,7 @@ class XLPasses:
             writer.write_u32(last_pass, (0, 1, 2, 0), (0, 0, 0, 3))
 
     @classmethod
-    def read(cls, reader: XLReader) -> "XLPasses":
+    def read(cls, reader: XLReader) -> XLPasses:
         number = reader.read_u32((1, 2, 3, 4), (0, 0, 0, 3))
         number_down_sample = reader.read_u32((0, 1, 2, 3), (0, 0, 0, 1))
         if number_down_sample >= number:
@@ -70,8 +78,8 @@ class XLPasses:
     def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, XLPasses)
-            and self.shift == other.shift
-            and self.down_samples == other.down_samples
+            and other.shift == self.shift
+            and other.down_samples == self.down_samples
         )
 
     def __repr__(self) -> str:
@@ -99,7 +107,7 @@ class XLCropArea:
         writer.write_u32(self.height, (0, 256, 2304, 18688), (8, 11, 14, 30))
 
     @classmethod
-    def read(cls, reader: XLReader, frame_type: int) -> "XLCropArea":
+    def read(cls, reader: XLReader, frame_type: int) -> XLCropArea:
         if frame_type != XLFrameType.REFERENCE_ONLY:
             x = reader.read_u32((0, 256, 2304, 18688), (8, 11, 14, 30))
             y = reader.read_u32((0, 256, 2304, 18688), (8, 11, 14, 30))
@@ -137,9 +145,7 @@ class XLAnimationFrame:
             writer.write_bits(self.timecode, 32)
 
     @classmethod
-    def read(
-        cls, reader: XLReader, have_timecodes: bool = False
-    ) -> "XLAnimationFrame":
+    def read(cls, reader: XLReader, have_timecodes: bool = False) -> XLAnimationFrame:
         duration = reader.read_u32((0, 1, 0, 0), (0, 0, 8, 32))
         if have_timecodes:
             timecode = reader.read_bits(32)
@@ -156,6 +162,12 @@ class XLAnimationFrame:
         return f"XLAnimationFrame(duration={self.duration}, timecode={self.timecode})"
 
 
+DEFAULT_UPSAMPLING = [0]
+DEFAULT_PASSES = XLPasses()
+DEFAULT_RESTORATION_FILTER = XLRestorationFilter()
+DEFAULT_EXTENSIONS = XLExtensions()
+
+
 class XLFrameHeader:
     def __init__(
         self,
@@ -164,18 +176,18 @@ class XLFrameHeader:
         flags: int = 0,
         do_ycbcr: bool = False,
         upsampling_mode: tuple[int, int, int] = (0, 0, 0),
-        upsampling: list[int] = [0],
+        upsampling: list[int] = DEFAULT_UPSAMPLING,
         group_size_shift: int = 1,
         x_qm_scale: int = 0,
         b_qm_scale: int = 0,
         if_level: int = 0,
-        passes: XLPasses = XLPasses(),
+        passes: XLPasses = DEFAULT_PASSES,
         crop_area: XLCropArea | None = None,
         animation_header: XLAnimationFrame | None = None,
         is_last: bool = False,
         name: str = "",
-        restoration_filter: XLRestorationFilter = XLRestorationFilter(),
-        extensions: XLExtensions = XLExtensions(),
+        restoration_filter: XLRestorationFilter = DEFAULT_RESTORATION_FILTER,
+        extensions: XLExtensions = DEFAULT_EXTENSIONS,
     ):
         if frame_type == XLFrameType.LF and crop_area is not None:
             raise ValueError("crop_area must be None for LF frames")
@@ -344,39 +356,52 @@ class XLFrameHeader:
 
     def __eq__(self, other: object) -> bool:
         return isinstance(other, XLFrameHeader) and (
-            self.frame_type == other.frame_type
-            and self.is_modular == other.is_modular
-            and self.flags == other.flags
-            and self.do_ycbcr == other.do_ycbcr
-            and self.upsampling_mode == other.upsampling_mode
-            and self.upsampling == other.upsampling
-            and self.group_size_shift == other.group_size_shift
-            and self.x_qm_scale == other.x_qm_scale
-            and self.b_qm_scale == other.b_qm_scale
-            and self.if_level == other.if_level
-            and self.passes == other.passes
-            and self.crop_area == other.crop_area
-            and self.animation_header == other.animation_header
-            and self.is_last == other.is_last
-            and self.name == other.name
-            and self.restoration_filter == other.restoration_filter
-            and self.extensions == other.extensions
+            other.frame_type == self.frame_type
+            and other.is_modular == self.is_modular
+            and other.flags == self.flags
+            and other.do_ycbcr == self.do_ycbcr
+            and other.upsampling_mode == self.upsampling_mode
+            and other.upsampling == self.upsampling
+            and other.group_size_shift == self.group_size_shift
+            and other.x_qm_scale == self.x_qm_scale
+            and other.b_qm_scale == self.b_qm_scale
+            and other.if_level == self.if_level
+            and other.passes == self.passes
+            and other.crop_area == self.crop_area
+            and other.animation_header == self.animation_header
+            and other.is_last == self.is_last
+            and other.name == self.name
+            and other.restoration_filter == self.restoration_filter
+            and other.extensions == self.extensions
         )
 
     def __repr__(self) -> str:
+        def get_enum_name(enum_class: type, value: int) -> str:
+            for name, enum_value in enum_class.__dict__.items():
+                if enum_value == value:
+                    return enum_class.__name__ + "." + name
+            return repr(value)
+
+        def get_flags(flags_class: type, value: int) -> str:
+            fields = []
+            v = value
+            for name, flag_value in flags_class.__dict__.items():
+                if v & flag_value != 0 or flag_value == 0 and value == 0:
+                    fields.append(flags_class.__name__ + "." + name)
+                    v ^= flag_value
+            if v != 0:
+                fields.append(repr(v))
+            if len(fields) == 0:
+                return "0"
+            return " | ".join(fields)
+
         args = []
         if self.frame_type != XLFrameType.REGULAR:
-            frame_type_str = {
-                XLFrameType.REGULAR: "REGULAR",
-                XLFrameType.LF: "LF",
-                XLFrameType.REFERENCE_ONLY: "REFERENCE_ONLY",
-                XLFrameType.SKIP_PROGRESSIVE: "SKIP_PROGRESSIVE",
-            }
-            args.append(f"frame_type=XLFrameType.{frame_type_str[self.frame_type]}")
+            args.append(f"frame_type={get_enum_name(XLFrameType, self.frame_type)}")
         if self.is_modular:
             args.append("is_modular=True")
         if self.flags != 0:
-            args.append(f"flags={self.flags}")
+            args.append(f"flags={get_flags(XLFrameFlag, self.flags)}")
         if self.do_ycbcr:
             args.append("do_ycbcr=True")
         if self.upsampling_mode != (0, 0, 0):
@@ -391,7 +416,7 @@ class XLFrameHeader:
             args.append(f"b_qm_scale={self.b_qm_scale}")
         if self.if_level != 0:
             args.append(f"if_level={self.if_level}")
-        if self.passes != XLPasses():
+        if self.passes != DEFAULT_PASSES:
             args.append(f"passes={self.passes}")
         if self.crop_area is not None:
             args.append(f"crop_area={self.crop_area}")
@@ -401,8 +426,8 @@ class XLFrameHeader:
             args.append("is_last=True")
         if self.name:
             args.append(f"name={self.name}")
-        if self.restoration_filter != XLRestorationFilter():
+        if self.restoration_filter != DEFAULT_RESTORATION_FILTER:
             args.append(f"restoration_filter={self.restoration_filter}")
-        if self.extensions != XLExtensions():
+        if self.extensions != DEFAULT_EXTENSIONS:
             args.append(f"extensions={self.extensions}")
         return f"XLFrameHeader({', '.join(args)})"

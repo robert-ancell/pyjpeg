@@ -43,13 +43,13 @@ class XLToneMapping:
             linear_below=linear_below,
         )
 
-    def __eq__(self, value: object) -> bool:
+    def __eq__(self, other: object) -> bool:
         return (
-            isinstance(value, XLToneMapping)
-            and self.intensity_target == value.intensity_target
-            and self.min_nits == value.min_nits
-            and self.relative_to_max_display == value.relative_to_max_display
-            and self.linear_below == value.linear_below
+            isinstance(other, XLToneMapping)
+            and other.intensity_target == self.intensity_target
+            and other.min_nits == self.min_nits
+            and other.relative_to_max_display == self.relative_to_max_display
+            and other.linear_below == self.linear_below
         )
 
     def __repr__(self) -> str:

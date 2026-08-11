@@ -87,6 +87,7 @@ from pyjpeg.xl_color_encoding import (
     XLColorSpace,
     XLPrimaries,
     XLRenderingIntent,
+    XLTransferFunction,
     XLWhitePoint,
 )
 from pyjpeg.xl_custom_transform import XLCustomTransform
@@ -195,7 +196,6 @@ __all__ = [
     "XLFrameFlag",
     "XLFrameHeader",
     "XLFrameType",
-    "XLHuffmanTable",
     "XLIccProfile",
     "XLImageHeader",
     "XLImageMetadata",
@@ -207,6 +207,7 @@ __all__ = [
     "XLRestorationFilter",
     "XLSize",
     "XLToneMapping",
+    "XLTransferFunction",
     "XLWhitePoint",
     "XLWriter",
     "fdct",

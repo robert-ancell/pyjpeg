@@ -36,10 +36,10 @@ class XLAnimationHeader:
     def __eq__(self, other: object) -> bool:
         return (
             isinstance(other, XLAnimationHeader)
-            and self.tps_numerator == other.tps_numerator
-            and self.tps_denominator == other.tps_denominator
-            and self.num_loops == other.num_loops
-            and self.have_timecodes == other.have_timecodes
+            and other.tps_numerator == self.tps_numerator
+            and other.tps_denominator == self.tps_denominator
+            and other.num_loops == self.num_loops
+            and other.have_timecodes == self.have_timecodes
         )
 
     def __repr__(self) -> str:

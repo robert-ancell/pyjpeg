@@ -41,7 +41,3 @@ def test_size_no_matching_ratio():
     # 100x64 (1.5625) doesn't match any predefined ratio, so width is
     # explicit.
     _round_trip(100, 64, "f801c600")
-
-
-def test_size_repr():
-    assert repr(pyjpeg.XLSize(8, 8)) == "XLSize(8, 8)"

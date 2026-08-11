@@ -61,5 +61,12 @@ class XLSize:
             width = _get_width_for_height(height, ratio_index)
         return cls(width, height)
 
+    def __eq__(self, other: object) -> bool:
+        return (
+            isinstance(other, XLSize)
+            and other.width == self.width
+            and other.height == self.height
+        )
+
     def __repr__(self) -> str:
         return f"XLSize({self.width}, {self.height})"

@@ -36,12 +36,12 @@ class XLBitDepth:
             exp_bits=exp_bits,
         )
 
-    def __eq__(self, value: object) -> bool:
+    def __eq__(self, other: object) -> bool:
         return (
-            isinstance(value, XLBitDepth)
-            and self.uses_float_samples == value.uses_float_samples
-            and self.bits_per_sample == value.bits_per_sample
-            and self.exp_bits == value.exp_bits
+            isinstance(other, XLBitDepth)
+            and other.uses_float_samples == self.uses_float_samples
+            and other.bits_per_sample == self.bits_per_sample
+            and other.exp_bits == self.exp_bits
         )
 
     def __repr__(self) -> str:

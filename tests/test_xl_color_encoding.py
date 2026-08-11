@@ -20,7 +20,7 @@ def test_color_encoding_grayscale_srgb():
     _round_trip(
         pyjpeg.XLColorEncoding(
             color_encoding=pyjpeg.XLColorSpace.GRAY,
-            transfer_function=(1 << 24) + 13,
+            transfer_function=pyjpeg.XLTransferFunction.SRGB,
         ),
         "1437",
     )

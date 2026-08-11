@@ -1,3 +1,4 @@
+from pyjpeg.io import ReadError
 from pyjpeg.xl_io import XLReader, XLWriter
 
 
@@ -29,6 +30,17 @@ class XLRenderingIntent:
     ABSOLUTE = 3
 
 
+class XLTransferFunction:
+    NONE = 0
+    _709 = 1
+    UNKNOWN = 2
+    LINEAR = 8
+    SRGB = 13
+    PQ = 16
+    DCI = 17
+    HLG = 18
+
+
 class XLColorEncoding:
     def __init__(
         self,
@@ -37,7 +49,7 @@ class XLColorEncoding:
         white_point=XLWhitePoint.D65,
         primaries=XLPrimaries.SRGB,
         use_gamma: bool = False,
-        transfer_function: int = 0,
+        transfer_function: int = XLTransferFunction.NONE,
         rendering_intent=XLRenderingIntent.RELATIVE,
     ) -> None:
         self.use_icc_profile = use_icc_profile
@@ -64,7 +76,7 @@ class XLColorEncoding:
             if self.use_gamma:
                 writer.write_bits(self.transfer_function, 24)
             else:
-                writer.write_enum(self.transfer_function - (1 << 24))
+                writer.write_enum(self.transfer_function)
             writer.write_enum(self.rendering_intent)
 
     @classmethod
@@ -84,20 +96,20 @@ class XLColorEncoding:
             if color_encoding != XLColorSpace.XYB:
                 white_point = reader.read_enum()
                 if white_point == XLWhitePoint.CUSTOM:
-                    raise Exception("Custom white point is not supported")  # FIXME
+                    raise ReadError("Custom white point is not supported")  # FIXME
             else:
                 white_point = XLWhitePoint.D65
             if color_encoding not in (XLColorSpace.XYB, XLColorSpace.GRAY):
                 primaries = reader.read_enum()
                 if primaries == XLPrimaries.CUSTOM:
-                    raise Exception("Custom primaries is not supported")  # FIXME
+                    raise ReadError("Custom primaries is not supported")  # FIXME
             else:
                 primaries = XLPrimaries.SRGB
             use_gamma = reader.read_bool()
             if use_gamma:
                 transfer_function = reader.read_bits(24)
             else:
-                transfer_function = (1 << 24) + reader.read_enum()
+                transfer_function = reader.read_enum()
             rendering_intent = reader.read_enum()
 
         return cls(
@@ -110,60 +122,44 @@ class XLColorEncoding:
             rendering_intent=rendering_intent,
         )
 
-    def __eq__(self, value: object) -> bool:
+    def __eq__(self, other: object) -> bool:
         return (
-            isinstance(value, XLColorEncoding)
-            and self.use_icc_profile == value.use_icc_profile
-            and self.color_encoding == value.color_encoding
-            and self.white_point == value.white_point
-            and self.primaries == value.primaries
-            and self.use_gamma == value.use_gamma
-            and self.transfer_function == value.transfer_function
-            and self.rendering_intent == value.rendering_intent
+            isinstance(other, XLColorEncoding)
+            and other.use_icc_profile == self.use_icc_profile
+            and other.color_encoding == self.color_encoding
+            and other.white_point == self.white_point
+            and other.primaries == self.primaries
+            and other.use_gamma == self.use_gamma
+            and other.transfer_function == self.transfer_function
+            and other.rendering_intent == self.rendering_intent
         )
 
     def __repr__(self) -> str:
+        def get_enum_name(enum_class: type, value: int) -> str:
+            for name, enum_value in enum_class.__dict__.items():
+                if enum_value == value:
+                    return enum_class.__name__ + "." + name
+            return repr(value)
+
         args = []
         if self.use_icc_profile:
             args.append(f"use_icc_profile={self.use_icc_profile}")
         if self.color_encoding != XLColorSpace.RGB:
-            color_encoding_str = {
-                XLColorSpace.RGB: "RGB",
-                XLColorSpace.GRAY: "GRAY",
-                XLColorSpace.XYB: "XYB",
-                XLColorSpace.UNKNOWN: "UNKNOWN",
-            }
             args.append(
-                f"color_encoding=XLColorSpace.{color_encoding_str[self.color_encoding]}"
+                f"color_encoding={get_enum_name(XLColorSpace, self.color_encoding)}"
             )
         if self.white_point != XLWhitePoint.D65:
-            white_point_str = {
-                XLWhitePoint.D65: "D65",
-                XLWhitePoint.CUSTOM: "CUSTOM",
-                XLWhitePoint.E: "E",
-                XLWhitePoint.DCI: "DCI",
-            }
-            args.append(f"white_point=XLWhitePoint.{white_point_str[self.white_point]}")
+            args.append(f"white_point={get_enum_name(XLWhitePoint, self.white_point)}")
         if self.primaries != XLPrimaries.SRGB:
-            primaries_str = {
-                XLPrimaries.SRGB: "SRGB",
-                XLPrimaries.CUSTOM: "CUSTOM",
-                XLPrimaries._2100: "_2100",
-                XLPrimaries.P3: "P3",
-            }
-            args.append(f"primaries=XLPrimaries.{primaries_str[self.primaries]}")
+            args.append(f"primaries={get_enum_name(XLPrimaries, self.primaries)}")
         if self.use_gamma:
             args.append(f"use_gamma={self.use_gamma}")
-        if self.transfer_function != 0:
-            args.append(f"transfer_function={self.transfer_function}")
-        if self.rendering_intent != XLRenderingIntent.RELATIVE:
-            rendering_intent_str = {
-                XLRenderingIntent.PERCEPTUAL: "PERCEPTUAL",
-                XLRenderingIntent.RELATIVE: "RELATIVE",
-                XLRenderingIntent.SATURATION: "SATURATION",
-                XLRenderingIntent.ABSOLUTE: "ABSOLUTE",
-            }
+        if self.transfer_function != XLTransferFunction.NONE:
             args.append(
-                f"rendering_intent=XLRenderingIntent.{rendering_intent_str[self.rendering_intent]}"
+                f"transfer_function={get_enum_name(XLTransferFunction, self.transfer_function)}"
+            )
+        if self.rendering_intent != XLRenderingIntent.RELATIVE:
+            args.append(
+                f"rendering_intent={get_enum_name(XLRenderingIntent, self.rendering_intent)}"
             )
         return f"XLColorEncoding({', '.join(args)})"
